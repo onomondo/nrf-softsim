@@ -1,0 +1,10 @@
+
+
+name: softsim
+build:
+  cmake: .
+  kconfig: ./Kconfig
+
+
+samples:
+  - samples

@@ -1,0 +1,10 @@
+config SOFTSIM
+    bool "SoftSIM"
+    depends on FILE_SYSTEM && FILE_SYSTEM_LITTLEFS
+
+
+config SOFTSIM_AUTO_INIT
+    bool "Automatically initialize SoftSIM"
+    default y
+    help
+        Automatically initialize SoftSIM when the modem is powered on.
