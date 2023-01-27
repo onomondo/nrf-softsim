@@ -63,27 +63,6 @@ static struct sockaddr_storage host_addr;
 static struct k_work_delayable server_transmission_work;
 static char response[64];
 
-void power_down() {
-    lte_lc_offline();  // power off modem
-    // // enter deep sleep mode and wake up after some time...
-    printk("Sleep for 20 seconds. \n");
-    k_sem_take(&lte_connected, K_NO_WAIT);
-
-    k_sleep(K_MSEC(1000));
-
-    printk("Woke up. Waiting for connection. \n");
-    lte_lc_init_and_connect_async(lte_handler);  // power on modem
-    printk("Woke up. Waiting to connect \n");
-
-    lte_lc_connect_async(NULL);
-    k_sem_take(&lte_connected, K_SECONDS(60));
-
-    server_connect();
-    k_work_schedule(&server_transmission_work, K_SECONDS(1));
-
-    // sys_reboot(SYS_REBOOT_WARM);
-}
-
 static void server_transmission_work_fn(struct k_work *work) {
     int err;
     char buffer[] = "{\"message\":\"Hello from Onomondo!\",\"reading_1\":22.3}";
@@ -107,7 +86,6 @@ static void server_transmission_work_fn(struct k_work *work) {
         printk("Disconnecting and detaching. \n");
 
         close(client_fd);
-        power_down();
         return;
     }
     k_work_schedule(&server_transmission_work, K_SECONDS(5));
@@ -208,7 +186,6 @@ static int server_connect(void) {
                   sizeof(struct sockaddr_in));
     if (err < 0) {
         printk("Connect failed : %d\n", errno);
-        power_down();
         goto error;
     }
 
