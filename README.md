@@ -15,31 +15,7 @@ Plan here is to point people to this when using softsim. That way we can specify
 `west update`
 This will fetch `onomondo-softsim` as a module. 
 
-## manual stuff we still require
-Current build (experimental `nrfxlib`) implements `nrf_modem_os_softsim_defer_req`. SoftSIM does that now. 
-
-### How to get running:
--  `nrf/lib/nrf_modem_lib/nrf_modem_lib.c` -> remove all softsim related stuff. Including TEE
--  `nrf/lib/nrf_modem_lib/CMakeLists.txt` -> remove all softsim related stuff. Including TEE.
-
-This will suffice.  
-```
-zephyr_library()
-
-zephyr_library_sources(nrf_modem_lib.c)
-zephyr_library_sources(nrf_modem_os.c)
-zephyr_library_sources_ifdef(CONFIG_NET_SOCKETS nrf91_sockets.c)
-zephyr_library_sources(errno_sanity.c)
-zephyr_library_sources(shmem_sanity.c)
-```
-- `nrf/lib/nrf_modem_lib/Kconfig` Comment out `select BUILD_WITH_TFM` `select TFM_IPC`
--- SPM and flash access does not play well together in this old ish sdk and reads will throw a security exception. 
-
-### In short. Most stuff has been moved to onomondo-softsim
-... and we just need the static library that enables SoftSIM
-
-
-
+You might need to follow some of these steps if it's the first time working with NCS: https://developer.nordicsemi.com/nRF_Connect_SDK/doc/latest/nrf/gs_installing.html
 
 ## config
 ```
@@ -54,19 +30,40 @@ CONFIG_FILE_SYSTEM=y
 CONFIG_FILE_SYSTEM_LITTLEFS=y
 
 # softsim is flashed seperately. location and size must be static and well defined
-CONFIG_PM_PARTITION_SIZE_LITTLEFS=0xF000
+CONFIG_PM_PARTITION_SIZE_LITTLEFS=0x13000 
 
 # include softsim in build
 CONFIG_SOFTSIM=y
 CONFIG_SOFTSIM_AUTO_INIT=y
+
+CONFIG_BUILD_WITH_TFM=y
+
 ```
+# Flashing your device:
+### By command line:
+flash sim profile
+`nrfjprog -f NRF91 --sectorerase --log --program path/to/profile/nrf_<sim_id>.hex`
+flash sample
+`nrfjprog -f NRF91 --sectorerase --log --program /path/to/build/zephyr/merged.hex --reset`
 
-## flash sim profile
-`nrfjprog -f NRF91 --sectorerase --log --program path/to/profile/nrf_<sim_id>.hex --reset`
 
-## flash sample 
-`nrfjprog -f NRF91 --sectorerase --log --program /path/to/buildzephyr/merged.hex --reset`
+### using nrf Connect programmer
+Add the compiled sample (`merged.hex`). Additionally find the SIM profile and add that. 
+
+The profile should follow the pattern: `addr_<flash_base_addr>_nrf_<sim_id>.hex`. In general, the profile will reside in the upper end of the flash. 
+
+![image](https://user-images.githubusercontent.com/46489969/217817885-8b993ab7-f41f-4082-b06e-fdaab3cbae54.png)
+
+
 
 ## samples
 Yes. Should build out of the box. 
+
+
+## trouble shooting... 
+- `littlefs` is throwing a lot of errors. 
+-- Compare the address for the storage partitioning i.e. `ninja partition_manager_report` with the base address in the sim profile 
+
+
+
 

@@ -1,8 +1,9 @@
 #pragma once
 
 #include <stddef.h>
-#include <fs/fs.h>
-#include <fs/littlefs.h>
+#include <zephyr/fs/fs.h>
+#include <zephyr/fs/littlefs.h>
+// #include <zephyr/fs/littlefs.h>
 // wrapper for 'linux' style fs
 
 typedef struct fs_file_t nrf_FILE;

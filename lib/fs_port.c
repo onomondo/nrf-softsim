@@ -1,7 +1,8 @@
 #include "fs_port.h"
 
-#include <logging/log.h>
-#include <storage/flash_map.h>
+#include <zephyr/kernel.h>
+#include <zephyr/logging/log.h>
+#include <zephyr/storage/flash_map.h>
 
 LOG_MODULE_REGISTER(ss_storage, LOG_LEVEL_DBG);
 
@@ -214,61 +215,6 @@ int nrf_configure_fs(void) {
 
 out:
     return -1;
-}
-
-void print_fs_info(void) {
-    // return;
-
-    int rc;
-    unsigned int id = (uintptr_t)mp->storage_dev;
-    const struct flash_area *pfa;
-
-    rc = fs_statvfs(mp->mnt_point, &statsvfs);
-
-    if (rc < 0) {
-        printk("FAIL: statvfs: %d\n", rc);
-        return;
-    }
-
-    printk(
-        "%s: bsize = %lu ; frsize = %lu ;"
-        " blocks = %lu ; bfree = %lu\n",
-        mp->mnt_point, statsvfs.f_bsize, statsvfs.f_frsize, statsvfs.f_blocks,
-        statsvfs.f_bfree);
-
-    rc = flash_area_open(id, &pfa);
-    if (rc < 0) {
-        printk("FAIL: unable to find flash area %u: %d\n", id, rc);
-        return;
-    }
-
-    printk("Area %u at 0x%x on %s for %u bytes\n", id,
-           (unsigned int)pfa->fa_off, pfa->fa_dev_name,
-           (unsigned int)pfa->fa_size);
-
-    flash_area_close(pfa);
-
-    struct fs_dir_t dir;
-
-    fs_dir_t_init(&dir);
-
-    rc = fs_opendir(&dir, "/lfs/3f00/");
-    printk("%s opendir: %d\n", mp->mnt_point, rc);
-
-    while (rc >= 0) {
-        struct fs_dirent ent = {0};
-
-        rc = fs_readdir(&dir, &ent);
-        if (rc < 0) {
-            break;
-        }
-        if (ent.name[0] == 0) {
-            printk("End of files\n");
-            break;
-        }
-        printk("  %c %zu %s\n", (ent.type == FS_DIR_ENTRY_FILE) ? 'F' : 'D',
-               ent.size, ent.name);
-    }
 }
 
 int nrf_remove(const char *path) {

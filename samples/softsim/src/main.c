@@ -1,16 +1,12 @@
-#include <drivers/clock_control.h>
-#include <drivers/clock_control/nrf_clock_control.h>
-#include <drivers/uart.h>
 #include <modem/lte_lc.h>
-#include <net/socket.h>
+#include <modem/nrf_modem_lib.h>
 #include <nrf_modem.h>
 #include <nrf_modem_at.h>
-#include <nrf_modem_platform.h>
 #include <pm_config.h>
-#include <power/reboot.h>
 #include <stdio.h>
 #include <string.h>
-#include <zephyr.h>
+#include <zephyr/kernel.h>
+#include <zephyr/net/socket.h>
 #define PAYLOAD_SIZE 100
 
 /**@brief Recoverable modem library error. */
@@ -20,41 +16,6 @@ void nrf_modem_recoverable_error_handler(uint32_t err) {
 
 static void lte_handler(const struct lte_lc_evt *const evt);
 static int server_connect(void);
-/* To strictly comply with UART timing, enable external XTAL oscillator */
-void enable_xtal(void) {
-    struct onoff_manager *clk_mgr;
-    static struct onoff_client cli = {};
-
-    clk_mgr = z_nrf_clock_control_get_onoff(CLOCK_CONTROL_NRF_SUBSYS_HF);
-    sys_notify_init_spinwait(&cli.notify);
-    (void)onoff_request(clk_mgr, &cli);
-}
-
-static const nrf_modem_init_params_t init_params = {
-    .ipc_irq_prio = NRF_MODEM_NETWORK_IRQ_PRIORITY,
-    .shmem.ctrl =
-        {
-            .base = PM_NRF_MODEM_LIB_CTRL_ADDRESS,
-            .size = CONFIG_NRF_MODEM_LIB_SHMEM_CTRL_SIZE,
-        },
-    .shmem.tx =
-        {
-            .base = PM_NRF_MODEM_LIB_TX_ADDRESS,
-            .size = CONFIG_NRF_MODEM_LIB_SHMEM_TX_SIZE,
-        },
-    .shmem.rx =
-        {
-            .base = PM_NRF_MODEM_LIB_RX_ADDRESS,
-            .size = CONFIG_NRF_MODEM_LIB_SHMEM_RX_SIZE,
-        },
-#if CONFIG_NRF_MODEM_LIB_TRACE_ENABLED
-    .shmem.trace =
-        {
-            .base = PM_NRF_MODEM_LIB_TRACE_ADDRESS,
-            .size = CONFIG_NRF_MODEM_LIB_SHMEM_TRACE_SIZE,
-        },
-#endif
-};
 
 K_SEM_DEFINE(lte_connected, 0, 1);
 
@@ -65,30 +26,17 @@ static char response[64];
 
 static void server_transmission_work_fn(struct k_work *work) {
     int err;
-    char buffer[] = "{\"message\":\"Hello from Onomondo!\",\"reading_1\":22.3}";
-
-    char buffer2[] = "{\"event\":\"example\",\"reading_2\":1112.3}";
-    static int count = 0;
-    ++count;
-
-    // printk("IP address %s, port number %d\n", "1.2.3.4", 4321);
-    count == 1 ? printk("%s\n", buffer) : printk("%s\n", buffer2);
-    err = count == 1 ? send(client_fd, buffer, sizeof(buffer) - 1, 0)
-                     : send(client_fd, buffer2, sizeof(buffer2) - 1, 0);
+    char buffer[] = "{\"message\":\"Hello from Onomondo!\"}";
+    err = send(client_fd, buffer, sizeof(buffer) - 1, 0);
     if (err < 0) {
         printk("Failed to transmit TCP packet, %d\n", errno);
-        if (count < 5) {
-            k_work_schedule(&server_transmission_work, K_SECONDS(2));
-        }
-        return;
-    }
-    if (count > 1) {
-        printk("Disconnecting and detaching. \n");
 
-        close(client_fd);
+        k_work_schedule(&server_transmission_work, K_SECONDS(2));
+
         return;
     }
-    k_work_schedule(&server_transmission_work, K_SECONDS(5));
+
+    k_work_schedule(&server_transmission_work, K_SECONDS(10));
 }
 
 static void work_init(void) {
@@ -137,16 +85,6 @@ static void lte_handler(const struct lte_lc_evt *const evt) {
             break;
         default:
             break;
-    }
-}
-
-static void modem_init(void) {
-    int err;
-
-    err = lte_lc_init();
-    if (err) {
-        printk("Modem initialization failed, error: %d\n", err);
-        return;
     }
 }
 
@@ -199,18 +137,22 @@ error:
 
 void main(void) {
     int32_t err;
-    enable_xtal();
 
     printk("SoftSIM sample started.\n");
 
-    err = nrf_modem_init(&init_params, NORMAL_MODE);
-    modem_init();
-    work_init();
-
+    err = nrf_modem_lib_init(NORMAL_MODE);
     if (err) {
         printk("Failed to initialize nrf modem lib, err %d\n", err);
         return;
     }
+
+    err = lte_lc_init();
+    if (err) {
+        printk("Failed to initialize nrf link control, err %d\n", err);
+        return;
+    }
+
+    work_init();
 
     /* Software SIM selection */
     err = nrf_modem_at_printf("AT%%CSUS=2");
