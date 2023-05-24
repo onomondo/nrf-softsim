@@ -14,6 +14,8 @@
 #include "f_cache.h"
 #include "provision.h"
 
+K_SEM_DEFINE(rw_sem, 1, 1);
+
 LOG_MODULE_REGISTER(ss_storage, LOG_LEVEL_DBG);
 
 static struct nvs_fs fs;
@@ -49,6 +51,10 @@ static struct ss_list fs_cache;
 #ifndef SEEK_END
 #define SEEK_END 2 /* set file offset to EOF plus offset */
 #endif
+
+#define EXCLUSIVE_ENTER k_sem_take(&rw_sem, K_FOREVER);
+#define EXCLUSIVE_EXIT k_sem_give(&rw_sem);
+
 // internal functions
 
 //  that the buffer is set. Either by allocating new memory or by
@@ -58,7 +64,6 @@ void read_nvs_to_cache(struct cache_entry *entry);
 uint8_t fs_is_initialized = 0;
 
 int init_fs() {
-
   if (fs_is_initialized)
     return 0; // already initialized
 
@@ -77,6 +82,8 @@ int init_fs() {
                            // erase_block_size);  //<0x1000>
   fs.sector_count = FLASH_AREA_SIZE(storage_partition) / fs.sector_size;
   fs.offset = NVS_PARTITION_OFFSET;
+
+  EXCLUSIVE_ENTER
 
   int rc = nvs_mount(&fs);
   if (rc) {
@@ -160,6 +167,7 @@ int init_fs() {
   }
 out:
   free(data);
+  EXCLUSIVE_EXIT
   return ss_list_empty(&fs_cache);
 }
 
@@ -192,12 +200,13 @@ port_FILE port_fopen(char *path, char *mode) {
    * File opened first time.
    */
   if (!cursor->_l) {
-
+    EXCLUSIVE_ENTER
     if (cursor->_flags & FS_PROTECTED_STORAGE) {
       struct psa_storage_info_t info;
       psa_status_t status = psa_ps_get_info(cursor->key, &info);
       if (status != PSA_SUCCESS) {
         LOG_ERR("PSA get info failed\n");
+        EXCLUSIVE_EXIT
         return NULL;
       }
 
@@ -206,7 +215,7 @@ port_FILE port_fopen(char *path, char *mode) {
     } else {
       rc = nvs_read(&fs, cursor->key, NULL, 0);
     }
-
+    EXCLUSIVE_EXIT
     if (rc < 0) { // TODO: this can not happen.
       return NULL;
     } else {
@@ -303,15 +312,19 @@ void read_nvs_to_cache(struct cache_entry *entry) {
 
   int rc = 0;
   if (entry->_flags & FS_PROTECTED_STORAGE) {
+    EXCLUSIVE_ENTER
     psa_status_t status =
         psa_ps_get(entry->key, 0, buffer_size, buffer_to_use, &rc);
+    EXCLUSIVE_EXIT
     if (status != PSA_SUCCESS) {
       LOG_ERR("Failed to read file %s from protected storage", entry->name);
       SS_FREE(buffer_to_use);
       return;
     }
   } else {
+    EXCLUSIVE_ENTER
     rc = nvs_read(&fs, entry->key, buffer_to_use, buffer_size);
+    EXCLUSIVE_EXIT
   }
 
   if (rc < 0) {
@@ -360,7 +373,9 @@ int port_fclose(port_FILE fp) {
 
   if (entry->_flags & FS_COMMIT_ON_CLOSE) {
     if (entry->_b_dirty) {
+      EXCLUSIVE_ENTER
       nvs_write(&fs, entry->key, entry->buf, entry->_l);
+      EXCLUSIVE_ENTER
     }
     entry->_b_dirty = 0;
   }
@@ -450,8 +465,9 @@ int port_remove(const char *path) {
   }
 
   ss_list_remove(&entry->list); // doesn't free data
-
+  EXCLUSIVE_ENTER
   nvs_delete(&fs, entry->key);
+  EXCLUSIVE_EXIT
 
   if (entry->buf)
     SS_FREE(entry->buf);
@@ -481,7 +497,7 @@ int port_rmdir(const char *) {
 int port_provision(char *profile, size_t len) {
   int rc = init_fs();
   if (rc)
-    return -1; 
+    return -1;
 
   if (len != PROFILE_LEN) {
     return -1;
@@ -495,10 +511,11 @@ int port_provision(char *profile, size_t len) {
   struct cache_entry *entry =
       (struct cache_entry *)f_cache_find_by_name(IMSI_PATH, &fs_cache);
   psa_storage_uid_t uid = entry->key;
-
+  EXCLUSIVE_ENTER
   status = psa_ps_get_info(uid, &info);
   if (status == PSA_SUCCESS) {
     LOG_INF("SoftSIM already provisioned\n");
+    EXCLUSIVE_EXIT
     return 0;
   }
 
@@ -506,6 +523,7 @@ int port_provision(char *profile, size_t len) {
       psa_ps_set(uid, IMSI_LEN, profile + IMSI_OFFSET, PSA_STORAGE_FLAG_NONE);
   if (status != PSA_SUCCESS) {
     LOG_ERR("Failed to provision IMSI, err: %d\n", status);
+    EXCLUSIVE_EXIT
     return -1;
   }
 
@@ -522,6 +540,7 @@ int port_provision(char *profile, size_t len) {
       psa_ps_set(uid, ICCID_LEN, profile + ICCID_OFFSET, PSA_STORAGE_FLAG_NONE);
   if (status != PSA_SUCCESS) {
     LOG_ERR("Failed to provision ICCID, err: %d\n", status);
+    EXCLUSIVE_EXIT
     return -1;
   }
 
@@ -531,6 +550,7 @@ int port_provision(char *profile, size_t len) {
                       PSA_STORAGE_FLAG_WRITE_ONCE);
   if (status != PSA_SUCCESS && status != PSA_ERROR_ALREADY_EXISTS) {
     LOG_ERR("Failed to provision A001, err: %d\n", status);
+    EXCLUSIVE_EXIT
     return -1;
   }
 
@@ -540,9 +560,10 @@ int port_provision(char *profile, size_t len) {
                       PSA_STORAGE_FLAG_WRITE_ONCE);
   if (status != PSA_SUCCESS && status != PSA_ERROR_ALREADY_EXISTS) {
     LOG_ERR("Failed to provision A004, err: %d\n", status);
+    EXCLUSIVE_EXIT
     return -1;
   }
-
+  EXCLUSIVE_EXIT
   return 0;
 }
 
