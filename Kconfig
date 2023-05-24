@@ -1,6 +1,6 @@
 config SOFTSIM
     bool "SoftSIM"
-    depends on FILE_SYSTEM && FILE_SYSTEM_LITTLEFS
+    depends on NVS
 
 
 config SOFTSIM_AUTO_INIT

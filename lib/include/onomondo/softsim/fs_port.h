@@ -16,7 +16,6 @@ int       port_mkdir(const char *, int);
 int	      port_remove(const char *);
 int	      port_rmdir(const char *);
 int       init_fs();
-void      port_provision(char * profile, size_t len);
 size_t    port_fwrite(const void *prt, size_t size, size_t count, port_FILE f);
 
 #endif /* FS_PORT_H */

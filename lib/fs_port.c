@@ -478,13 +478,13 @@ int port_rmdir(const char *) {
  * @param profile ptr to the profile
  * @param len Len of profile. 332 otherwise invalid.
  */
-void port_provision(char *profile, size_t len) {
+int port_provision(char *profile, size_t len) {
   int rc = init_fs();
   if (rc)
-    return;
+    return -1; 
 
   if (len != PROFILE_LEN) {
-    return;
+    return -1;
   }
 
   // check for existing provisioning
@@ -499,14 +499,14 @@ void port_provision(char *profile, size_t len) {
   status = psa_ps_get_info(uid, &info);
   if (status == PSA_SUCCESS) {
     LOG_INF("SoftSIM already provisioned\n");
-    return;
+    return 0;
   }
 
   status =
       psa_ps_set(uid, IMSI_LEN, profile + IMSI_OFFSET, PSA_STORAGE_FLAG_NONE);
   if (status != PSA_SUCCESS) {
     LOG_ERR("Failed to provision IMSI, err: %d\n", status);
-    return;
+    return -1;
   }
 
   // // check if we get expected..
@@ -522,7 +522,7 @@ void port_provision(char *profile, size_t len) {
       psa_ps_set(uid, ICCID_LEN, profile + ICCID_OFFSET, PSA_STORAGE_FLAG_NONE);
   if (status != PSA_SUCCESS) {
     LOG_ERR("Failed to provision ICCID, err: %d\n", status);
-    return;
+    return -1;
   }
 
   entry = (struct cache_entry *)f_cache_find_by_name(A001_PATH, &fs_cache);
@@ -531,7 +531,7 @@ void port_provision(char *profile, size_t len) {
                       PSA_STORAGE_FLAG_WRITE_ONCE);
   if (status != PSA_SUCCESS && status != PSA_ERROR_ALREADY_EXISTS) {
     LOG_ERR("Failed to provision A001, err: %d\n", status);
-    return;
+    return -1;
   }
 
   entry = (struct cache_entry *)f_cache_find_by_name(A004_PATH, &fs_cache);
@@ -540,8 +540,10 @@ void port_provision(char *profile, size_t len) {
                       PSA_STORAGE_FLAG_WRITE_ONCE);
   if (status != PSA_SUCCESS && status != PSA_ERROR_ALREADY_EXISTS) {
     LOG_ERR("Failed to provision A004, err: %d\n", status);
-    return;
+    return -1;
   }
+
+  return 0;
 }
 
 size_t port_fwrite(const void *prt, size_t size, size_t count, port_FILE f) {
