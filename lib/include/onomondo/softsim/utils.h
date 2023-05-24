@@ -76,3 +76,4 @@ size_t ss_optimal_len_for_uint32(uint32_t in);
 uint64_t ss_uint64_load_from_be(const uint8_t *storage);
 void ss_uint64_store_to_be(uint8_t *storage, uint64_t number);
 size_t ss_strnlen(const char *s, size_t maxlen);
+void ss_memzero(void *ptr, size_t len);
