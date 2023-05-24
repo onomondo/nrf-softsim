@@ -14,7 +14,7 @@ include_directories(
   )
 
 zephyr_include_directories(include)
+# add_definitions( -DCONFIG_CUSTOM_HEAP -DBOOTSTRAP_TEST )
 add_definitions( -DCONFIG_CUSTOM_HEAP )
 
 target_link_libraries(${ZEPHYR_CURRENT_LIBRARY} PRIVATE crypto milenage storage uicc)
-

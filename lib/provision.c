@@ -8,6 +8,9 @@
 #include "f_cache.h"
 char storage_path[] = "";
 
+
+#ifdef BOOTSTRAP_TEST
+
 /**
  * Represents stuff that is FLASHED in production
  */
@@ -419,6 +422,24 @@ void generate_dir_blob(uint8_t **data, size_t *size) {
   *size = data_len;
 }
 
+
+
+char *getFilePointer(const char *path) {
+
+  size_t idx = 0;
+  for (; idx < sizeof(this_is_flashed_in_the_future) /
+                   sizeof(*this_is_flashed_in_the_future);
+       idx++) {
+    if (strcmp(this_is_flashed_in_the_future[idx].name, path) == 0) {
+      return this_is_flashed_in_the_future[idx].content;
+    }
+  }
+
+  return NULL;
+}
+
+#endif // BOOTSTRAP_TEST
+
 /**
  * @brief TODO: move this function to a more appropriate place
  * It is used to generate the directory structure based on the content in the
@@ -454,18 +475,4 @@ void generate_dir_table_from_blob(struct ss_list *dirs, uint8_t *blob,
 
     ss_list_put(dirs, &entry->list);
   }
-}
-
-char *getFilePointer(const char *path) {
-
-  size_t idx = 0;
-  for (; idx < sizeof(this_is_flashed_in_the_future) /
-                   sizeof(*this_is_flashed_in_the_future);
-       idx++) {
-    if (strcmp(this_is_flashed_in_the_future[idx].name, path) == 0) {
-      return this_is_flashed_in_the_future[idx].content;
-    }
-  }
-
-  return NULL;
 }

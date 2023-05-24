@@ -9,8 +9,10 @@
 #include <zephyr/logging/log.h>
 #include <onomondo/softsim/fs_port.h>
 static void softsim_req_task(struct k_work *item);
+int port_provision(char *profile, size_t len);
+int port_check_provisioned(void);
 
-LOG_MODULE_REGISTER(nrf_softsim, LOG_LEVEL_ERR);
+LOG_MODULE_REGISTER(softsim);
 
 #define SOFTSIM_STACK_SIZE                                                     \
   10000 // TODO: this is too much. Figure out some more reasonable value.
@@ -24,6 +26,7 @@ static K_FIFO_DEFINE(softsim_req_fifo);
 static K_WORK_DEFINE(softsim_req_work, softsim_req_task);
 static uint8_t softsim_buffer_out[SIM_HAL_MAX_LE];
 
+// softsim handle
 struct ss_context *ctx = NULL;
 
 struct payload_t {
@@ -40,14 +43,22 @@ struct softsim_req_node {
 
 static void softsim_req_task(struct k_work *item);
 
-static void nrf_softsim_provision_submit_req(char *profile, size_t len);
 static void nrf_modem_softsim_req_handler(enum nrf_modem_softsim_cmd req,
                                           uint16_t req_id, void *data,
                                           uint16_t data_len);
 
 int onomondo_init(const struct device *) {
 
-  // INTIT FS? // todo: move to handler
+  /**
+   * Init here?
+   * Pro: pretty smooth :) -> no need to init and deinit more than needed..
+   * Con: IF someone actively de-init with the intent of freeing resources,
+   * there will be *some* wasted memory.. Actual memory held isn't too much
+   * though Pro: With no explicit de-init we protect the flash from excessive
+   * writes Con: EF_LOCI might not be comitted to flash on actual power off...
+   *
+   * Maybe just call fs_commit() of so on de-init.?
+   */
   int rc = init_fs();
 
   if (rc) {
@@ -56,8 +67,7 @@ int onomondo_init(const struct device *) {
   }
 
   if (nrf_modem_softsim_req_handler_set(nrf_modem_softsim_req_handler)) {
-    LOG_ERR(
-        "SoftSIM fatal error: Virtual Identity And Global Roaming Aborted\n");
+    LOG_ERR("SoftSIM fatal error: Virtual Identity And Global Roaming Aborted");
     return -1;
   }
 
@@ -73,13 +83,21 @@ int onomondo_init(const struct device *) {
   return 0;
 }
 
-int nrf_softsim_init(void) {return  onomondo_init(NULL); }
+// public init
+int nrf_softsim_init(void) { return onomondo_init(NULL); }
 
+// public provision api
 int nrf_sofsim_provision(uint8_t *profile, size_t len) {
- return port_provision((char *)profile, len);
+  return port_provision((char *)profile, len);
 }
 
-__weak void nrf_modem_softsim_reset_handler(void) { LOG_INF("SoftSIM RESET"); }
+int nrf_sofsim_check_provisioned(void){
+  return port_check_provisioned();
+}
+
+
+// still needed?
+__weak void nrf_modem_softsim_reset_handler(void) { LOG_DBG("SoftSIM RESET"); }
 
 static void softsim_req_task(struct k_work *item) {
   int err;
@@ -87,7 +105,7 @@ static void softsim_req_task(struct k_work *item) {
   while ((s_req = k_fifo_get(&softsim_req_fifo, K_NO_WAIT))) {
     switch (s_req->req) {
     case NRF_MODEM_SOFTSIM_INIT: {
-      LOG_DBG("SoftSIM INIT");
+      LOG_INF("SoftSIM INIT REQ");
 
       if (!ctx) {
         ctx = ss_new_ctx();
@@ -106,7 +124,6 @@ static void softsim_req_task(struct k_work *item) {
       break;
     }
     case NRF_MODEM_SOFTSIM_APDU: {
-      LOG_DBG("SoftSIM APDU");
       size_t req_len = s_req->payload.data_len;
       size_t rsp_len =
           ss_command_apdu_transact(ctx, softsim_buffer_out, SIM_HAL_MAX_LE,
@@ -121,11 +138,12 @@ static void softsim_req_task(struct k_work *item) {
       break;
     }
     case NRF_MODEM_SOFTSIM_DEINIT: {
-      LOG_INF("SoftSIM DEINIT");
+      LOG_INF("SoftSIM DEINIT REQ");
 
       ss_free_ctx(ctx);
 
       // TODO: FS needs to be flushed and cleaned!!
+      // TODO fs_commit();
 
       err = nrf_modem_softsim_res(s_req->req, s_req->req_id, NULL, 0);
       if (err) {
@@ -147,7 +165,7 @@ static void softsim_req_task(struct k_work *item) {
 
       break;
     }
-    
+
     default:
       break;
     }

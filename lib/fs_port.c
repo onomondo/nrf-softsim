@@ -16,7 +16,7 @@
 
 K_SEM_DEFINE(rw_sem, 1, 1);
 
-LOG_MODULE_REGISTER(ss_storage, LOG_LEVEL_DBG);
+LOG_MODULE_DECLARE(softsim);
 
 static struct nvs_fs fs;
 static struct ss_list fs_cache;
@@ -72,7 +72,7 @@ int init_fs() {
   size_t len = 0;
 
   /*************************
-   * Bootstrapping not needed for final version. Content will be flashed with
+   * Bootstrapping not needed for prod version. Content will be flashed with
    *application.
    **************************/
   uint8_t isDemoBootstrapping = 0;
@@ -83,8 +83,6 @@ int init_fs() {
   fs.sector_count = FLASH_AREA_SIZE(storage_partition) / fs.sector_size;
   fs.offset = NVS_PARTITION_OFFSET;
 
-  EXCLUSIVE_ENTER
-
   int rc = nvs_mount(&fs);
   if (rc) {
     LOG_ERR("failed to mount nvs\n");
@@ -93,6 +91,8 @@ int init_fs() {
 
   rc = nvs_read(&fs, DIR_ID, NULL, 0);
 
+#ifdef BOOTSTRAP_TEST
+
   /*************************
    * This should never happen in production version.
    * At this point we should panic and return when not generationg this on
@@ -100,13 +100,14 @@ int init_fs() {
    **************************/
   if (rc <= 0) {
 
-    printk("bootstrapping for demo\n");
+    LOG_INF("bootstrapping for demo");
     generate_dir_blob(&data, &len); // debug. remove later
     ++isDemoBootstrapping;
     rc = nvs_write(&fs, DIR_ID, data, len);
-  } else {
-    len = rc;
   }
+#else
+  len = rc;
+#endif // BOOTSTRAP_TEST
 
   /*************************
    * Read DIR_ENTRY from NVS
@@ -125,12 +126,14 @@ int init_fs() {
   if (ss_list_empty(&fs_cache))
     goto out;
 
-  struct cache_entry *cursor;
+  fs_is_initialized++;
 
+#ifdef BOOTSTRAP_TEST
   /*************************
    * TODO: goto out;
    * the rest of this function is only for demo purposes
    */
+  struct cache_entry *cursor;
   if (isDemoBootstrapping) { // debug only. "self provisioning" sim
     printk("writing default profile\n");
     SS_LIST_FOR_EACH(&fs_cache, cursor, struct cache_entry, list) {
@@ -141,33 +144,24 @@ int init_fs() {
 
       if (cursor->_flags & FS_PROTECTED_STORAGE ||
           cursor->_flags & FS_READ_ONLY) {
-        printk("Skipping %s, key: %d flags: %04X\n", cursor->name, cursor->key,
-               cursor->_flags);
         continue;
       }
-
-      // printk("File %s does not exist in NVS, key: %d, flags: %04X\n",
-      //  cursor->name, cursor->key, cursor->_flags);
       char *p = getFilePointer(cursor->name);
 
       if (p) {
-
         size_t len = strlen(p);
-        // printk("writing %s, key: %d, len: %d\n", cursor->name, cursor->key,
-        // len);
         rc = nvs_write(&fs, cursor->key, p, len);
-      } else {
-        printk("File %s does not exist in FS\n", cursor->name);
       }
 
       if (rc < 0) {
-        printk("Failed to write file %s to NVS", cursor->name);
+        LOG_ERR("Failed to write file %s to NVS", cursor->name);
       }
     }
   }
+#endif // BOOTSTRAP_TEST
+
 out:
   free(data);
-  EXCLUSIVE_EXIT
   return ss_list_empty(&fs_cache);
 }
 
@@ -200,13 +194,14 @@ port_FILE port_fopen(char *path, char *mode) {
    * File opened first time.
    */
   if (!cursor->_l) {
-    EXCLUSIVE_ENTER
     if (cursor->_flags & FS_PROTECTED_STORAGE) {
       struct psa_storage_info_t info;
+      EXCLUSIVE_ENTER
       psa_status_t status = psa_ps_get_info(cursor->key, &info);
+      EXCLUSIVE_EXIT
+
       if (status != PSA_SUCCESS) {
-        LOG_ERR("PSA get info failed\n");
-        EXCLUSIVE_EXIT
+        LOG_ERR("PSA get info failed");
         return NULL;
       }
 
@@ -215,7 +210,6 @@ port_FILE port_fopen(char *path, char *mode) {
     } else {
       rc = nvs_read(&fs, cursor->key, NULL, 0);
     }
-    EXCLUSIVE_EXIT
     if (rc < 0) { // TODO: this can not happen.
       return NULL;
     } else {
@@ -301,12 +295,12 @@ void read_nvs_to_cache(struct cache_entry *entry) {
 
   if (!buffer_to_use) {
     buffer_size = entry->_l;
-    LOG_DBG("Allocating buffer of size %d\n", buffer_size);
+    LOG_DBG("Allocating buffer of size %d", buffer_size);
     buffer_to_use = SS_ALLOC_N(buffer_size * sizeof(uint8_t));
   }
 
   if (!buffer_to_use) {
-    LOG_ERR("Failed to allocate buffer of size %d\n", buffer_size);
+    LOG_ERR("Failed to allocate buffer of size %d", buffer_size);
     return;
   }
 
@@ -322,9 +316,7 @@ void read_nvs_to_cache(struct cache_entry *entry) {
       return;
     }
   } else {
-    EXCLUSIVE_ENTER
     rc = nvs_read(&fs, entry->key, buffer_to_use, buffer_size);
-    EXCLUSIVE_EXIT
   }
 
   if (rc < 0) {
@@ -373,9 +365,7 @@ int port_fclose(port_FILE fp) {
 
   if (entry->_flags & FS_COMMIT_ON_CLOSE) {
     if (entry->_b_dirty) {
-      EXCLUSIVE_ENTER
       nvs_write(&fs, entry->key, entry->buf, entry->_l);
-      EXCLUSIVE_ENTER
     }
     entry->_b_dirty = 0;
   }
@@ -465,9 +455,9 @@ int port_remove(const char *path) {
   }
 
   ss_list_remove(&entry->list); // doesn't free data
-  EXCLUSIVE_ENTER
+
+  // should we be smarter about this?
   nvs_delete(&fs, entry->key);
-  EXCLUSIVE_EXIT
 
   if (entry->buf)
     SS_FREE(entry->buf);
@@ -496,10 +486,12 @@ int port_rmdir(const char *) {
  */
 int port_provision(char *profile, size_t len) {
   int rc = init_fs();
-  if (rc)
-    return -1;
+  if (rc) {
+    LOG_ERR("Failed to init FS");
+  }
 
   if (len != PROFILE_LEN) {
+    LOG_ERR("Invalid profile length");
     return -1;
   }
 
@@ -511,20 +503,22 @@ int port_provision(char *profile, size_t len) {
   struct cache_entry *entry =
       (struct cache_entry *)f_cache_find_by_name(IMSI_PATH, &fs_cache);
   psa_storage_uid_t uid = entry->key;
+
+  // provision only touches PSA
+  // softsim can basically run concurrently w.o. issues
   EXCLUSIVE_ENTER
   status = psa_ps_get_info(uid, &info);
   if (status == PSA_SUCCESS) {
     LOG_INF("SoftSIM already provisioned\n");
-    EXCLUSIVE_EXIT
-    return 0;
+    goto out_ok;
   }
 
+  LOG_INF("Provisioning SoftSIM 1/4");
   status =
       psa_ps_set(uid, IMSI_LEN, profile + IMSI_OFFSET, PSA_STORAGE_FLAG_NONE);
   if (status != PSA_SUCCESS) {
     LOG_ERR("Failed to provision IMSI, err: %d\n", status);
-    EXCLUSIVE_EXIT
-    return -1;
+    goto out_err;
   }
 
   // // check if we get expected..
@@ -536,35 +530,46 @@ int port_provision(char *profile, size_t len) {
 
   entry = (struct cache_entry *)f_cache_find_by_name(ICCID_PATH, &fs_cache);
   uid = entry->key;
+  LOG_INF("Provisioning SoftSIM 2/4");
+
   status =
       psa_ps_set(uid, ICCID_LEN, profile + ICCID_OFFSET, PSA_STORAGE_FLAG_NONE);
   if (status != PSA_SUCCESS) {
     LOG_ERR("Failed to provision ICCID, err: %d\n", status);
-    EXCLUSIVE_EXIT
-    return -1;
+    goto out_err;
   }
 
   entry = (struct cache_entry *)f_cache_find_by_name(A001_PATH, &fs_cache);
   uid = entry->key;
+  LOG_INF("Provisioning SoftSIM 3/4");
+
   status = psa_ps_set(uid, A001_LEN, profile + A001_OFFSET,
                       PSA_STORAGE_FLAG_WRITE_ONCE);
   if (status != PSA_SUCCESS && status != PSA_ERROR_ALREADY_EXISTS) {
     LOG_ERR("Failed to provision A001, err: %d\n", status);
-    EXCLUSIVE_EXIT
-    return -1;
+    goto out_err;
   }
 
   entry = (struct cache_entry *)f_cache_find_by_name(A004_PATH, &fs_cache);
   uid = entry->key;
+  LOG_INF("Provisioning SoftSIM 4/4");
+
   status = psa_ps_set(uid, A004_LEN, profile + A004_OFFSET,
                       PSA_STORAGE_FLAG_WRITE_ONCE);
   if (status != PSA_SUCCESS && status != PSA_ERROR_ALREADY_EXISTS) {
     LOG_ERR("Failed to provision A004, err: %d\n", status);
-    EXCLUSIVE_EXIT
-    return -1;
+    goto out_err;
   }
+
+out_ok:
   EXCLUSIVE_EXIT
+  LOG_INF("SoftSIM provisioned");
   return 0;
+
+out_err:
+  LOG_ERR("SoftSIM provisioning failed");
+  EXCLUSIVE_EXIT
+  return -1;
 }
 
 size_t port_fwrite(const void *prt, size_t size, size_t count, port_FILE f) {
@@ -609,4 +614,27 @@ size_t port_fwrite(const void *prt, size_t size, size_t count, port_FILE f) {
   entry->_p += size * elements_to_copy;
 
   return elements_to_copy;
+}
+
+int port_check_provisioned(void) {
+
+  int rc = init_fs();
+  if (rc) {
+    LOG_ERR("Failed to init FS");
+  }
+
+  // check for existing provisioning
+  struct psa_storage_info_t info;
+  psa_status_t status;
+
+  // IMSI 2FE2
+  struct cache_entry *entry =
+      (struct cache_entry *)f_cache_find_by_name(IMSI_PATH, &fs_cache);
+  psa_storage_uid_t uid = entry->key;
+
+  EXCLUSIVE_ENTER
+  status = psa_ps_get_info(uid, &info);
+  EXCLUSIVE_EXIT
+
+  return status == PSA_SUCCESS;
 }
