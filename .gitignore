@@ -60,3 +60,8 @@ lib/onomondo
 !lib/libcrypto.a
 !lib/libmilenage.a
 !lib/libuicc.a
+!lib/libstorage.a
+
+.vscode
+*debug*
+.DS_Store
