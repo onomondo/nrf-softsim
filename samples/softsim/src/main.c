@@ -149,7 +149,6 @@ struct rx_buf_t {
 };
 
 void serial_cb(const struct device *dev, void *user_data) {
-  uint8_t c;
   struct rx_buf_t *rx = (struct rx_buf_t *)user_data;
   char *rx_buf = rx->buf;
   size_t *rx_buf_pos = &rx->pos;
@@ -172,9 +171,6 @@ void serial_cb(const struct device *dev, void *user_data) {
 void main(void) {
   int32_t err;
   printk("SoftSIM sample started.\n");
-
-  struct onoff_manager *clk_mgr;
-  static struct onoff_client cli = {};
 
   if (!nrf_sofsim_check_provisioned()) {
 

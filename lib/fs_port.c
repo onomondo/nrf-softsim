@@ -71,11 +71,13 @@ int init_fs() {
   uint8_t *data = NULL;
   size_t len = 0;
 
+#ifdef BOOTSTRAP_TEST
   /*************************
    * Bootstrapping not needed for prod version. Content will be flashed with
    *application.
    **************************/
   uint8_t isDemoBootstrapping = 0;
+#endif
 
   fs.flash_device = NVS_PARTITION_DEVICE;
   fs.sector_size = 0x1000; // where to read this? :DT_PROP(NVS_PARTITION,
@@ -181,7 +183,7 @@ int deinit_fs() {
                         list) {
 
     if (cursor->_b_dirty) {
-      nvs_write(&fs, tmp->key, tmp->buf, tmp->_l);
+      nvs_write(&fs, cursor->key, cursor->buf, cursor->_l);
     }
 
     ss_list_remove(&cursor->list);
@@ -196,6 +198,8 @@ int deinit_fs() {
   }
 
   fs_is_initialized = 0;
+
+  return 0;
 }
 
 /**

@@ -2,7 +2,6 @@
 #define MEM_H
 
 #if CONFIG_CUSTOM_HEAP
-#pragma message "Using custom heap"
 
 void *port_malloc(size_t);
 void port_free(void *);
