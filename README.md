@@ -90,7 +90,8 @@ Add the compiled sample (`merged.hex`).
 
 Drag the `template.hex` into the view. Flash both. SoftSIM sample is ready to provision
 
-![image](https://user-images.githubusercontent.com/46489969/217817885-8b993ab7-f41f-4082-b06e-fdaab3cbae54.png)
+<img width="359" alt="image" src="https://github.com/onomondo/nrf-softsim-dev/assets/46489969/360e44af-4776-4f25-a146-48a20cb01505">
+
 
 ## samples
 Yes. Should build out of the box. 
