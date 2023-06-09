@@ -5,7 +5,7 @@
 
 #define MAX_ENTRIES (10)
 
-// find a suitable cache entry with a buffer that can be re-used 
+// find a suitable cache entry with a buffer that can be re-used
 struct cache_entry *f_cache_find_buffer(struct cache_entry *entry,
                                         struct ss_list *cache) {
   struct cache_entry *cursor;
