@@ -71,11 +71,13 @@ int init_fs() {
   uint8_t *data = NULL;
   size_t len = 0;
 
+#ifdef BOOTSTRAP_TEST
   /*************************
    * Bootstrapping not needed for prod version. Content will be flashed with
    *application.
    **************************/
   uint8_t isDemoBootstrapping = 0;
+#endif
 
   fs.flash_device = NVS_PARTITION_DEVICE;
   fs.sector_size = 0x1000; // where to read this? :DT_PROP(NVS_PARTITION,
@@ -163,6 +165,41 @@ int init_fs() {
 out:
   free(data);
   return ss_list_empty(&fs_cache);
+}
+
+int deinit_fs() {
+
+  // TODO: check if DIR entry is still valid
+  // if not recreate and write.
+  // Will NVS only commit if there are changes? If so, we can just recreate
+  // and let NVS do the compare.
+
+  struct cache_entry *cursor, *pre_cursor;
+
+  /* Free all memory allocated by cache and
+   * commit changes to NVS
+   */
+  SS_LIST_FOR_EACH_SAVE(&fs_cache, cursor, pre_cursor, struct cache_entry,
+                        list) {
+
+    if (cursor->_b_dirty) {
+      nvs_write(&fs, cursor->key, cursor->buf, cursor->_l);
+    }
+
+    ss_list_remove(&cursor->list);
+
+    if (cursor->buf) {
+      SS_FREE(cursor->buf);
+    }
+
+    SS_FREE(cursor->name);
+
+    SS_FREE(cursor);
+  }
+
+  fs_is_initialized = 0;
+
+  return 0;
 }
 
 /**
@@ -520,13 +557,6 @@ int port_provision(char *profile, size_t len) {
     LOG_ERR("Failed to provision IMSI, err: %d\n", status);
     goto out_err;
   }
-
-  // // check if we get expected..
-  // entry = (struct cache_entry *)port_fopen(IMSI_PATH, "r");
-  // char imsi[25] = {0};
-  // port_fgets(imsi, 25, entry);
-  // printk("IMSI: %s\n", imsi);
-  // port_fclose(entry);
 
   entry = (struct cache_entry *)f_cache_find_by_name(ICCID_PATH, &fs_cache);
   uid = entry->key;
