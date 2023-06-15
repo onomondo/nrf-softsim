@@ -44,8 +44,8 @@ You might need to follow some of these steps if it's the first time working with
 
 
 ## bigger todos:
-- [ ] On `NRF_SOFTSIM_DEINIT` the internal buffers should be commit to flash in case device is about to power down. 
-- [ ] On `NRF_SOFTSIM_DEINIT` the DIR entry should potentially be updated. In rare occasions  files/dirs are added/removed which should result in a change in `DIR` content
+- [ ] (In progress) On `NRF_SOFTSIM_DEINIT` the internal buffers should be commit to flash in case device is about to power down. 
+- [ ] (In progress) On `NRF_SOFTSIM_DEINIT` the DIR entry should potentially be updated. In rare occasions  files/dirs are added/removed which should result in a change in `DIR` content
 - [x] Removing directories is a bit abstract. Probably just remove all files with matching file name as suggested in code
 - [x] Dump flash from a "provisioned" device and use the NVS chunk as the template profile. 
 - [ ] Protected storage is painfully slow when provisioning? No problem when device is provisioned already. No biggie. 
@@ -95,6 +95,16 @@ Drag the `template.hex` into the view. Flash both. SoftSIM sample is ready to pr
 
 ## samples
 Yes. Should build out of the box. 
+
+## SoftSIM integration in application code
+Either call `nrf_softsim_init()` explicitly or let the kernel do it on boot with the config option. 
+
+SoftSIM entrypoint starts its own workqueue and returns immidiately after. The handler installed with `nrf_modem_softsim_req_handler_set()` will enqueue request as they come and the workqueue will unblock and handle the request. The softsim context will be blocked most of the time. The main interaction happens on boot. 
+
+![softsim_nrf_flow](https://github.com/onomondo/nrf-softsim/assets/46489969/7513bb06-99b3-4de4-95bb-34884a9726ed)
+
+Please note that SoftSIM internally need access to a storage partition. This should be pre-populated with the `template.hex` provided in the samples. The adress in the `template.hex` is hardcoded but can freely be moved around as pleased with an appropriate tool. The location is derived from the devicetree at compile time (` FIXED_PARTITION_DEVICE(NVS_PARTITION)`)
+
 
 ## foobar
 
