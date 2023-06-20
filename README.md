@@ -50,6 +50,9 @@ You might need to follow some of these steps if it's the first time working with
 - [x] Dump flash from a "provisioned" device and use the NVS chunk as the template profile. 
 - [ ] Protected storage is painfully slow when provisioning? No problem when device is provisioned already. No biggie. 
 
+## planned changes
+- Profile size can be decreased even further by tweaking the softsim core a bit. This unfortunately means that the current `template` has to be reworked as internal format changes. All softsim profile data is currently storred as hex and is internally parsed to uint8. By omitting this step we can introduce performance gains, reduction in code size and half the space required for the profile.
+
 ## config
 ```
 # softsim uses (a) file system as storage backend. Currently this must be enabled by the user. 
