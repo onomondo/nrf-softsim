@@ -10,6 +10,11 @@ Network keys and SIM identity (IMSI/ICCID) is now secured by protected storage
 
 `mem.h`/`heap_port.c` can now optionally be used to implement custom allocators - i.e. `k_malloc()  ` to avoid conflict with stdc heap pools. We default to `k_malloc()/k_free()`
 
+## planned changes
+- Profile size can be decreased even further by tweaking the softsim core a bit. This unfortunately means that the current `template` has to be reworked as internal format changes. All softsim profile data is currently storred as hex and is internally parsed to uint8. By omitting this step we can introduce performance gains, reduction in code size and half the space required for the profile.
+
+- All authentication can be done with the crypto engine as backend. This means that keys on provisioning should be written to the HUK directly. This also adrresses security concerns and will probably introduce some optimization in terms of execution speed and code size. 
+
 ### The template profile
 Included is now a 'default' profile. This contains everything that is common to SoftSIMs. The personalization is done with call to `int nrf_sofsim_provision(uint8_t * profile, size_t len);`
 
@@ -49,9 +54,6 @@ You might need to follow some of these steps if it's the first time working with
 - [x] Removing directories is a bit abstract. Probably just remove all files with matching file name as suggested in code
 - [x] Dump flash from a "provisioned" device and use the NVS chunk as the template profile. 
 - [ ] Protected storage is painfully slow when provisioning? No problem when device is provisioned already. No biggie. 
-
-## planned changes
-- Profile size can be decreased even further by tweaking the softsim core a bit. This unfortunately means that the current `template` has to be reworked as internal format changes. All softsim profile data is currently storred as hex and is internally parsed to uint8. By omitting this step we can introduce performance gains, reduction in code size and half the space required for the profile.
 
 ## config
 ```
