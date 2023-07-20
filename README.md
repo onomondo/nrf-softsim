@@ -3,6 +3,10 @@
 
 Manifest repo for integrating Onomondo SoftSIM and NCS.
 
+## Current focus:
+- Security and authentication is getting a big rework. All keys are moved to the KMU and only used by reference. Furthermore, all crypto operation will only be used by reference by the Crypto Engine. Essentially, this will put a much bigger guarentee on key integrity.
+- This also means that provisioning will be changed slightly. The API to provision will be identical, but 'internally' we'll now just write them to the KMU instead. Inherently, this makes 'on-device' key generation much better as well as keys will only be in memory for a short duration.  
+
 ## New in v. 1.xx
 LitleFS has been dropped for now in favor of smaller profiles and more efficent use of flash (denser storage). We now rely on NVS for profile storage. 
 
