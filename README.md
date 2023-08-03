@@ -1,5 +1,6 @@
 # nrf-softsim
 
+# PLEASE NOTE THAT THE PROFILE FORMATTING HAS CHANGED TO A MORE ROBUST FORMAT IN THIS RELEASE. 
 
 ## TL;DR 
 Find a nice spot for the NCS to live and initialize with west
