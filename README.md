@@ -23,7 +23,20 @@ Using the `nRF Connect for Desktop` you can write both things in one go as well.
 
 Or merge it into your `merged.hex` and flash everything in one go.
 
+## Changelog 2023-08-03
+- Removed internal AES implementation in order to use psa_crypto_xxx libraries instead
+- Key management offloaded to KMU and psa_crypto_xxx api
+- Profile encoding optimized. Backwards compability is easier to ensure in the future.
+- Added experimental support for UICC Suspend. Doesn't really make sense in the SoftSIM context, but we wan't to avoid writes to flash whereever possible.
+- Updated sample to reboot after provisioning. This frees the UART for AT commands etc.
+- Removed PSA_PROTECTED storage references.
+- Correctly commit updated files on DE-INIT requests. This reduces time to attach greatly on next boot as EF_LOCI is now correctly committed to flash. Typical time to attach < 4 seconds from boot.
 
+## Planned changes
+- Profile re-exporting.
+- Profile space optimization
+  - Store as raw bytes instead of the debug friendly HEX format
+  - Expected to give some performance improvements
 
 ## Understanding the SIM - why SoftSIM is possible.
 
