@@ -18,13 +18,15 @@ SoftSIM relies on some default config - basically a template profile that needs 
 
 `nrfjprog -f NRF91 --sectorerase --log --program path/to/profile/template.hex`
 
+Using the `nRF Connect for Desktop` you can write both things in one go as well. Just add the template and you application and press `erease and write`.
+
 Or merge it into your `merged.hex` and flash everything in one go.
 
 
 
-## Understanding the SIM
+## Understanding the SIM - why SoftSIM is possible.
 
-To be as brief as possible - a SIM is nothing more than a fancy filesystem with the ability to calculate a authentication response to a given authentication challenge. More about that later. 
+To be as brief as possible - a SIM is nothing more than a fancy filesystem with the ability to calculate an authentication response to a given authentication challenge. More about that later. 
 
 
 ### Filesystem operations
@@ -34,7 +36,7 @@ The majority of commands that the SIM understands are related to the underlying 
 
 Not all files are free to update. For instance the `IMSI` can only be changed by the operator with the correct PINs - so a SIM also manages access rights. Some rights are unlocked with the PIN - for that `VERIFY PIN` command is issued. 
 
-#### The nrf9160 sim init sequence 
+#### The nrf9160 SIM init sequence 
 What happens when you 'activate' the SIM on your device (`AT+CFUN=41`)? The first many commands follows the same pattern - `00a4....` which is the `SELECT` command followed by `00b0....` which is the `READ BINARY` command.
 
 - `80f20000000168` - `STATUS`
@@ -53,10 +55,9 @@ And the list goes on...
 
 ### The template SIM profile
 
-The main point here is that EF_DIR, EF_PL, EF_UMPC etc are the same for all SIMs. Only the ICCID and IMSI is different across SIMs when they are completely new.
+The main point here is that EF_DIR, EF_PL, EF_UMPC etc are the same for all SIMs. Only the ICCID and IMSI is different across SIMs when they are fresh out of the factory.
 
 To accomodate that we've created a bootstrapping filesystem that should be flashed together with the application. <img width="338" src="https://github.com/onomondo/nrf-softsim/assets/46489969/4de502a0-a2c9-4759-b2ed-74ae0adaef25">
-
 
 
 The list of files is fairly involved - but in the end only a subset of files are ever accessed. 
@@ -66,15 +67,15 @@ Internally this is a NVS partition which is a `key-value` store type. It is pret
 `00a408040000022fe20168` -> `open('/3f00/2fe2)` -> `nvs_read(id=14)`
 
 We've made a caching layer as well to avoid i) slow reads ii) excessive writes to flash. So actually the SoftSIM profile data looks something like this
- <img width="338" src="https://github.com/onomondo/nrf-softsim/assets/46489969/e778a7ea-4d5e-4ed0-aff0-f162f9894dbe">
+ <img width="358" src="https://github.com/onomondo/nrf-softsim/assets/46489969/e778a7ea-4d5e-4ed0-aff0-f162f9894dbe">
 
 
 The first entry is used to translate between paths (`'3f00/2fe2`) to an actual `NVS key`. It contains an ordered list of files sorted by frequency of access - i.e. the 'master file, 3f00' is in the top since it is most frequenctly accessed. 
 
-<img width="250" alt="image-3" src="https://github.com/onomondo/nrf-softsim/assets/46489969/89515114-c3e7-4d2f-ae4f-6797c6411a1f">
+<img width="280" alt="image-3" src="https://github.com/onomondo/nrf-softsim/assets/46489969/89515114-c3e7-4d2f-ae4f-6797c6411a1f">
 
 
-List is read and parsed to a linked list - and this makes the base for all cached operations. The order makes the lookup pretty fast. 
+List is read and parsed to a linked list - and this makes the base for all cached operations. The order makes the lookup very fast in most cases.
 
  <img height="338" src="https://github.com/onomondo/nrf-softsim/assets/46489969/b1fef4e6-623e-4df5-9fa5-db645a23dd8c">
 
@@ -124,11 +125,10 @@ When a device finds a network it want to attach to something like this happens:
 
 
 
-Well, that is greatly simplified. Anyway, step 5 is actually a SIM command as well `AUTHENTICATE EVEN` and it is running the `milenage algorithm` that also creates session keys etc (and checks that the network in fact isn't an imposter). 
+That is greatly simplified. Step 5 is a SIM command as well `AUTHENTICATE EVEN` and it is running the `milenage algorithm` that also creates session keys etc (and checks that the network in fact isn't an imposter). 
 
 The milenage algorithm is `AES` based and we utilize the KMU through the `psa_crypto` API to implement this. This means that the keys are _very_ protected and once written they can't ever be extracted. Instead they are used by refernce in the crypto engine. 
 
-Pretty smooth. 
 
 #### Provisioning SoftSIMs 
 
@@ -148,7 +148,7 @@ struct profile
   u8[] KID,
   u8[] IMSI,
   u8[] ICCID,
-  u8[] MSISDN // SMS related
+  u8[] SMSP // SMS related
 }
 ```
 
@@ -196,24 +196,27 @@ CONFIG_SOFTSIM_AUTO_INIT=y
 
 # Flashing your device:
 ### By command line:
-flash sim profile
+1 - flash sim profile
+
 `nrfjprog -f NRF91 --sectorerase --log --program path/to/profile/template.he`
-flash sample
+
+2 - flash application
+
 `nrfjprog -f NRF91 --sectorerase --log --program /path/to/build/zephyr/merged.hex --reset`
 
 
 ### using nrf Connect programmer
 Add the compiled sample (`merged.hex`). 
 
-Drag the `template.hex` into the view. Flash both. SoftSIM sample is ready to provision
+Drag the `template.hex` into the view. `Erase and write`. SoftSIM sample is ready to provision
 
 
 
 
 
 
-# Random stuff:
-#### heap
+# Some more details:
+#### Heap
 `mem.h`/`heap_port.c` can now optionally be used to implement custom allocators - i.e. `k_malloc()` to avoid conflict with stdc heap pools. We default to `k_malloc()/k_free()`
 #### More on NVS
 The main challenge here is that the NVS is a "key-value" store i.e. `UINT16 -> void *`. SoftSIM needs a `char * path -> void * data` map. 
@@ -233,8 +236,6 @@ ID & 0xFF00 (upper bits) are used for flags, i.e.
 
 #define FS_READ_ONLY         (1UL << 8)
 #define FS_COMMIT_ON_CLOSE   (1UL << 7)  // commit changes to NVS on close
-#define FS_SENSITIVE_DATA    (1UL << 6)  // clear buffer on close
-#define FS_PROTECTED_STORAGE (1UL << 5)  // clear buffer on close
 ```
 The inital DIR is designed to prioritize most accessed files as well. Internally files are cached and in general kept in memory. 
 
