@@ -1,5 +1,6 @@
 #ifndef _NRF_SOFTSIM_H_
 #define _NRF_SOFTSIM_H_
+#include <stddef.h>
 
 /**
  * @brief Initialize the SoftSIM library and install handlers. Only use if
