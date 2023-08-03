@@ -8,8 +8,6 @@
 #include <zephyr/kernel.h>
 #include <zephyr/logging/log.h>
 #include <zephyr/storage/flash_map.h>
-#include <psa/storage_common.h>
-#include <psa/protected_storage.h>
 
 #include "f_cache.h"
 #include "provision.h"
@@ -52,9 +50,6 @@ static struct ss_list fs_cache;
 #define SEEK_END 2 /* set file offset to EOF plus offset */
 #endif
 
-#define EXCLUSIVE_ENTER k_sem_take(&rw_sem, K_FOREVER);
-#define EXCLUSIVE_EXIT k_sem_give(&rw_sem);
-
 // internal functions
 
 //  that the buffer is set. Either by allocating new memory or by
@@ -64,8 +59,7 @@ void read_nvs_to_cache(struct cache_entry *entry);
 uint8_t fs_is_initialized = 0;
 
 int init_fs() {
-  if (fs_is_initialized)
-    return 0; // already initialized
+  if (fs_is_initialized) return 0;  // already initialized
 
   ss_list_init(&fs_cache);
   uint8_t *data = NULL;
@@ -80,8 +74,7 @@ int init_fs() {
 #endif
 
   fs.flash_device = NVS_PARTITION_DEVICE;
-  fs.sector_size = 0x1000; // where to read this? :DT_PROP(NVS_PARTITION,
-                           // erase_block_size);  //<0x1000>
+  fs.sector_size = 0x1000;  // where to read this? :DT_PROP(NVS_PARTITION,  erase_block_size);  //<0x1000>
   fs.sector_count = FLASH_AREA_SIZE(storage_partition) / fs.sector_size;
   fs.offset = NVS_PARTITION_OFFSET;
 
@@ -93,23 +86,7 @@ int init_fs() {
 
   rc = nvs_read(&fs, DIR_ID, NULL, 0);
 
-#ifdef BOOTSTRAP_TEST
-
-  /*************************
-   * This should never happen in production version.
-   * At this point we should panic and return when not generationg this on
-   *device
-   **************************/
-  if (rc <= 0) {
-
-    LOG_INF("bootstrapping for demo");
-    generate_dir_blob(&data, &len); // debug. remove later
-    ++isDemoBootstrapping;
-    rc = nvs_write(&fs, DIR_ID, data, len);
-  }
-#else
   len = rc;
-#endif // BOOTSTRAP_TEST
 
   /*************************
    * Read DIR_ENTRY from NVS
@@ -125,42 +102,9 @@ int init_fs() {
   ss_list_init(&fs_cache);
   generate_dir_table_from_blob(&fs_cache, data, len);
 
-  if (ss_list_empty(&fs_cache))
-    goto out;
+  if (ss_list_empty(&fs_cache)) goto out;
 
   fs_is_initialized++;
-
-#ifdef BOOTSTRAP_TEST
-  /*************************
-   * TODO: goto out;
-   * the rest of this function is only for demo purposes
-   */
-  struct cache_entry *cursor;
-  if (isDemoBootstrapping) { // debug only. "self provisioning" sim
-    printk("writing default profile\n");
-    SS_LIST_FOR_EACH(&fs_cache, cursor, struct cache_entry, list) {
-      // checking if file actually exist:
-      rc = nvs_read(&fs, cursor->key, NULL, 0);
-      if (rc >= 0)
-        continue;
-
-      if (cursor->_flags & FS_PROTECTED_STORAGE ||
-          cursor->_flags & FS_READ_ONLY) {
-        continue;
-      }
-      char *p = getFilePointer(cursor->name);
-
-      if (p) {
-        size_t len = strlen(p);
-        rc = nvs_write(&fs, cursor->key, p, len);
-      }
-
-      if (rc < 0) {
-        LOG_ERR("Failed to write file %s to NVS", cursor->name);
-      }
-    }
-  }
-#endif // BOOTSTRAP_TEST
 
 out:
   free(data);
@@ -168,7 +112,6 @@ out:
 }
 
 int deinit_fs() {
-
   // TODO: check if DIR entry is still valid
   // if not recreate and write.
   // Will NVS only commit if there are changes? If so, we can just recreate
@@ -179,10 +122,9 @@ int deinit_fs() {
   /* Free all memory allocated by cache and
    * commit changes to NVS
    */
-  SS_LIST_FOR_EACH_SAVE(&fs_cache, cursor, pre_cursor, struct cache_entry,
-                        list) {
-
+  SS_LIST_FOR_EACH_SAVE(&fs_cache, cursor, pre_cursor, struct cache_entry, list) {
     if (cursor->_b_dirty) {
+      LOG_INF("Softsim stop - committing %s to NVS", cursor->name);
       nvs_write(&fs, cursor->key, cursor->buf, cursor->_l);
     }
 
@@ -191,9 +133,7 @@ int deinit_fs() {
     if (cursor->buf) {
       SS_FREE(cursor->buf);
     }
-
     SS_FREE(cursor->name);
-
     SS_FREE(cursor);
   }
 
@@ -213,7 +153,7 @@ port_FILE port_fopen(char *path, char *mode) {
   struct cache_entry *cursor = NULL;
   int rc = 0;
 
-  cursor = f_cache_find_by_name(path, &fs_cache); //
+  cursor = f_cache_find_by_name(path, &fs_cache);  //
   if (!cursor) {
     return NULL;
   }
@@ -224,30 +164,15 @@ port_FILE port_fopen(char *path, char *mode) {
    * Initial order is ordered by frequency already so not big optimizations can
    * be achieved.
    */
-  if (cursor->_cache_hits < 0xFF)
-    cursor->_cache_hits++;
+  if (cursor->_cache_hits < 0xFF) cursor->_cache_hits++;
 
   /**
    * File opened first time.
    */
   if (!cursor->_l) {
-    if (cursor->_flags & FS_PROTECTED_STORAGE) {
-      struct psa_storage_info_t info;
-      EXCLUSIVE_ENTER
-      psa_status_t status = psa_ps_get_info(cursor->key, &info);
-      EXCLUSIVE_EXIT
+    rc = nvs_read(&fs, cursor->key, NULL, 0);
 
-      if (status != PSA_SUCCESS) {
-        LOG_ERR("PSA get info failed");
-        return NULL;
-      }
-
-      rc = info.size;
-
-    } else {
-      rc = nvs_read(&fs, cursor->key, NULL, 0);
-    }
-    if (rc < 0) { // TODO: this can not happen.
+    if (rc < 0) {  // TODO: this can not happen.
       return NULL;
     } else {
       cursor->_l = rc;
@@ -279,12 +204,11 @@ size_t port_fread(void *ptr, size_t size, size_t nmemb, port_FILE fp) {
   struct cache_entry *entry = (struct cache_entry *)fp;
 
   size_t max_element_to_return = (entry->_l - entry->_p) / size;
-  size_t element_to_return =
-      nmemb > max_element_to_return ? max_element_to_return : nmemb;
+  size_t element_to_return = nmemb > max_element_to_return ? max_element_to_return : nmemb;
 
   memcpy(ptr, entry->buf + entry->_p, element_to_return * size);
 
-  entry->_p += element_to_return * size; // move internal read/write pointer
+  entry->_p += element_to_return * size;  // move internal read/write pointer
   return element_to_return;
 }
 
@@ -300,8 +224,7 @@ void read_nvs_to_cache(struct cache_entry *entry) {
    * If entry has a buffer assigned it contains valid data.
    * Return early.
    */
-  if (entry->buf)
-    return;
+  if (entry->buf) return;
 
   // best bet for a buffer we can reuse
   tmp = f_cache_find_buffer(entry, &fs_cache);
@@ -310,7 +233,6 @@ void read_nvs_to_cache(struct cache_entry *entry) {
   size_t buffer_size = 0;
 
   if (tmp) {
-
     if (tmp->_b_dirty) {
       LOG_DBG("Cache entry %s is dirty, writing to NVS\n", tmp->name);
       nvs_write(&fs, tmp->key, tmp->buf, tmp->_l);
@@ -319,7 +241,7 @@ void read_nvs_to_cache(struct cache_entry *entry) {
     // should buffer be freed
     if (entry->_l > tmp->_b_size) {
       SS_FREE(tmp->buf);
-    } else { // or reused
+    } else {  // or reused
       buffer_size = tmp->_b_size;
       buffer_to_use = tmp->buf;
       memset(buffer_to_use, 0, buffer_size);
@@ -342,19 +264,8 @@ void read_nvs_to_cache(struct cache_entry *entry) {
   }
 
   int rc = 0;
-  if (entry->_flags & FS_PROTECTED_STORAGE) {
-    EXCLUSIVE_ENTER
-    psa_status_t status =
-        psa_ps_get(entry->key, 0, buffer_size, buffer_to_use, &rc);
-    EXCLUSIVE_EXIT
-    if (status != PSA_SUCCESS) {
-      LOG_ERR("Failed to read file %s from protected storage", entry->name);
-      SS_FREE(buffer_to_use);
-      return;
-    }
-  } else {
-    rc = nvs_read(&fs, entry->key, buffer_to_use, buffer_size);
-  }
+
+  rc = nvs_read(&fs, entry->key, buffer_to_use, entry->_l);
 
   if (rc < 0) {
     LOG_ERR("NVS read failed: %d\n", rc);
@@ -374,14 +285,13 @@ char *port_fgets(char *str, int n, port_FILE fp) {
     return NULL;
   }
 
-  if (entry->_p >= entry->_l) { // no more data
+  if (entry->_p >= entry->_l) {  // no more data
     return NULL;
   }
 
-  int idx = 0; // dest idx
+  int idx = 0;  // dest idx
 
-  while (entry->_p < entry->_l && idx < n - 1 &&
-         entry->buf[entry->_p] != '\0' && entry->buf[entry->_p] != '\n') {
+  while (entry->_p < entry->_l && idx < n - 1 && entry->buf[entry->_p] != '\0' && entry->buf[entry->_p] != '\n') {
     str[idx++] = entry->buf[entry->_p++];
   }
 
@@ -407,15 +317,8 @@ int port_fclose(port_FILE fp) {
     entry->_b_dirty = 0;
   }
 
-  if (entry->_flags & FS_SENSITIVE_DATA && entry->buf) {
-    ss_memzero(entry->buf, entry->_b_size);
-    SS_FREE(entry->buf);
-    entry->buf = NULL; // actually validate
-    entry->_l = 0;     // force new read
-  }
-
 out:
-  entry->_p = 0; // TODO: not needed?
+  entry->_p = 0;  // TODO: not needed?
   return 0;
 }
 
@@ -430,8 +333,7 @@ int port_fseek(port_FILE fp, long offset, int whence) {
     entry->_p = offset;
   } else if (whence == SEEK_CUR) {
     entry->_p += offset;
-    if (entry->_p >= entry->_l)
-      entry->_p = entry->_l - 1; // how is std c behaving here?
+    if (entry->_p >= entry->_l) entry->_p = entry->_l - 1;  // how is std c behaving here?
   } else if (whence == SEEK_END) {
     entry->_p = entry->_l - offset;
   }
@@ -476,13 +378,13 @@ int port_fputc(int c, port_FILE fp) {
 }
 int port_access(const char *path, int amode) {
   return 0;
-} // TODO -> safe to omit for now. Internally SoftSIM will verify that a
-  // directory exists after creation. Easier to guarentee since it isn't a
-  // 'thing'
+}  // TODO -> safe to omit for now. Internally SoftSIM will verify that a
+   // directory exists after creation. Easier to guarentee since it isn't a
+   // 'thing'
 int port_mkdir(const char *, int) {
   return 0;
-} // don't care. We don't really obey directories (creating file
-  // 'test/a/b/c.def) implicitly creates the directories
+}  // don't care. We don't really obey directories (creating file
+   // 'test/a/b/c.def) implicitly creates the directories
 
 int port_remove(const char *path) {
   struct cache_entry *entry = f_cache_find_by_name(path, &fs_cache);
@@ -491,13 +393,12 @@ int port_remove(const char *path) {
     return -1;
   }
 
-  ss_list_remove(&entry->list); // doesn't free data
+  ss_list_remove(&entry->list);  // doesn't free data
 
   // should we be smarter about this?
   nvs_delete(&fs, entry->key);
 
-  if (entry->buf)
-    SS_FREE(entry->buf);
+  if (entry->buf) SS_FREE(entry->buf);
 
   SS_FREE(entry->name);
   SS_FREE(entry);
@@ -505,14 +406,8 @@ int port_remove(const char *path) {
   return 0;
 }
 
-int port_rmdir(const char *) {
-  return 0;
-} // todo. Remove all entries with directory match.
-// ie remove 7fff/test
-// remove 7fff/test/a
-// remove 7fff/test/a/b
-
 // list for each { is_name_partial_match? {remove port_remove(cursor->name)} }
+int port_rmdir(const char *) { return 0; }  // todo. Remove all entries with directory match.
 
 /**
  * @brief Provision the SoftSIM with the given profile
@@ -521,84 +416,50 @@ int port_rmdir(const char *) {
  * @param profile ptr to the profile
  * @param len Len of profile. 332 otherwise invalid.
  */
-int port_provision(char *profile, size_t len) {
+int port_provision(struct ss_profile *profile) {
   int rc = init_fs();
   if (rc) {
     LOG_ERR("Failed to init FS");
   }
 
-  if (len != PROFILE_LEN) {
-    LOG_ERR("Invalid profile length");
-    return -1;
-  }
-
-  // check for existing provisioning
-  struct psa_storage_info_t info;
-  psa_status_t status;
-
-  // IMSI 2FE2
-  struct cache_entry *entry =
-      (struct cache_entry *)f_cache_find_by_name(IMSI_PATH, &fs_cache);
-  psa_storage_uid_t uid = entry->key;
-
-  // provision only touches PSA
-  // softsim can basically run concurrently w.o. issues
-  EXCLUSIVE_ENTER
-  status = psa_ps_get_info(uid, &info);
-  if (status == PSA_SUCCESS) {
-    LOG_INF("SoftSIM already provisioned\n");
-    goto out_ok;
-  }
+  // IMSI 6f07
+  struct cache_entry *entry = (struct cache_entry *)f_cache_find_by_name(IMSI_PATH, &fs_cache);
 
   LOG_INF("Provisioning SoftSIM 1/4");
-  status =
-      psa_ps_set(uid, IMSI_LEN, profile + IMSI_OFFSET, PSA_STORAGE_FLAG_NONE);
-  if (status != PSA_SUCCESS) {
-    LOG_ERR("Failed to provision IMSI, err: %d\n", status);
-    goto out_err;
-  }
+  if (nvs_write(&fs, entry->key, profile->IMSI, IMSI_LEN) < 0) goto out_err;
+  entry->_flags = 0;
 
-  entry = (struct cache_entry *)f_cache_find_by_name(ICCID_PATH, &fs_cache);
-  uid = entry->key;
   LOG_INF("Provisioning SoftSIM 2/4");
-
-  status =
-      psa_ps_set(uid, ICCID_LEN, profile + ICCID_OFFSET, PSA_STORAGE_FLAG_NONE);
-  if (status != PSA_SUCCESS) {
-    LOG_ERR("Failed to provision ICCID, err: %d\n", status);
+  entry = (struct cache_entry *)f_cache_find_by_name(ICCID_PATH, &fs_cache);
+  if (nvs_write(&fs, entry->key, profile->ICCID, ICCID_LEN) < 0) {
     goto out_err;
   }
+  entry->_flags = 0;
 
-  entry = (struct cache_entry *)f_cache_find_by_name(A001_PATH, &fs_cache);
-  uid = entry->key;
   LOG_INF("Provisioning SoftSIM 3/4");
+  entry = (struct cache_entry *)f_cache_find_by_name(A001_PATH, &fs_cache);
+  if (nvs_write(&fs, entry->key, profile->A001, sizeof(profile->A001)) < 0) goto out_err;
+  entry->_flags = 0;
 
-  status = psa_ps_set(uid, A001_LEN, profile + A001_OFFSET,
-                      PSA_STORAGE_FLAG_WRITE_ONCE);
-  if (status != PSA_SUCCESS && status != PSA_ERROR_ALREADY_EXISTS) {
-    LOG_ERR("Failed to provision A001, err: %d\n", status);
-    goto out_err;
-  }
-
+  LOG_INF("Provisioning SoftSIM 4/4");
   entry = (struct cache_entry *)f_cache_find_by_name(A004_PATH, &fs_cache);
-  uid = entry->key;
+  if (nvs_write(&fs, entry->key, profile->A004, sizeof(profile->A004)) < 0) goto out_err;
+  entry->_flags = 0;
+
   LOG_INF("Provisioning SoftSIM 4/4");
 
-  status = psa_ps_set(uid, A004_LEN, profile + A004_OFFSET,
-                      PSA_STORAGE_FLAG_WRITE_ONCE);
-  if (status != PSA_SUCCESS && status != PSA_ERROR_ALREADY_EXISTS) {
-    LOG_ERR("Failed to provision A004, err: %d\n", status);
-    goto out_err;
-  }
+  // This is for test now. Removes uicc suspend flag as it isn't supported *yet* in softsim
+  // Modem seems to 'deactivate' sim more often instead which isn't good :/
 
-out_ok:
-  EXCLUSIVE_EXIT
+  entry = (struct cache_entry *)f_cache_find_by_name("/3f00/2f08", &fs_cache);
+  if (nvs_write(&fs, entry->key, "0a05000000", 10) < 0) goto out_err;
+  entry->_flags = 0;
+
   LOG_INF("SoftSIM provisioned");
   return 0;
 
 out_err:
   LOG_ERR("SoftSIM provisioning failed");
-  EXCLUSIVE_EXIT
   return -1;
 }
 
@@ -631,11 +492,9 @@ size_t port_fwrite(const void *prt, size_t size, size_t count, port_FILE f) {
     SS_FREE(oldBuffer);
   }
   const size_t buffer_left = entry->_b_size - entry->_p;
-  const size_t elements_to_copy =
-      buffer_left > size * count ? count : buffer_left / size;
+  const size_t elements_to_copy = buffer_left > size * count ? count : buffer_left / size;
 
-  const uint8_t content_is_different =
-      memcmp(entry->buf + entry->_p, prt, size * elements_to_copy);
+  const uint8_t content_is_different = memcmp(entry->buf + entry->_p, prt, size * elements_to_copy);
 
   if (content_is_different) {
     memcpy(entry->buf + entry->_p, prt, size * elements_to_copy);
@@ -644,27 +503,4 @@ size_t port_fwrite(const void *prt, size_t size, size_t count, port_FILE f) {
   entry->_p += size * elements_to_copy;
 
   return elements_to_copy;
-}
-
-int port_check_provisioned(void) {
-
-  int rc = init_fs();
-  if (rc) {
-    LOG_ERR("Failed to init FS");
-  }
-
-  // check for existing provisioning
-  struct psa_storage_info_t info;
-  psa_status_t status;
-
-  // IMSI 2FE2
-  struct cache_entry *entry =
-      (struct cache_entry *)f_cache_find_by_name(IMSI_PATH, &fs_cache);
-  psa_storage_uid_t uid = entry->key;
-
-  EXCLUSIVE_ENTER
-  status = psa_ps_get_info(uid, &info);
-  EXCLUSIVE_EXIT
-
-  return status == PSA_SUCCESS;
 }

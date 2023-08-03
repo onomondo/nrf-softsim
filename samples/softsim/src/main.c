@@ -14,14 +14,13 @@
 
 #include <zephyr/device.h>
 #include <zephyr/drivers/uart.h>
-#define PAYLOAD_SIZE 100
+
+#define PROFILE_SIZE 190
 
 static const struct device *const uart_dev = DEVICE_DT_GET(DT_NODELABEL(uart0));
 
 /**@brief Recoverable modem library error. */
-void nrf_modem_recoverable_error_handler(uint32_t err) {
-  printk("Modem library recoverable error: %u\n", err);
-}
+void nrf_modem_recoverable_error_handler(uint32_t err) { printk("Modem library recoverable error: %u\n", err); }
 
 static void lte_handler(const struct lte_lc_evt *const evt);
 static int server_connect(void);
@@ -45,53 +44,46 @@ static void server_transmission_work_fn(struct k_work *work) {
     return;
   }
 
-  k_work_schedule(&server_transmission_work, K_SECONDS(20));
+  k_work_schedule(&server_transmission_work, K_SECONDS(30));
 }
 
-static void work_init(void) {
-  k_work_init_delayable(&server_transmission_work, server_transmission_work_fn);
-}
+static void work_init(void) { k_work_init_delayable(&server_transmission_work, server_transmission_work_fn); }
 
 static void lte_handler(const struct lte_lc_evt *const evt) {
   switch (evt->type) {
-  case LTE_LC_EVT_NW_REG_STATUS:
-    if ((evt->nw_reg_status != LTE_LC_NW_REG_REGISTERED_HOME) &&
-        (evt->nw_reg_status != LTE_LC_NW_REG_REGISTERED_ROAMING)) {
+    case LTE_LC_EVT_NW_REG_STATUS:
+      if ((evt->nw_reg_status != LTE_LC_NW_REG_REGISTERED_HOME) &&
+          (evt->nw_reg_status != LTE_LC_NW_REG_REGISTERED_ROAMING)) {
+        break;
+      }
+
+      printk("Network registration status: %s\n", evt->nw_reg_status == LTE_LC_NW_REG_REGISTERED_HOME
+                                                      ? "Connected - home network"
+                                                      : "Connected - roaming\n");
+      k_sem_give(&lte_connected);
+      break;
+    case LTE_LC_EVT_PSM_UPDATE:
+      printk("PSM parameter update: TAU: %d, Active time: %d\n", evt->psm_cfg.tau, evt->psm_cfg.active_time);
+      break;
+    case LTE_LC_EVT_EDRX_UPDATE: {
+      char log_buf[60];
+      ssize_t len;
+
+      len = snprintf(log_buf, sizeof(log_buf), "eDRX parameter update: eDRX: %f, PTW: %f\n", evt->edrx_cfg.edrx,
+                     evt->edrx_cfg.ptw);
+      if (len > 0) {
+        printk("%s\n", log_buf);
+      }
       break;
     }
-
-    printk("Network registration status: %s\n",
-           evt->nw_reg_status == LTE_LC_NW_REG_REGISTERED_HOME
-               ? "Connected - home network"
-               : "Connected - roaming\n");
-    k_sem_give(&lte_connected);
-    break;
-  case LTE_LC_EVT_PSM_UPDATE:
-    printk("PSM parameter update: TAU: %d, Active time: %d\n", evt->psm_cfg.tau,
-           evt->psm_cfg.active_time);
-    break;
-  case LTE_LC_EVT_EDRX_UPDATE: {
-    char log_buf[60];
-    ssize_t len;
-
-    len = snprintf(log_buf, sizeof(log_buf),
-                   "eDRX parameter update: eDRX: %f, PTW: %f\n",
-                   evt->edrx_cfg.edrx, evt->edrx_cfg.ptw);
-    if (len > 0) {
-      printk("%s\n", log_buf);
-    }
-    break;
-  }
-  case LTE_LC_EVT_RRC_UPDATE:
-    printk("RRC mode: %s\n",
-           evt->rrc_mode == LTE_LC_RRC_MODE_CONNECTED ? "Connected" : "Idle\n");
-    break;
-  case LTE_LC_EVT_CELL_UPDATE:
-    printk("LTE cell changed: Cell ID: %d, Tracking area: %d\n", evt->cell.id,
-           evt->cell.tac);
-    break;
-  default:
-    break;
+    case LTE_LC_EVT_RRC_UPDATE:
+      printk("RRC mode: %s\n", evt->rrc_mode == LTE_LC_RRC_MODE_CONNECTED ? "Connected" : "Idle\n");
+      break;
+    case LTE_LC_EVT_CELL_UPDATE:
+      printk("LTE cell changed: Cell ID: %d, Tracking area: %d\n", evt->cell.id, evt->cell.tac);
+      break;
+    default:
+      break;
   }
 }
 
@@ -127,8 +119,7 @@ static int server_connect(void) {
     goto error;
   }
 
-  err = connect(client_fd, (struct sockaddr *)&host_addr,
-                sizeof(struct sockaddr_in));
+  err = connect(client_fd, (struct sockaddr *)&host_addr, sizeof(struct sockaddr_in));
   if (err < 0) {
     printk("Connect failed : %d\n", errno);
     goto error;
@@ -159,8 +150,7 @@ void serial_cb(const struct device *dev, void *user_data) {
   }
 
   while (uart_irq_rx_ready(uart_dev)) {
-    *rx_buf_pos += uart_fifo_read(uart_dev, &rx_buf[*rx_buf_pos],
-                                  rx_buf_len - *rx_buf_pos);
+    *rx_buf_pos += uart_fifo_read(uart_dev, &rx_buf[*rx_buf_pos], rx_buf_len - *rx_buf_pos);
 
     if (*rx_buf_pos == rx_buf_len) {
       k_sem_give(&profile_received);
@@ -173,18 +163,17 @@ void main(void) {
   printk("SoftSIM sample started.\n");
 
   if (!nrf_sofsim_check_provisioned()) {
-
     if (!device_is_ready(uart_dev)) {
       printk("UART device not found!");
       return;
     }
 
-    char *profile_read_from_external_source = k_malloc(332);
+    char *profile_read_from_external_source = k_malloc(PROFILE_SIZE);
     assert(profile_read_from_external_source != NULL);
 
     struct rx_buf_t rx = {
         .buf = profile_read_from_external_source,
-        .len = 332,
+        .len = PROFILE_SIZE,
         .pos = 0,
     };
 
@@ -192,12 +181,11 @@ void main(void) {
     uart_irq_rx_enable(uart_dev);
 
     do {
-      printk("Waiting for profile...\n");
-    } while (k_sem_take(&profile_received, K_SECONDS(10)));
+      LOG_INF("Waiting for profile... %d/%d\n", rx.pos, rx.len);
+    } while (k_sem_take(&profile_received, K_SECONDS(20)));
 
     uart_irq_rx_disable(uart_dev);
 
-    printk("Provisioning profile...\n");
     nrf_sofsim_provision((uint8_t *)profile_read_from_external_source, rx.pos);
 
     if (profile_read_from_external_source != NULL) {
