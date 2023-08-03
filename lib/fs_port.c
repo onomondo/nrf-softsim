@@ -446,10 +446,10 @@ int port_provision(struct ss_profile *profile) {
   if (nvs_write(&fs, entry->key, profile->A004, sizeof(profile->A004)) < 0) goto out_err;
   entry->_flags = 0;
 
-  LOG_INF("Provisioning SoftSIM 4/4");
-
   // This is for test now. Removes uicc suspend flag as it isn't supported *yet* in softsim
   // Modem seems to 'deactivate' sim more often instead which isn't good :/
+
+  // Enable the following to remove the uicc suspend flag
 
   // entry = (struct cache_entry *)f_cache_find_by_name("/3f00/2f08", &fs_cache);
   // if (nvs_write(&fs, entry->key, "0a05000000", 10) < 0) goto out_err;
