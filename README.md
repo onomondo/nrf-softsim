@@ -59,7 +59,9 @@ The main point here is that EF_DIR, EF_PL, EF_UMPC etc are the same for all SIMs
 
 To accomodate that we've created a bootstrapping filesystem that should be flashed together with the application.
 
+<p align="center">
  <img width="338" src="https://github.com/onomondo/nrf-softsim/assets/46489969/4de502a0-a2c9-4759-b2ed-74ae0adaef25">
+</p>
 
 
 The list of files is fairly involved - but in the end only a subset of files are ever accessed. 
@@ -70,8 +72,9 @@ Internally this is a NVS partition which is a `key-value` store type. It is pret
 
 We've made a caching layer as well to avoid i) slow reads ii) excessive writes to flash. So actually the SoftSIM profile data looks something like this:
 
-
+<p align="center">
  <img width="358" src="https://github.com/onomondo/nrf-softsim/assets/46489969/e778a7ea-4d5e-4ed0-aff0-f162f9894dbe">
+</p>
 
 
 The first entry is used to translate between paths (`'3f00/2fe2`) to an actual `NVS key`. It contains an ordered list of files sorted by frequency of access - i.e. the 'master file, 3f00' is in the top since it is most frequenctly accessed. 
@@ -82,8 +85,9 @@ The first entry is used to translate between paths (`'3f00/2fe2`) to an actual `
 
 
 List is read and parsed to a linked list - and this makes the base for all cached operations. The order makes the lookup very fast in most cases.
-
+<p align="center">
  <img height="338" src="https://github.com/onomondo/nrf-softsim/assets/46489969/b1fef4e6-623e-4df5-9fa5-db645a23dd8c">
+</p>
 
 
 
@@ -126,7 +130,9 @@ ss_utils_setup_key(KMU_KEY_SIZE, profile.KID, KEY_ID_KID);
 
 When a device finds a network it want to attach to something like this happens:
 
+<p align="center">
 <img height="600" src="https://github.com/onomondo/nrf-softsim/assets/46489969/54703e7d-6cca-402f-a747-cc2b3a2455b7">
+</p>
 
 
 
@@ -252,6 +258,7 @@ The inital DIR is designed to prioritize most accessed files as well. Internally
 Either call `nrf_softsim_init()` explicitly or let the kernel do it on boot with the config option. 
 
 SoftSIM entrypoint starts its own workqueue and returns immidiately after. The handler installed with `nrf_modem_softsim_req_handler_set()` will enqueue request as they come and the workqueue will unblock and handle the request. The softsim context will be blocked most of the time. The main interaction happens on boot. 
+
 
 ![softsim_nrf_flow](https://github.com/onomondo/nrf-softsim/assets/46489969/7513bb06-99b3-4de4-95bb-34884a9726ed)
 
