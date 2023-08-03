@@ -57,7 +57,9 @@ And the list goes on...
 
 The main point here is that EF_DIR, EF_PL, EF_UMPC etc are the same for all SIMs. Only the ICCID and IMSI is different across SIMs when they are fresh out of the factory.
 
-To accomodate that we've created a bootstrapping filesystem that should be flashed together with the application. <img width="338" src="https://github.com/onomondo/nrf-softsim/assets/46489969/4de502a0-a2c9-4759-b2ed-74ae0adaef25">
+To accomodate that we've created a bootstrapping filesystem that should be flashed together with the application.
+
+ <img width="338" src="https://github.com/onomondo/nrf-softsim/assets/46489969/4de502a0-a2c9-4759-b2ed-74ae0adaef25">
 
 
 The list of files is fairly involved - but in the end only a subset of files are ever accessed. 
@@ -66,12 +68,17 @@ Internally this is a NVS partition which is a `key-value` store type. It is pret
 
 `00a408040000022fe20168` -> `open('/3f00/2fe2)` -> `nvs_read(id=14)`
 
-We've made a caching layer as well to avoid i) slow reads ii) excessive writes to flash. So actually the SoftSIM profile data looks something like this
+We've made a caching layer as well to avoid i) slow reads ii) excessive writes to flash. So actually the SoftSIM profile data looks something like this:
+
+
  <img width="358" src="https://github.com/onomondo/nrf-softsim/assets/46489969/e778a7ea-4d5e-4ed0-aff0-f162f9894dbe">
 
 
 The first entry is used to translate between paths (`'3f00/2fe2`) to an actual `NVS key`. It contains an ordered list of files sorted by frequency of access - i.e. the 'master file, 3f00' is in the top since it is most frequenctly accessed. 
+
+<p align="center">
 <img width="280" alt="image-3" src="https://github.com/onomondo/nrf-softsim/assets/46489969/89515114-c3e7-4d2f-ae4f-6797c6411a1f">
+</p>
 
 
 List is read and parsed to a linked list - and this makes the base for all cached operations. The order makes the lookup very fast in most cases.
