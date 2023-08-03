@@ -113,7 +113,9 @@ static void softsim_req_task(struct k_work *item) {
           ctx = ss_new_ctx();
         }
 
-        ss_reset(ctx);
+        if (!ss_is_suspended(ctx)) {
+          ss_reset(ctx);
+        }
 
         int atr_len = ss_atr(ctx, softsim_buffer_out, SIM_HAL_MAX_LE);
 
@@ -133,15 +135,18 @@ static void softsim_req_task(struct k_work *item) {
         if (err) {
           LOG_ERR("SoftSIM APDU response failed with err: %d", err);
         }
+
         break;
       }
       case NRF_MODEM_SOFTSIM_DEINIT: {
         LOG_INF("SoftSIM DEINIT REQ");
 
-        if (ctx) {
+        if (ctx && !ss_is_suspended(ctx)) {  // ignore if suspended. Then we just keep the context around
           ss_free_ctx(ctx);
           ctx = NULL;
           deinit_fs();  // Commit any cached changes to flash
+        } else {
+          LOG_INF("SoftSIM suspended. Keeping context.");
         }
 
         err = nrf_modem_softsim_res(s_req->req, s_req->req_id, NULL, 0);
