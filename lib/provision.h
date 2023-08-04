@@ -17,19 +17,16 @@
  * @param blob pointer to blob of data
  * @param size size of blob
  */
-void generate_dir_table_from_blob(struct ss_list * dirs, uint8_t * blob, size_t size);
-
-int port_provision(char * profile, size_t len);
-
+void generate_dir_table_from_blob(struct ss_list* dirs, uint8_t* blob, size_t size);
 
 #ifdef BOOTSTRAP_TEST
 
 // demo only
-char * getFilePointer(const char * path);
+char* getFilePointer(const char* path);
 
 // demo only
-void generate_dir_blob(uint8_t ** data, size_t * size);
+void generate_dir_blob(uint8_t** data, size_t* size);
 
-#endif // BOOTSTRAP_TEST
+#endif  // BOOTSTRAP_TEST
 
-#endif // _PROVISION_H_
+#endif  // _PROVISION_H_

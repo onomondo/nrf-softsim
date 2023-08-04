@@ -11,6 +11,7 @@
 
 #include "f_cache.h"
 #include "provision.h"
+#include "profile.h"
 
 K_SEM_DEFINE(rw_sem, 1, 1);
 
