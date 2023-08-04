@@ -19,18 +19,25 @@ SoftSIM relies on some default config - basically a template profile that needs 
 
 `nrfjprog -f NRF91 --sectorerase --log --program path/to/profile/template.hex`
 
-Using the `nRF Connect for Desktop` you can write both things in one go as well. Just add the template and you application and press `erease and write`.
+Using the `nRF Connect for Desktop` you can write both things in one go as well. Just add the template and you application and press `erase and write`.
 
 Or merge it into your `merged.hex` and flash everything in one go.
 
 ## Changelog 2023-08-03
-- Removed internal AES implementation in order to use psa_crypto_xxx libraries instead
-- Key management offloaded to KMU and psa_crypto_xxx api
-- Profile encoding optimized. Backwards compability is easier to ensure in the future.
-- Added experimental support for UICC Suspend. Doesn't really make sense in the SoftSIM context, but we wan't to avoid writes to flash whereever possible.
-- Updated sample to reboot after provisioning. This frees the UART for AT commands etc.
-- Removed PSA_PROTECTED storage references.
-- Correctly commit updated files on DE-INIT requests. This reduces time to attach greatly on next boot as EF_LOCI is now correctly committed to flash. Typical time to attach < 4 seconds from boot.
+- Upgraded cryptographic functionality by replacing the internal AES implementation with the Nordic Security Module, leveraging the Arm CryptoCell cc3xx hardware acceleration for improved security and efficiency.
+- Enhanced key management by offloading it to the internal Key Management Unit.
+- Implemented TLV encoding for profiles to ensure seamless backwards compatibility in future updates.
+- Introduced experimental support for UICC Suspend, aimed at reducing unnecessary flash writes, although it may not be directly applicable to the SoftSIM context.
+- Added reboot sequence after provisioning the softsim in the provided sample, freeing the UART for AT commands.
+- Dropped support for psa_protected_storage to reduce complexity and optimize code size
+- Improved file updates on deinit requests, resulting in a significant reduction in the time to attach during the next boot, with a typical attachment time now under 4 seconds from boot.
+
+### LTE-M attaching after reboot
+
+Since the EF_LOCI is correctly updated now the device can attach significantly faster. 
+
+<img width="884" alt="image" src="https://github.com/onomondo/nrf-softsim/assets/46489969/7e880629-b69f-437c-a4b1-5da4328f6b75">
+
 
 ## Planned changes
 - Profile re-exporting.
