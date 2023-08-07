@@ -3,7 +3,7 @@
 manifest:
   projects:
     - name: nrf
-      revision: v2.2-branch-softsim
+      revision: v2.4-branch-softsim
       url: git@github.com:NordicSemiconductor/sdk-nrf-softsim.git
       import: true
 
