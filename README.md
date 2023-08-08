@@ -31,6 +31,7 @@ Or merge it into your `merged.hex` and flash everything in one go.
 - Added reboot sequence after provisioning the softsim in the provided sample, freeing the UART for AT commands.
 - Dropped support for psa_protected_storage to reduce complexity and optimize code size
 - Improved file updates on deinit requests, resulting in a significant reduction in the time to attach during the next boot, with a typical attachment time now under 4 seconds from boot.
+- Bumped to nrf-sdk-2.4
 
 ### LTE-M attaching after reboot
 
