@@ -8,3 +8,7 @@ config SOFTSIM_AUTO_INIT
     default y
     help
         Automatically initialize SoftSIM when the modem is powered on.
+
+module = SOFTSIM
+module-str = Onomondo-SoftSIM
+source "${ZEPHYR_BASE}/subsys/logging/Kconfig.template.log_config"

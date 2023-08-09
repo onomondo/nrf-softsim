@@ -13,8 +13,6 @@
 #include "provision.h"
 #include "profile.h"
 
-K_SEM_DEFINE(rw_sem, 1, 1);
-
 LOG_MODULE_DECLARE(softsim);
 
 static struct nvs_fs fs;
@@ -29,12 +27,6 @@ static struct ss_list fs_cache;
 #define A001_LEN (66)
 #define A004_LEN (228)
 #define ICCID_LEN (20)
-#define PROFILE_LEN (IMSI_LEN + A001_LEN + A004_LEN + ICCID_LEN)
-
-#define IMSI_OFFSET (0)
-#define A001_OFFSET (IMSI_OFFSET + IMSI_LEN)
-#define A004_OFFSET (A001_OFFSET + A001_LEN)
-#define ICCID_OFFSET (A004_OFFSET + A004_LEN)
 
 #define IMSI_PATH "/3f00/7ff0/6f07"
 #define ICCID_PATH "/3f00/2fe2"
