@@ -13,7 +13,7 @@
 static void softsim_req_task(struct k_work *item);
 int port_provision(struct ss_profile *profile);
 
-LOG_MODULE_REGISTER(softsim);
+LOG_MODULE_REGISTER(softsim, CONFIG_SOFTSIM_LOG_LEVEL);
 
 #define SOFTSIM_STACK_SIZE 10000  // TODO: this is too much. Figure out some more reasonable value.
 #define SOFTSIM_PRIORITY 5        // TODO: What is a good balence here?
