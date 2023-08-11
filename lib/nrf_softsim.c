@@ -115,6 +115,7 @@ static void softsim_req_task(struct k_work *item) {
 
         if (!ss_is_suspended(ctx)) {
           ss_reset(ctx);
+          init_fs();
         }
 
         int atr_len = ss_atr(ctx, softsim_buffer_out, SIM_HAL_MAX_LE);
@@ -127,6 +128,8 @@ static void softsim_req_task(struct k_work *item) {
         break;
       }
       case NRF_MODEM_SOFTSIM_APDU: {
+        LOG_HEXDUMP_DBG(s_req->payload.data, s_req->payload.data_len, "SoftSIM APDU request");
+
         size_t req_len = s_req->payload.data_len;
         size_t rsp_len =
             ss_command_apdu_transact(ctx, softsim_buffer_out, SIM_HAL_MAX_LE, s_req->payload.data, &req_len);
@@ -136,6 +139,7 @@ static void softsim_req_task(struct k_work *item) {
           LOG_ERR("SoftSIM APDU response failed with err: %d", err);
         }
 
+        LOG_HEXDUMP_DBG(softsim_buffer_out, rsp_len, "SoftSIM APDU response");
         break;
       }
       case NRF_MODEM_SOFTSIM_DEINIT: {
