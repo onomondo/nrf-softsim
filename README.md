@@ -22,7 +22,10 @@ SoftSIM relies on some default config - basically a template profile that needs 
 Using the `nRF Connect for Desktop` you can write both things in one go as well. Just add the template and you application and press `erase and write`.
 
 Or merge it into your `merged.hex` and flash everything in one go.
-
+## Changelog 2023-08-11
+- Bug fix. Device was unable to re-initialize SIM after deactivation.
+- Additional logging can now be enabled
+- SoftSIM log level now set with `CONFIG_SOFTSIM_LOG_xxx`
 ## Changelog 2023-08-03
 - Upgraded cryptographic functionality by replacing the internal AES implementation with the Nordic Security Module, leveraging the Arm CryptoCell cc3xx hardware acceleration for improved security and efficiency.
 - Enhanced key management by offloading it to the internal Key Management Unit.
