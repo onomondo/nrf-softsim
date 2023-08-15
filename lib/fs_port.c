@@ -58,14 +58,6 @@ int init_fs() {
   uint8_t *data = NULL;
   size_t len = 0;
 
-#ifdef BOOTSTRAP_TEST
-  /*************************
-   * Bootstrapping not needed for prod version. Content will be flashed with
-   *application.
-   **************************/
-  uint8_t isDemoBootstrapping = 0;
-#endif
-
   fs.flash_device = NVS_PARTITION_DEVICE;
   fs.sector_size = 0x1000;  // where to read this? :DT_PROP(NVS_PARTITION,  erase_block_size);  //<0x1000>
   fs.sector_count = FLASH_AREA_SIZE(storage_partition) / fs.sector_size;
