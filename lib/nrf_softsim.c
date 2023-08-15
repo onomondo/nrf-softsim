@@ -92,9 +92,18 @@ int nrf_sofsim_provision(uint8_t *profile_r, size_t len) {
   ss_utils_setup_key(KMU_KEY_SIZE, profile.K, KEY_ID_KI);
   ss_utils_setup_key(KMU_KEY_SIZE, profile.KIC, KEY_ID_KIC);
   ss_utils_setup_key(KMU_KEY_SIZE, profile.KID, KEY_ID_KID);
-  printk("entering port provision\n");
-  return port_provision(&profile);
-  // return port_provision(profile, len);
+
+  LOG_INF("SoftSIM keys written to KMU");
+
+  int status = port_provision(&profile);
+
+  if (status != 0) {
+    LOG_ERR("SoftSIM failed to update profile");
+  } else {
+    LOG_INF("SoftSIM fully provisioned");
+  }
+
+  return status;
 }
 
 int nrf_sofsim_check_provisioned(void) { return ss_utils_check_key_existence(KEY_ID_KI); }
@@ -108,7 +117,7 @@ static void softsim_req_task(struct k_work *item) {
   while ((s_req = k_fifo_get(&softsim_req_fifo, K_NO_WAIT))) {
     switch (s_req->req) {
       case NRF_MODEM_SOFTSIM_INIT: {
-        LOG_INF("SoftSIM INIT REQ");
+        LOG_DBG("SoftSIM INIT REQ");
         if (!ctx) {  // This check is needed since multiple INIT requests can be sent
           ctx = ss_new_ctx();
         }
@@ -150,7 +159,7 @@ static void softsim_req_task(struct k_work *item) {
           ctx = NULL;
           deinit_fs();  // Commit any cached changes to flash
         } else {
-          LOG_INF("SoftSIM suspended. Keeping context.");
+          LOG_DBG("SoftSIM suspended. Keeping context.");
         }
 
         err = nrf_modem_softsim_res(s_req->req, s_req->req_id, NULL, 0);
@@ -161,7 +170,7 @@ static void softsim_req_task(struct k_work *item) {
         break;
       }
       case NRF_MODEM_SOFTSIM_RESET: {
-        LOG_INF("SoftSIM RESET");
+        LOG_DBG("SoftSIM RESET");
 
         ss_reset(ctx);
 
