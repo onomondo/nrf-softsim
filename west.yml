@@ -1,10 +1,14 @@
 # NCS Workflow 4: Application as the manifest repo
 # https://developer.nordicsemi.com/nRF_Connect_SDK/doc/latest/nrf/dm_adding_code.html
 manifest:
+  remotes:
+    - name: NordicSemiconductor
+      url-base: https://github.com/NordicSemiconductor
   projects:
-    - name: nrf
+    - name: sdk-nrf-softsim
+      path: nrf
       revision: v2.4-branch-softsim
-      url: git@github.com:NordicSemiconductor/sdk-nrf-softsim.git
+      remote: NordicSemiconductor
       import: true
 
   self:

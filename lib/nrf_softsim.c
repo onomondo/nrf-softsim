@@ -8,6 +8,8 @@
 #include <zephyr/kernel.h>
 #include <zephyr/logging/log.h>
 #include <onomondo/softsim/fs_port.h>
+#include <nrf_modem_at.h>
+#include <modem/nrf_modem_lib.h>
 #include "crypto_port.h"
 #include "profile.h"
 static void softsim_req_task(struct k_work *item);
@@ -46,7 +48,7 @@ static void softsim_req_task(struct k_work *item);
 static void nrf_modem_softsim_req_handler(enum nrf_modem_softsim_cmd req, uint16_t req_id, void *data,
                                           uint16_t data_len);
 
-int onomondo_init(const struct device *) {
+int onomondo_init(void) {
   /**
    * Init here?
    * Pro: pretty smooth :) -> no need to init and deinit more than needed..
@@ -81,7 +83,7 @@ int onomondo_init(const struct device *) {
 }
 
 // public init
-int nrf_softsim_init(void) { return onomondo_init(NULL); }
+int nrf_softsim_init(void) { return onomondo_init(); }
 
 // public provision api
 int nrf_sofsim_provision(uint8_t *profile_r, size_t len) {
@@ -215,4 +217,14 @@ void nrf_modem_softsim_req_handler(enum nrf_modem_softsim_cmd req, uint16_t req_
 
 #ifdef CONFIG_SOFTSIM_AUTO_INIT
 SYS_INIT(onomondo_init, APPLICATION, 0);
+
+static void on_modem_lib_init(int ret, void *ctx) {
+  int err;
+
+  err = nrf_modem_at_printf("AT%%CSUS=2");
+  if (err) {
+    LOG_ERR("Failed to select software SIM.");
+  }
+}
+NRF_MODEM_LIB_ON_INIT(sim_select_hook, on_modem_lib_init, NULL);
 #endif
