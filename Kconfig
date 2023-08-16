@@ -1,13 +1,26 @@
 config SOFTSIM
     bool "SoftSIM"
     depends on NVS
+    depends on FLASH
+    depends on FLASH_MAP
+    depends on FLASH_PAGE_LAYOUT
+    depends on MPU_ALLOW_FLASH_WRITE
+    depends on BUILD_WITH_TFM
+    depends on TFM_PROFILE_TYPE_MEDIUM
 
+if SOFTSIM
 
 config SOFTSIM_AUTO_INIT
     bool "Automatically initialize SoftSIM"
     default y
     help
         Automatically initialize SoftSIM when the modem is powered on.
+
+config SOFTSIM_DEBUG
+    bool "Enable debug messages for SoftSIM"
+    default n
+
+endif #SOFTSIM
 
 module = SOFTSIM
 module-str = Onomondo-SoftSIM

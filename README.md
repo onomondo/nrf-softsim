@@ -2,26 +2,115 @@
 
 # PLEASE NOTE THAT THE PROFILE FORMATTING HAS CHANGED TO A MORE ROBUST FORMAT IN THIS RELEASE. 
 
-## TL;DR 
-Find a nice spot for the NCS to live and initialize with west
+## Setup
 
-`west init -m git@github.com:onomondo/nrf-softsim.git`
+Update manifest to point to `west.yml` inside this repository:
 
-`west update`
-This will fetch `onomondo-softsim` as a module. 
+```
+west config manifest.path nrf-softsim-dev
+west update
+```
 
-You might need to follow some of these steps if it's the first time working with NCS: https://developer.nordicsemi.com/nRF_Connect_SDK/doc/latest/nrf/gs_installing.html
+This will fetch from the required private repositories for `sdk-nrf` (`sdk-nrf-softsim`) and `sdk-nrfxlib` (`sdk-nrfxlib-softsim`).
 
+## Configuring and building
 
-`cd modules/lib/onomondo-softsim/samples/softsim && west build` to get the sample up and running. 
+For most samples and applications, it's sufficient to build by executing the following command:
+```
+west build -b nrf9160dk_nrf9160_ns -- "-DOVERLAY_CONFIG=$PATH_TO_ONOMONDO_SOFTSIM/overlay-softsim.conf"
+```
+Where `PATH_TO_ONOMONDO_SOFTSIM` is the path of the downloaded Onomondo SoftSIM repository, for example `$HOME/ncs/nrf-softsim-dev`.
 
-SoftSIM relies on some default config - basically a template profile that needs to be customized in order to attach. With default parameters it has a static address. To flash this seperately do:
+Some applications will fail to link with error `zephyr/zephyr_pre0.elf uses VFP register arguments` (for example `modem_shell`). In this case it is required to also enable `CONFIG_FP_SOFTABI=y`. It is suggested to create an additional Kconfig overlay for application specific SoftSIM configurations and add them to `overlay-softsim.conf` inside
+the application directory.
+The application can then be built like this:
+```
+west build -b nrf9160dk_nrf9160_ns -- "-DOVERLAY_CONFIG=overlay-softsim.conf;$PATH_TO_ONOMONDO_SOFTSIM/overlay-softsim.conf"
+```
 
+### Note
+
+For very large applications, it is required to disable features in order to reduce the size of the application binary and leave space on Flash for the SIM profile. 
+During the build step, a Flash overflow error will be reported if this requirement is not satisfied.
+The same principle applies for RAM requirements.
+
+### Note
+
+It is expected, and checked at build time, that the `nvs_storage` partition used by Onomondo SoftSIM has a base address of `0xe8000` and size `0x8000`. This can be checked by
+opening a terminal inside the target application, and running:
+`west build -t partition_manager_report`
+It will show an output similar to this:
+```
+  flash_primary (0x100000 - 1024kB): 
++----------------------------------------------+
++---0x0: tfm_secure (0x40000 - 256kB)----------+
+| 0x0: tfm (0x40000 - 256kB)                   |
++---0x40000: tfm_nonsecure (0xa8000 - 672kB)---+
+| 0x40000: app (0xa8000 - 672kB)               |
++---0xe8000: nonsecure_storage (0x8000 - 32kB)-+
+| 0xe8000: nvs_storage (0x8000 - 32kB)         | <<<<<<<<<
++----------------------------------------------+
+| 0xf0000: EMPTY_1 (0x4000 - 16kB)             |
++---0xf4000: tfm_storage (0x8000 - 32kB)-------+
+| 0xf4000: tfm_its (0x2000 - 8kB)              |
+| 0xf6000: tfm_otp_nv_counters (0x2000 - 8kB)  |
+| 0xf8000: tfm_ps (0x4000 - 16kB)              |
++----------------------------------------------+
+| 0xfc000: EMPTY_0 (0x4000 - 16kB)             |
++----------------------------------------------+
+
+  otp (0x2f4 - 756B): 
++------------------------------+
+| 0xff8108: otp (0x2f4 - 756B) |
++------------------------------+
+
+  sram_primary (0x40000 - 256kB): 
++--------------------------------------------------+
++---0x20000000: sram_secure (0x16000 - 88kB)-------+
+| 0x20000000: tfm_sram (0x16000 - 88kB)            |
++---0x20016000: sram_nonsecure (0x2a000 - 168kB)---+
++---0x20016000: nrf_modem_lib_sram (0x4568 - 17kB)-+
+| 0x20016000: nrf_modem_lib_ctrl (0x4e8 - 1kB)     |
+| 0x200164e8: nrf_modem_lib_tx (0x2080 - 8kB)      |
+| 0x20018568: nrf_modem_lib_rx (0x2000 - 8kB)      |
++--------------------------------------------------+
+| 0x2001a568: sram_primary (0x25a98 - 150kB)       |
++--------------------------------------------------+
+```
+It is expected that the `nvs_storage` partition has base address `0xe8000` and is contained within `nonsecure_storage`, otherwise the application will crash.
+
+### Note
+
+Onomondo SoftSIM uses the heap memory pool. It is expected that `CONFIG_HEAP_MEM_POOL_SIZE` is at least `30000` so if the target application also uses the heap please
+consider adjusting this Kconfig accordingly.
+
+### Note
+
+Due to how the Partition Manager is currently configured in NCS, Onomondo SoftSIM cannot coexist with `CONFIG_SETTINGS` with NVS backend `CONFIG_SETTINGS_NVS`. Please consider
+switching instead to FCB backend by enabling `CONFIG_SETTINGS_FCB`.
+
+## Building, flashing and running
+
+Before flashing an application that supports Onomondo SoftSIM, it is expected that a SIM profile has been provisioned.
+To do so, follow the `Configuring and building` steps to build the `softsim` sample, used for provisioning, that can be found in this repository.
+After building the `softsim` sample, flash it and flash the `template.hex` template SIM profile that can be found in the `lib/profile` directory.
+
+Flash template SIM profile:
 `nrfjprog -f NRF91 --sectorerase --log --program path/to/profile/template.hex`
 
-Using the `nRF Connect for Desktop` you can write both things in one go as well. Just add the template and you application and press `erase and write`.
+Flash sample:
+`nrfjprog -f NRF91 --sectorerase --log --program /path/to/build/zephyr/merged.hex --reset`
 
-Or merge it into your `merged.hex` and flash everything in one go.
+While running, the sample will wait for a new profile to be provisioned if there isn't one already.
+Use the following command inside a terminal to provision the profile (tested on Ubuntu):
+`echo 1234...789 > /dev/ttyACM0`
+
+## Software SIM selection
+
+The Modem is runtime-configurable to use regular SIM and/or SoftSIM (iSIM). The configuration is done by the AT command `AT%CSUS=2` for Software SIM selection. The configuration can be done only when the Modem is deactivated. When reverting to physical SIM, configure with the AT command `AT%CSUS=0`. SIM selection is committed to NVM after a `AT+CFUN=0`.
+
+When enabling SoftSIM, the Software SIM will be selected automatically upon initialization.
+
 ## Changelog 2023-08-11
 - Bug fix. Device was unable to re-initialize SIM after deactivation.
 - Additional logging can now be enabled
@@ -44,7 +133,6 @@ Since the EF_LOCI is correctly updated now the device can attach significantly f
 
 
 ## Planned changes
-- Profile re-exporting.
 - Profile space optimization
   - Store as raw bytes instead of the debug friendly HEX format
   - Expected to give some performance improvements

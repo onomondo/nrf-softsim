@@ -1,6 +1,8 @@
 zephyr_library()
 
-zephyr_library_sources(nrf_softsim.c fs_port.c provision.c f_cache.c heap_port.c profile.c crypto_port.c)
+include_directories(include)
+
+zephyr_library_sources(nrf_softsim.c fs_port.c provision.c f_cache.c heap_port.c profile.c crypto_port.c build_asserts.c )
 
 zephyr_library_import(crypto ${CMAKE_CURRENT_SOURCE_DIR}/libcrypto.a)
 zephyr_library_import(milenage ${CMAKE_CURRENT_SOURCE_DIR}/libmilenage.a)
