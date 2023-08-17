@@ -23,7 +23,7 @@ int nrf_softsim_init(void);
  * @param len Length of profile passed
  * @return 0 on success
  */
-int nrf_sofsim_provision(uint8_t *profile, size_t len);
+int nrf_softsim_provision(uint8_t *profile, size_t len);
 
 /**
  * @brief Check if a SoftSIM profile is provisioned in protected storage.

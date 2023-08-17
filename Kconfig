@@ -20,6 +20,17 @@ config SOFTSIM_DEBUG
     bool "Enable debug messages for SoftSIM"
     default n
 
+config SOFTSIM_STATIC_PROFILE_ENABLE
+    bool "Enable static profile"
+    default n
+    help
+        Enable static profile to use for SoftSIM. Developement only.
+
+config SOFTSIM_STATIC_PROFILE
+    string "Static profile"
+    depends on SOFTSIM_STATIC_PROFILE_ENABLE
+    help
+        Static profile to use for SoftSIM. If empty, the profile should be passed during runtime (just once via nrf_softsim_provision)
 endif #SOFTSIM
 
 module = SOFTSIM

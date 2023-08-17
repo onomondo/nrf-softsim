@@ -12,6 +12,7 @@
 #include <modem/nrf_modem_lib.h>
 #include "crypto_port.h"
 #include "profile.h"
+#include <autoconf.h>
 static void softsim_req_task(struct k_work *item);
 int port_provision(struct ss_profile *profile);
 
@@ -61,6 +62,15 @@ int onomondo_init(void) {
    */
   int rc = init_fs();
 
+#ifdef CONFIG_SOFTSIM_STATIC_PROFILE_ENABLE
+#pragma message "Using static profile. Only for development!"
+  size_t profile_len = strlen(CONFIG_SOFTSIM_STATIC_PROFILE);
+
+  if (!nrf_sofsim_check_provisioned()) {
+    nrf_softsim_provision((uint8_t *)CONFIG_SOFTSIM_STATIC_PROFILE, profile_len);
+  }
+#endif
+
   if (rc) {
     LOG_ERR("FS failed to init..\n");
     return -1;
@@ -86,7 +96,7 @@ int onomondo_init(void) {
 int nrf_softsim_init(void) { return onomondo_init(); }
 
 // public provision api
-int nrf_sofsim_provision(uint8_t *profile_r, size_t len) {
+int nrf_softsim_provision(uint8_t *profile_r, size_t len) {
   struct ss_profile profile = {0};
   decode_profile(len, profile_r, &profile);
 
