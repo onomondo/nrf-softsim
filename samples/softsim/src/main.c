@@ -193,7 +193,7 @@ void main(void) {
 
     uart_irq_rx_disable(uart_dev);
 
-    nrf_sofsim_provision((uint8_t *)profile_read_from_external_source, rx.pos);
+    nrf_softsim_provision((uint8_t *)profile_read_from_external_source, rx.pos);
 
     if (profile_read_from_external_source != NULL) {
       k_free(profile_read_from_external_source);

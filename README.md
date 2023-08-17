@@ -258,7 +258,7 @@ The milenage algorithm is `AES` based and we utilize the KMU through the `psa_cr
 #### Provisioning SoftSIMs 
 
 Is done through a pretty simple interface -
-`nrf_sofsim_provision(uint8_t * data, size_t len)` decodes and write the profile to the appropriate places. 
+`nrf_softsim_provision(uint8_t * data, size_t len)` decodes and write the profile to the appropriate places. 
 The profile is fetched from Onomondo's API. The sample uses UART to transfer it. 
 
 At any time the provisioning status can be queried with `nrf_sofsim_check_provisioned()`. Handy when boothing up as the device can enter a provision mode based on this. 
