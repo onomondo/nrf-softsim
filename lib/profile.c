@@ -88,17 +88,18 @@ void decode_profile(size_t len, uint8_t data[static len], struct ss_profile *pro
 
   // stucture (a004) [TAR[3] | MSL | KIC_IND | KID_IND | KIC[32] | KID[32] |
   // "ffff..."]
-  char *a004_header = "b00011060303";
+  char *a004_header = "b00011060101";
   const size_t header_size = 12;
   const size_t record_size = header_size + KEY_SIZE + KEY_SIZE;
   memcpy(profile->A004, a004_header, header_size);
+  memset(&profile->A004[header_size], '0', KEY_SIZE * 2);
 
   // set rest to ffff...
   memset(&profile->A004[record_size * 1], 'f', sizeof(profile->A004) - 1 * record_size);
 
   // set KIC KID tags
   profile->A004[header_size] = '0';
-  profile->A004[header_size] = '5';
+  profile->A004[header_size + 1] = '5';
 
   // SET KID TAG
   profile->A004[header_size + KEY_SIZE] = '0';
