@@ -31,6 +31,11 @@ config SOFTSIM_STATIC_PROFILE
     depends on SOFTSIM_STATIC_PROFILE_ENABLE
     help
         Static profile to use for SoftSIM. If empty, the profile should be passed during runtime (just once via nrf_softsim_provision)
+
+config SOFTSIM_BUNDLE_TEMPLATE_HEX
+    bool "Automatically bundle the template profile hex into the application"
+    default n
+
 endif #SOFTSIM
 
 module = SOFTSIM

@@ -1,10 +1,9 @@
-
-
 name: softsim
 build:
   cmake: .
   kconfig: ./Kconfig
-
+  depends:
+    - trusted-firmware-m
 
 samples:
   - samples

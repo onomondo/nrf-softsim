@@ -25,7 +25,7 @@ Some applications will fail to link with error `zephyr/zephyr_pre0.elf uses VFP 
 the application directory.
 The application can then be built like this:
 ```
-west build -b nrf9160dk_nrf9160_ns -- "-DOVERLAY_CONFIG=overlay-softsim.conf;$PATH_TO_ONOMONDO_SOFTSIM/overlay-softsim.conf"
+west build -b nrf9160dk_nrf9160_ns -- "-DOVERLAY_CONFIG=$PATH_TO_ONOMONDO_SOFTSIM/overlay-softsim.conf;overlay-softsim.conf"
 ```
 
 ### Note
@@ -36,74 +36,37 @@ The same principle applies for RAM requirements.
 
 ### Note
 
-It is expected, and checked at build time, that the `nvs_storage` partition used by Onomondo SoftSIM has a base address of `0xe8000` and size `0x8000`. This can be checked by
-opening a terminal inside the target application, and running:
-`west build -t partition_manager_report`
-It will show an output similar to this:
-```
-  flash_primary (0x100000 - 1024kB): 
-+----------------------------------------------+
-+---0x0: tfm_secure (0x40000 - 256kB)----------+
-| 0x0: tfm (0x40000 - 256kB)                   |
-+---0x40000: tfm_nonsecure (0xa8000 - 672kB)---+
-| 0x40000: app (0xa8000 - 672kB)               |
-+---0xe8000: nonsecure_storage (0x8000 - 32kB)-+
-| 0xe8000: nvs_storage (0x8000 - 32kB)         | <<<<<<<<<
-+----------------------------------------------+
-| 0xf0000: EMPTY_1 (0x4000 - 16kB)             |
-+---0xf4000: tfm_storage (0x8000 - 32kB)-------+
-| 0xf4000: tfm_its (0x2000 - 8kB)              |
-| 0xf6000: tfm_otp_nv_counters (0x2000 - 8kB)  |
-| 0xf8000: tfm_ps (0x4000 - 16kB)              |
-+----------------------------------------------+
-| 0xfc000: EMPTY_0 (0x4000 - 16kB)             |
-+----------------------------------------------+
-
-  otp (0x2f4 - 756B): 
-+------------------------------+
-| 0xff8108: otp (0x2f4 - 756B) |
-+------------------------------+
-
-  sram_primary (0x40000 - 256kB): 
-+--------------------------------------------------+
-+---0x20000000: sram_secure (0x16000 - 88kB)-------+
-| 0x20000000: tfm_sram (0x16000 - 88kB)            |
-+---0x20016000: sram_nonsecure (0x2a000 - 168kB)---+
-+---0x20016000: nrf_modem_lib_sram (0x4568 - 17kB)-+
-| 0x20016000: nrf_modem_lib_ctrl (0x4e8 - 1kB)     |
-| 0x200164e8: nrf_modem_lib_tx (0x2080 - 8kB)      |
-| 0x20018568: nrf_modem_lib_rx (0x2000 - 8kB)      |
-+--------------------------------------------------+
-| 0x2001a568: sram_primary (0x25a98 - 150kB)       |
-+--------------------------------------------------+
-```
-It is expected that the `nvs_storage` partition has base address `0xe8000` and is contained within `nonsecure_storage`, otherwise the application will crash.
-
-### Note
-
 Onomondo SoftSIM uses the heap memory pool. It is expected that `CONFIG_HEAP_MEM_POOL_SIZE` is at least `30000` so if the target application also uses the heap please
 consider adjusting this Kconfig accordingly.
 
 ### Note
 
-Due to how the Partition Manager is currently configured in NCS, Onomondo SoftSIM cannot coexist with `CONFIG_SETTINGS` with NVS backend `CONFIG_SETTINGS_NVS`. Please consider
-switching instead to FCB backend by enabling `CONFIG_SETTINGS_FCB`.
+Onomondo SoftSIM cannot coexist with `CONFIG_SETTINGS` with NVS backend `CONFIG_SETTINGS_NVS`. Please consider switching instead to FCB backend by enabling `CONFIG_SETTINGS_FCB`.
 
 ## Building, flashing and running
 
-Before flashing an application that supports Onomondo SoftSIM, it is expected that a SIM profile has been provisioned.
-To do so, follow the `Configuring and building` steps to build the `softsim` sample, used for provisioning, that can be found in this repository.
-After building the `softsim` sample, flash it and flash the `template.hex` template SIM profile that can be found in the `lib/profile` directory.
+To build an application, follow `Configuring and building`. For static provisioning, inside the target application `overlay-softsim.conf` add:
+```
+CONFIG_SOFTSIM_STATIC_PROFILE_ENABLE=y
+CONFIG_SOFTSIM_STATIC_PROFILE="123..."
+```
+This will enable provisioning at system initialization if the device has not been provisioned yet. `CONFIG_SOFTSIM_STATIC_PROFILE` is the string representing
+the unique SIM profile to be provisioned.
 
-Flash template SIM profile:
-`nrfjprog -f NRF91 --sectorerase --log --program path/to/profile/template.hex`
-
-Flash sample:
-`nrfjprog -f NRF91 --sectorerase --log --program /path/to/build/zephyr/merged.hex --reset`
-
-While running, the sample will wait for a new profile to be provisioned if there isn't one already.
-Use the following command inside a terminal to provision the profile (tested on Ubuntu):
-`echo 1234...789 > /dev/ttyACM0`
+### Note
+After building the application, generate the application-specific template profile:
+```
+west build -b nrf9160dk_nrf9160_ns -t onomondo_softsim_template
+```
+Flash the application-specific template profile:
+```
+west flash --hex-file build/onomondo-softsim/template.hex
+```
+If the partition table of the application changes, for example due to another partition changing size, the template profile must be rebuilt and flashed again.
+The partition table can be checked at any time with:
+```
+west build -t partition_manager_report
+```
 
 ## Software SIM selection
 
@@ -261,7 +224,7 @@ Is done through a pretty simple interface -
 `nrf_softsim_provision(uint8_t * data, size_t len)` decodes and write the profile to the appropriate places. 
 The profile is fetched from Onomondo's API. The sample uses UART to transfer it. 
 
-At any time the provisioning status can be queried with `nrf_sofsim_check_provisioned()`. Handy when boothing up as the device can enter a provision mode based on this. 
+At any time the provisioning status can be queried with `nrf_softsim_check_provisioned()`. Handy when boothing up as the device can enter a provision mode based on this. 
 
 
 #### Quick recap
