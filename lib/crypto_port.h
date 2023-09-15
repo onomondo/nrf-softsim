@@ -16,8 +16,8 @@ enum key_identifier_base { KEY_ID_KI = 10, KEY_ID_KIC = 11, KEY_ID_KID = 12, KEY
 
 #define AES_BLOCKSIZE 16
 #define EINVAL 22
-int calc_cc(uint8_t *cc, size_t cc_len, uint8_t *key, size_t key_len, enum enc_algorithm alg, uint8_t *data1,
-            size_t data1_len, uint8_t *data2, size_t data2_len);
+int ss_utils_ota_calc_cc(uint8_t *cc, size_t cc_len, uint8_t *key, size_t key_len, enum enc_algorithm alg,
+                         uint8_t *data1, size_t data1_len, uint8_t *data2, size_t data2_len);
 
 void ss_utils_3des_decrypt(uint8_t *buffer, size_t buffer_len, const uint8_t *key);
 

@@ -13,7 +13,7 @@
 #include "provision.h"
 #include "profile.h"
 
-LOG_MODULE_DECLARE(softsim);
+LOG_MODULE_DECLARE(softsim, CONFIG_SOFTSIM_LOG_LEVEL);
 
 static struct nvs_fs fs;
 static struct ss_list fs_cache;

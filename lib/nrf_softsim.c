@@ -146,6 +146,9 @@ static void softsim_req_task(struct k_work *item) {
         int atr_len = ss_atr(ctx, softsim_buffer_out, SIM_HAL_MAX_LE);
 
         err = nrf_modem_softsim_res(s_req->req, s_req->req_id, softsim_buffer_out, atr_len);
+
+        LOG_HEXDUMP_DBG(softsim_buffer_out, atr_len, "SoftSIM ATR");
+
         if (err) {
           LOG_ERR("SoftSIM INIT response failed with err: %d", err);
         }
@@ -168,7 +171,7 @@ static void softsim_req_task(struct k_work *item) {
         break;
       }
       case NRF_MODEM_SOFTSIM_DEINIT: {
-        LOG_INF("SoftSIM DEINIT REQ");
+        LOG_DBG("SoftSIM DEINIT REQ");
 
         if (ctx && !ss_is_suspended(ctx)) {  // ignore if suspended. Then we just keep the context around
           ss_free_ctx(ctx);
