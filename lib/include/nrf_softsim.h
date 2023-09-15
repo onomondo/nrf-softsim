@@ -31,6 +31,6 @@ int nrf_softsim_provision(uint8_t *profile, size_t len);
  *
  * @return 1 if provisioned, 0 if not
  */
-int nrf_sofsim_check_provisioned(void);
+int nrf_softsim_check_provisioned(void);
 
 #endif /* _NRF_SOFTSIM_H_ */

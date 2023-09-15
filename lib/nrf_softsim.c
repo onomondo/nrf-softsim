@@ -15,6 +15,7 @@
 #include <autoconf.h>
 static void softsim_req_task(struct k_work *item);
 int port_provision(struct ss_profile *profile);
+int port_check_provisioned(void);
 
 LOG_MODULE_REGISTER(softsim, CONFIG_SOFTSIM_LOG_LEVEL);
 
@@ -66,7 +67,7 @@ int onomondo_init(void) {
 #pragma message "Using static profile. Only for development!"
   size_t profile_len = strlen(CONFIG_SOFTSIM_STATIC_PROFILE);
 
-  if (!nrf_sofsim_check_provisioned()) {
+  if (!nrf_softsim_check_provisioned()) {
     nrf_softsim_provision((uint8_t *)CONFIG_SOFTSIM_STATIC_PROFILE, profile_len);
   }
 #endif
@@ -118,7 +119,10 @@ int nrf_softsim_provision(uint8_t *profile_r, size_t len) {
   return status;
 }
 
-int nrf_sofsim_check_provisioned(void) { return ss_utils_check_key_existence(KEY_ID_KI); }
+int nrf_softsim_check_provisioned(void) {
+  /* Check first PSA key and also first NVS key. */
+  return ss_utils_check_key_existence(KEY_ID_KI) && port_check_provisioned();
+}
 
 // still needed?
 __weak void nrf_modem_softsim_reset_handler(void) { LOG_DBG("SoftSIM RESET"); }

@@ -1,10 +1,6 @@
-#include <zephyr/storage/flash_map.h>
+#include <zephyr/zephyr.h>
 #include <autoconf.h>
 
-#define NVS_PARTITION nvs_storage
-#define NVS_PARTITION_OFFSET FIXED_PARTITION_OFFSET(NVS_PARTITION)
-
-#define EXPECTED_PARTITION_BASE_ADDRESS 0xe8000
 #define EXPECTED_PARTITION_SIZE 0x8000
 #define EXPECTED_MIN_HEAP_SIZE 30000
 
@@ -20,9 +16,6 @@ BUILD_ASSERT(CONFIG_HEAP_MEM_POOL_SIZE >= EXPECTED_MIN_HEAP_SIZE, "SoftSIM: "
 #if CONFIG_SETTINGS_NVS
 BUILD_ASSERT(0, "Softsim: Please disable CONFIG_SETTINGS_NVS. Choose CONFIG_SETTINGS_FCB instead.");
 #else
-BUILD_ASSERT(NVS_PARTITION_OFFSET == EXPECTED_PARTITION_BASE_ADDRESS, "SoftSIM: "
-             "nvs_partition base address is not valid. "
-             "Please reconfigure other partitions to satisfy this constraint.");
 BUILD_ASSERT(CONFIG_PM_PARTITION_SIZE_NVS_STORAGE == EXPECTED_PARTITION_SIZE, "SoftSIM: "
              "nvs_partition size is not valid. "
              "Please reconfigure the project.");
