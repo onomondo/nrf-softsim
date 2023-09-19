@@ -168,7 +168,7 @@ void main(void) {
   int32_t err;
   LOG_INF("SoftSIM sample started.");
 
-  if (!nrf_softsim_check_provisioned()) {
+  if (!nrf_sofsim_check_provisioned()) {
     if (!device_is_ready(uart_dev)) {
       LOG_ERR("UART device not found!");
       return;
@@ -193,7 +193,7 @@ void main(void) {
 
     uart_irq_rx_disable(uart_dev);
 
-    nrf_softsim_provision((uint8_t *)profile_read_from_external_source, rx.pos);
+    nrf_sofsim_provision((uint8_t *)profile_read_from_external_source, rx.pos);
 
     if (profile_read_from_external_source != NULL) {
       k_free(profile_read_from_external_source);
@@ -218,7 +218,7 @@ void main(void) {
   /* Software SIM selection */
   err = nrf_modem_at_printf("AT%%CSUS=2");
   if (err) {
-    LOG_ERR("Failed to select softsim, err %d\n", err);
+    LOG_ERR("Failed to select sofsim, err %d\n", err);
     return;
   }
 

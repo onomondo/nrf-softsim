@@ -19,4 +19,14 @@
  */
 void generate_dir_table_from_blob(struct ss_list* dirs, uint8_t* blob, size_t size);
 
+#ifdef BOOTSTRAP_TEST
+
+// demo only
+char* getFilePointer(const char* path);
+
+// demo only
+void generate_dir_blob(uint8_t** data, size_t* size);
+
+#endif  // BOOTSTRAP_TEST
+
 #endif  // _PROVISION_H_

@@ -2,78 +2,26 @@
 
 # PLEASE NOTE THAT THE PROFILE FORMATTING HAS CHANGED TO A MORE ROBUST FORMAT IN THIS RELEASE. 
 
-## Setup
+## TL;DR 
+Find a nice spot for the NCS to live and initialize with west
 
-Update manifest to point to `west.yml` inside this repository:
+`west init -m git@github.com:onomondo/nrf-softsim.git`
 
-```
-west config manifest.path nrf-softsim-dev
-west update
-```
+`west update`
+This will fetch `onomondo-softsim` as a module. 
 
-This will fetch from the required private repositories for `sdk-nrf` (`sdk-nrf-softsim`) and `sdk-nrfxlib` (`sdk-nrfxlib-softsim`).
+You might need to follow some of these steps if it's the first time working with NCS: https://developer.nordicsemi.com/nRF_Connect_SDK/doc/latest/nrf/gs_installing.html
 
-## Configuring and building
 
-For most samples and applications, it's sufficient to build by executing the following command:
-```
-west build -b nrf9160dk_nrf9160_ns -- "-DOVERLAY_CONFIG=$PATH_TO_ONOMONDO_SOFTSIM/overlay-softsim.conf"
-```
-Where `PATH_TO_ONOMONDO_SOFTSIM` is the path of the downloaded Onomondo SoftSIM repository, for example `$HOME/ncs/nrf-softsim-dev`.
+`cd modules/lib/onomondo-softsim/samples/softsim && west build` to get the sample up and running. 
 
-Some applications will fail to link with error `zephyr/zephyr_pre0.elf uses VFP register arguments` (for example `modem_shell`). In this case it is required to also enable `CONFIG_FP_SOFTABI=y`. It is suggested to create an additional Kconfig overlay for application specific SoftSIM configurations and add them to `overlay-softsim.conf` inside
-the application directory.
-The application can then be built like this:
-```
-west build -b nrf9160dk_nrf9160_ns -- "-DOVERLAY_CONFIG=$PATH_TO_ONOMONDO_SOFTSIM/overlay-softsim.conf;overlay-softsim.conf"
-```
+SoftSIM relies on some default config - basically a template profile that needs to be customized in order to attach. With default parameters it has a static address. To flash this seperately do:
 
-### Note
+`nrfjprog -f NRF91 --sectorerase --log --program path/to/profile/template.hex`
 
-For very large applications, it is required to disable features in order to reduce the size of the application binary and leave space on Flash for the SIM profile. 
-During the build step, a Flash overflow error will be reported if this requirement is not satisfied.
-The same principle applies for RAM requirements.
+Using the `nRF Connect for Desktop` you can write both things in one go as well. Just add the template and you application and press `erase and write`.
 
-### Note
-
-Onomondo SoftSIM uses the heap memory pool. It is expected that `CONFIG_HEAP_MEM_POOL_SIZE` is at least `30000` so if the target application also uses the heap please
-consider adjusting this Kconfig accordingly.
-
-### Note
-
-Onomondo SoftSIM cannot coexist with `CONFIG_SETTINGS` with NVS backend `CONFIG_SETTINGS_NVS`. Please consider switching instead to FCB backend by enabling `CONFIG_SETTINGS_FCB`.
-
-## Building, flashing and running
-
-To build an application, follow `Configuring and building`. For static provisioning, inside the target application `overlay-softsim.conf` add:
-```
-CONFIG_SOFTSIM_STATIC_PROFILE_ENABLE=y
-CONFIG_SOFTSIM_STATIC_PROFILE="123..."
-```
-This will enable provisioning at system initialization if the device has not been provisioned yet. `CONFIG_SOFTSIM_STATIC_PROFILE` is the string representing
-the unique SIM profile to be provisioned.
-
-### Note
-After building the application, generate the application-specific template profile:
-```
-west build -b nrf9160dk_nrf9160_ns -t onomondo_softsim_template
-```
-Flash the application-specific template profile:
-```
-west flash --hex-file build/onomondo-softsim/template.hex
-```
-If the partition table of the application changes, for example due to another partition changing size, the template profile must be rebuilt and flashed again.
-The partition table can be checked at any time with:
-```
-west build -t partition_manager_report
-```
-
-## Software SIM selection
-
-The Modem is runtime-configurable to use regular SIM and/or SoftSIM (iSIM). The configuration is done by the AT command `AT%CSUS=2` for Software SIM selection. The configuration can be done only when the Modem is deactivated. When reverting to physical SIM, configure with the AT command `AT%CSUS=0`. SIM selection is committed to NVM after a `AT+CFUN=0`.
-
-When enabling SoftSIM, the Software SIM will be selected automatically upon initialization.
-
+Or merge it into your `merged.hex` and flash everything in one go.
 ## Changelog 2023-08-11
 - Bug fix. Device was unable to re-initialize SIM after deactivation.
 - Additional logging can now be enabled
@@ -96,6 +44,7 @@ Since the EF_LOCI is correctly updated now the device can attach significantly f
 
 
 ## Planned changes
+- Profile re-exporting.
 - Profile space optimization
   - Store as raw bytes instead of the debug friendly HEX format
   - Expected to give some performance improvements
@@ -221,10 +170,10 @@ The milenage algorithm is `AES` based and we utilize the KMU through the `psa_cr
 #### Provisioning SoftSIMs 
 
 Is done through a pretty simple interface -
-`nrf_softsim_provision(uint8_t * data, size_t len)` decodes and write the profile to the appropriate places. 
+`nrf_sofsim_provision(uint8_t * data, size_t len)` decodes and write the profile to the appropriate places. 
 The profile is fetched from Onomondo's API. The sample uses UART to transfer it. 
 
-At any time the provisioning status can be queried with `nrf_softsim_check_provisioned()`. Handy when boothing up as the device can enter a provision mode based on this. 
+At any time the provisioning status can be queried with `nrf_sofsim_check_provisioned()`. Handy when boothing up as the device can enter a provision mode based on this. 
 
 
 #### Quick recap

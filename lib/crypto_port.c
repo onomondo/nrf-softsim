@@ -9,7 +9,7 @@
 #include <zephyr/sys/printk.h>
 #include <zephyr/kernel.h>
 #include <string.h>
-LOG_MODULE_REGISTER(softsim_crypto, CONFIG_SOFTSIM_LOG_LEVEL);
+LOG_MODULE_REGISTER(softsim_crypto);
 
 enum key_identifier_base key_id_to_kmu_slot(uint8_t key_id) {
   switch (key_id) {
@@ -63,8 +63,8 @@ exit:
   return (status);
 }
 
-int ss_utils_ota_calc_cc(uint8_t *cc, size_t cc_len, uint8_t *key, size_t key_len, enum enc_algorithm alg,
-                         uint8_t *data1, size_t data1_len, uint8_t *data2, size_t data2_len) {
+int calc_cc(uint8_t *cc, size_t cc_len, uint8_t *key, size_t key_len, enum enc_algorithm alg, uint8_t *data1,
+            size_t data1_len, uint8_t *data2, size_t data2_len) {
   psa_mac_operation_t operation = PSA_MAC_OPERATION_INIT;
   enum key_identifier_base slot_id = key_id_to_kmu_slot(key[0]);
 
@@ -73,7 +73,6 @@ int ss_utils_ota_calc_cc(uint8_t *cc, size_t cc_len, uint8_t *key, size_t key_le
 
   // ONLY SUPPORTS AES_CMAC on NRF9160 as KMU doesn't support 3DES CMAC
   if (alg != AES_CMAC) {
-    LOG_DBG("Only AES_CMAC supported, supplied alg: %d", alg);
     return -EINVAL;
   }
 
@@ -99,12 +98,12 @@ int ss_utils_ota_calc_cc(uint8_t *cc, size_t cc_len, uint8_t *key, size_t key_le
 
   uint8_t mac_buf[16];
   size_t mac_len, stream_block_size = 16, bytes_processed = 0;
-  // guarenteed to be multiple of 16
-  size_t blocks_data_1 = data1_len / stream_block_size;
 
-  for (size_t i = 0; i < blocks_data_1; i++) {
+  // guarenteed to be multiple of 16
+  while ((data1_len - bytes_processed) > stream_block_size) {
     status = psa_mac_update(&mac_op, data1 + bytes_processed, stream_block_size);
     bytes_processed += stream_block_size;
+
     ASSERT_STATUS(status, PSA_SUCCESS);
   }
 
@@ -122,9 +121,6 @@ int ss_utils_ota_calc_cc(uint8_t *cc, size_t cc_len, uint8_t *key, size_t key_le
   ASSERT_STATUS(status, PSA_SUCCESS);
 
   memcpy(cc, mac_buf, cc_len);
-
-  LOG_HEXDUMP_DBG(cc, cc_len, "CMAC result OTA SMS");
-
 exit:
   psa_mac_abort(&operation);
   return status == PSA_SUCCESS ? 0 : -EINVAL;
