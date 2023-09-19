@@ -13,12 +13,12 @@
 #include "provision.h"
 #include "profile.h"
 
-LOG_MODULE_DECLARE(softsim);
+LOG_MODULE_DECLARE(softsim, CONFIG_SOFTSIM_LOG_LEVEL);
 
 static struct nvs_fs fs;
 static struct ss_list fs_cache;
 
-#define NVS_PARTITION storage_partition
+#define NVS_PARTITION nvs_storage
 #define NVS_PARTITION_DEVICE FIXED_PARTITION_DEVICE(NVS_PARTITION)
 #define NVS_PARTITION_OFFSET FIXED_PARTITION_OFFSET(NVS_PARTITION)
 
@@ -58,17 +58,9 @@ int init_fs() {
   uint8_t *data = NULL;
   size_t len = 0;
 
-#ifdef BOOTSTRAP_TEST
-  /*************************
-   * Bootstrapping not needed for prod version. Content will be flashed with
-   *application.
-   **************************/
-  uint8_t isDemoBootstrapping = 0;
-#endif
-
   fs.flash_device = NVS_PARTITION_DEVICE;
   fs.sector_size = 0x1000;  // where to read this? :DT_PROP(NVS_PARTITION,  erase_block_size);  //<0x1000>
-  fs.sector_count = FLASH_AREA_SIZE(storage_partition) / fs.sector_size;
+  fs.sector_count = FLASH_AREA_SIZE(nvs_storage) / fs.sector_size;
   fs.offset = NVS_PARTITION_OFFSET;
 
   int rc = nvs_mount(&fs);
@@ -401,6 +393,17 @@ int port_remove(const char *path) {
 
 // list for each { is_name_partial_match? {remove port_remove(cursor->name)} }
 int port_rmdir(const char *) { return 0; }  // todo. Remove all entries with directory match.
+
+int port_check_provisioned() {
+  uint8_t buffer[IMSI_LEN] = { 0 };
+  struct cache_entry *entry = (struct cache_entry *)f_cache_find_by_name(IMSI_PATH, &fs_cache);
+
+  if (nvs_read(&fs, entry->key, buffer, IMSI_LEN) < 0) {
+    return -1;
+  }
+
+  return 0;
+}
 
 /**
  * @brief Provision the SoftSIM with the given profile

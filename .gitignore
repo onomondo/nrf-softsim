@@ -65,3 +65,6 @@ lib/onomondo
 .vscode
 *debug*
 .DS_Store
+
+commitlint.config.js
+.husky

@@ -1,13 +1,42 @@
 config SOFTSIM
     bool "SoftSIM"
     depends on NVS
+    depends on FLASH
+    depends on FLASH_MAP
+    depends on FLASH_PAGE_LAYOUT
+    depends on MPU_ALLOW_FLASH_WRITE
+    depends on BUILD_WITH_TFM
+    depends on TFM_PROFILE_TYPE_MEDIUM
 
+if SOFTSIM
 
 config SOFTSIM_AUTO_INIT
     bool "Automatically initialize SoftSIM"
     default y
     help
         Automatically initialize SoftSIM when the modem is powered on.
+
+config SOFTSIM_DEBUG
+    bool "Enable debug messages for SoftSIM"
+    default n
+
+config SOFTSIM_STATIC_PROFILE_ENABLE
+    bool "Enable static profile"
+    default n
+    help
+        Enable static profile to use for SoftSIM. Developement only.
+
+config SOFTSIM_STATIC_PROFILE
+    string "Static profile"
+    depends on SOFTSIM_STATIC_PROFILE_ENABLE
+    help
+        Static profile to use for SoftSIM. If empty, the profile should be passed during runtime (just once via nrf_softsim_provision)
+
+config SOFTSIM_BUNDLE_TEMPLATE_HEX
+    bool "Automatically bundle the template profile hex into the application"
+    default n
+
+endif #SOFTSIM
 
 module = SOFTSIM
 module-str = Onomondo-SoftSIM
