@@ -38,6 +38,7 @@ config SOFTSIM_BUNDLE_TEMPLATE_HEX
 
 endif #SOFTSIM
 
+
 module = SOFTSIM
 module-str = Onomondo-SoftSIM
 source "${ZEPHYR_BASE}/subsys/logging/Kconfig.template.log_config"
