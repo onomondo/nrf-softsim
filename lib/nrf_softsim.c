@@ -68,6 +68,7 @@ int onomondo_init(void) {
   size_t profile_len = strlen(CONFIG_SOFTSIM_STATIC_PROFILE);
 
   if (!nrf_softsim_check_provisioned()) {
+    LOG_INF("Provisioning static profile");
     nrf_softsim_provision((uint8_t *)CONFIG_SOFTSIM_STATIC_PROFILE, profile_len);
   }
 #endif

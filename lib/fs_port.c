@@ -395,14 +395,14 @@ int port_remove(const char *path) {
 int port_rmdir(const char *) { return 0; }  // todo. Remove all entries with directory match.
 
 int port_check_provisioned() {
-  uint8_t buffer[IMSI_LEN] = { 0 };
+  uint8_t buffer[IMSI_LEN] = {0};
   struct cache_entry *entry = (struct cache_entry *)f_cache_find_by_name(IMSI_PATH, &fs_cache);
 
   if (nvs_read(&fs, entry->key, buffer, IMSI_LEN) < 0) {
     return -1;
   }
 
-  return 0;
+  return 1;
 }
 
 /**

@@ -3,6 +3,8 @@ add_subdirectory_ifdef(CONFIG_SOFTSIM lib)
 set(ONOMONDO_SOFTSIM_BASE_ADDRESS $<TARGET_PROPERTY:partition_manager,PM_NVS_STORAGE_ADDRESS>)
 set(ONOMONDO_SOFTSIM_TEMPLATE_OUTPUT ${CMAKE_BINARY_DIR}/onomondo-softsim/template.hex)
 
+if(CONFIG_SOFTSIM)
+
 add_custom_command(
   OUTPUT template.hex
   COMMAND ${ZEPHYR_SDK_INSTALL_DIR}/arm-zephyr-eabi/bin/arm-zephyr-eabi-objcopy
@@ -27,4 +29,5 @@ if(CONFIG_SOFTSIM_BUNDLE_TEMPLATE_HEX)
     nvs_storage_PM_TARGET
     onomondo_softsim_template
   )
+endif()
 endif()
