@@ -23,10 +23,6 @@ static struct ss_list fs_cache;
 #define NVS_PARTITION_OFFSET FIXED_PARTITION_OFFSET(NVS_PARTITION)
 
 #define DIR_ID (1UL)
-#define IMSI_LEN (18)
-#define A001_LEN (66)
-#define A004_LEN (228)
-#define ICCID_LEN (20)
 
 #define IMSI_PATH "/3f00/7ff0/6f07"
 #define ICCID_PATH "/3f00/2fe2"
