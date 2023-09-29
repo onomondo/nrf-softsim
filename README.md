@@ -1,7 +1,5 @@
 # nrf-softsim
 
-# PLEASE NOTE THAT THE PROFILE FORMATTING HAS CHANGED TO A MORE ROBUST FORMAT IN THIS RELEASE. 
-
 ## Setup
 
 Update manifest to point to `west.yml` inside this repository:
@@ -94,11 +92,6 @@ Since the EF_LOCI is correctly updated now the device can attach significantly f
 
 <img width="884" alt="image" src="https://github.com/onomondo/nrf-softsim/assets/46489969/7e880629-b69f-437c-a4b1-5da4328f6b75">
 
-
-## Planned changes
-- Profile space optimization
-  - Store as raw bytes instead of the debug friendly HEX format
-  - Expected to give some performance improvements
 
 ## Understanding the SIM - why SoftSIM is possible.
 
