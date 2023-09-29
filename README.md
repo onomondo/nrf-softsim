@@ -5,13 +5,53 @@
 Update manifest to point to `west.yml` inside this repository:
 
 ```
-west config manifest.path nrf-softsim-dev
+west config manifest.path nrf-softsim
 west update
 ```
 
 This will fetch from the required private repositories for `sdk-nrf` (`sdk-nrf-softsim`) and `sdk-nrfxlib` (`sdk-nrfxlib-softsim`).
 
 ## Configuring and building
+
+### Samples
+There currently two samples included so showcase how a SoftSIM can be provisioned. 
+
+#### static profile
+`samples/softsim_static_profile` will provision a profile during the first system initialization. The profile is configured in the `prj.conf`
+```
+CONFIG_SOFTSIM_STATIC_PROFILE_ENABLE=y
+CONFIG_SOFTSIM_STATIC_PROFILE="011208091..."
+```
+Replace the profile with a Onomondo supplied profile. 
+
+Build and flash the sample and the device will attach and send data right away.
+
+__This is only to be used during development.__
+
+#### externally provisioned
+`samples/softsim_external_profile` will wait for a profile supplied via UART. After receiving it will be provisioned and the device will reboot to free up the UART port for AT commands. 
+
+``` 
+echo "<my_profile>" > /dev/tty.usbmodem<id>
+```
+
+Which results in:
+```
+*** Booting Zephyr OS build v3.2.99-ncs1 ***
+[00:00:00.610,198] <inf> softsim_sample: SoftSIM sample started.
+[00:00:00.610,656] <inf> softsim_sample: Waiting for profile... 0/190
+[00:00:20.610,717] <inf> softsim_sample: Waiting for profile... 190/190
+*** Booting Zephyr OS build v3.2.99-ncs1 ***
+[00:00:00.555,664] <inf> softsim_sample: SoftSIM sample started.
+[00:00:00.615,875] <inf> softsim_sample: Waiting for LTE connect event.
+[00:00:00.744,140] <inf> softsim_sample: LTE cell changed: Cell ID: -1, Tracking area: -1
+[00:00:01.185,760] <inf> softsim_sample: LTE cell changed: Cell ID: 13358642, Tracking area: 2000
+[00:00:01.308,349] <inf> softsim_sample: RRC mode: Connected```
++CEREG: 5,"07D0","00CBD632",7,,,"00100011","11100000"
+[00:00:07.096,221] <inf> softsim_sample: Network registration status: Connected - roaming
+[00:00:07.096,405] <inf> softsim_sample: LTE connected!
+```
+### General
 
 For most samples and applications, it's sufficient to build by executing the following command:
 ```
