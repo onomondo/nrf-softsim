@@ -1,5 +1,16 @@
 # Changelog
 
+## [2.0.0](https://github.com/onomondo/nrf-softsim/compare/v1.0.0...v2.0.0) (2023-10-10)
+
+
+### ⚠ BREAKING CHANGES
+
+* 🧨 nrf-sdk main branch is used. When v2.5 is released a tag/release for nrf-softsim is created. For now this pin to latest dev. can break your current setup.
+
+### Features
+
+* 🎸 Follow nrf-sdk main branch as default ([711615c](https://github.com/onomondo/nrf-softsim/commit/711615c7a248352f79a04dcb9c906d175182a26c))
+
 ## 1.0.0 (2023-09-29)
 
 
