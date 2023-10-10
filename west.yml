@@ -2,13 +2,13 @@
 # https://developer.nordicsemi.com/nRF_Connect_SDK/doc/latest/nrf/dm_adding_code.html
 manifest:
   remotes:
-    - name: NordicSemiconductor
-      url-base: https://github.com/NordicSemiconductor
+    - name: nrfconnect
+      url-base: https://github.com/nrfconnect/
   projects:
-    - name: sdk-nrf-softsim
+    - name: sdk-nrf
       path: nrf
-      revision: v2.4-branch-softsim
-      remote: NordicSemiconductor
+      revision: main
+      remote: nrfconnect
       import: true
 
   self:
