@@ -6,7 +6,6 @@ config SOFTSIM
     depends on FLASH_PAGE_LAYOUT
     depends on MPU_ALLOW_FLASH_WRITE
     depends on BUILD_WITH_TFM
-    depends on TFM_PROFILE_TYPE_MEDIUM
 
 if SOFTSIM
 
