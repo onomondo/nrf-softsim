@@ -1,11 +1,17 @@
 # nrf-softsim
-##### Table of Contents  
+#### Table of Contents  
+##### Quickstart
 1. [Configure NCS to include SoftSIM libraries in your build system](#setup)
 2. [Set-up your API key to get access to SoftSIM profiles through our API](#get-access-to-your-free-softsim-profiles)
 3. [Configure you project to build with SoftSIM](#configure-and-build)
 4. [Configuring SoftSIM in NCS samples](#general-usage)
 
-
+##### General
+- [Builduing and running](#building-flashing-and-running)
+- [SoftSIM and physical SIM selection](#software-sim-selection)
+- [Understanding the SIM - why SoftSIM is possible](#understanding-the-sim---why-softsim-is-possible)
+- [Details on provisioning](#provisioning)
+- [Details on kConfig options](#kconfig-options)
 
 ### Setup
 For existing toolchains and build systems it is sufficient to update the manifest to point to `west.yml` inside this repository:
