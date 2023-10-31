@@ -1,5 +1,6 @@
 #include "profile.h"
 #include <string.h>
+#include <zephyr/kernel.h>
 
 uint8_t hex_to_uint8(const char *hex);
 void hex_string_to_bytes(const uint8_t *hex, size_t hex_len, uint8_t bytes[static hex_len / 2]);
@@ -27,36 +28,36 @@ void decode_profile(size_t len, uint8_t data[static len], struct ss_profile *pro
     pos = data_end;
 
     // bad encoding.
-    assert(data_end <= len);
+    __ASSERT_NO_MSG(data_end <= len);
 
     switch (tag) {
       case ICCID_TAG:
-        assert(data_len == ICCID_LEN * 2);
+        __ASSERT_NO_MSG(data_len == ICCID_LEN * 2);
         hex_string_to_bytes(&data[data_start], data_len, profile->ICCID);
         break;
       case IMSI_TAG:
-        assert(data_len == IMSI_LEN * 2);
+        __ASSERT_NO_MSG(data_len == IMSI_LEN * 2);
         hex_string_to_bytes(&data[data_start], data_len, profile->IMSI);
         break;
       case OPC_TAG:
-        assert(data_len == KEY_SIZE * 2);
+        __ASSERT_NO_MSG(data_len == KEY_SIZE * 2);
         hex_string_to_bytes(&data[data_start], data_len, profile->OPC);
         break;
         // special care here as we need to load into KMU
       case KI_TAG:
-        assert(data_len == KEY_SIZE * 2);
+        __ASSERT_NO_MSG(data_len == KEY_SIZE * 2);
         hex_string_to_bytes(&data[data_start], data_len, profile->K);
         break;
       case KIC_TAG:
-        assert(data_len == KEY_SIZE * 2);
+        __ASSERT_NO_MSG(data_len == KEY_SIZE * 2);
         hex_string_to_bytes(&data[data_start], data_len, profile->KIC);
         break;
       case KID_TAG:
-        assert(data_len == KEY_SIZE * 2);
+        __ASSERT_NO_MSG(data_len == KEY_SIZE * 2);
         hex_string_to_bytes(&data[data_start], data_len, profile->KID);
         break;
       case SMSP_TAG:
-        assert(data_len == SMSP_RECORD_SIZE * 2);
+        __ASSERT_NO_MSG(data_len == SMSP_RECORD_SIZE * 2);
         hex_string_to_bytes(&data[data_start], data_len, profile->SMSP);
         break;
       case END_TAG:

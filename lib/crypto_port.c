@@ -91,7 +91,7 @@ int ss_utils_ota_calc_cc(uint8_t *cc, size_t cc_len, uint8_t *key, size_t key_le
     return -EINVAL;
   }
 
-  assert(data1_len % AES_BLOCKSIZE == 0);
+  __ASSERT_NO_MSG(data1_len % AES_BLOCKSIZE == 0);
 
   psa_mac_operation_t mac_op;
   mac_op = psa_mac_operation_init();
@@ -266,8 +266,8 @@ int ss_utils_setup_key_helper(size_t key_len, uint8_t key[static key_len], int k
 int ss_utils_setup_key(size_t key_len, uint8_t key[static key_len], enum key_identifier_base key_id) {
   psa_status_t status;
 
-  assert(key_len == 16);
-  assert(key_id >= KEY_ID_KI && key_id <= KEY_ID_KID);
+  __ASSERT_NO_MSG(key_len == 16);
+  __ASSERT_NO_MSG(key_id >= KEY_ID_KI && key_id <= KEY_ID_KID);
   LOG_DBG("Provisioning key %d...", key_id);
 
   status = psa_crypto_init();
