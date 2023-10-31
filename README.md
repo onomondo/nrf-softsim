@@ -7,7 +7,7 @@
 4. [Configuring SoftSIM in NCS samples](#general-usage)
 
 ##### General
-- [Builduing and running](#building-flashing-and-running)
+- [Building and running](#building-flashing-and-running)
 - [SoftSIM and physical SIM selection](#software-sim-selection)
 - [Understanding the SIM - why SoftSIM is possible](#understanding-the-sim---why-softsim-is-possible)
 - [Details on provisioning](#provisioning)
@@ -17,7 +17,9 @@
 For existing toolchains and build systems it is sufficient to update the manifest to point to `west.yml` inside this repository:
 
 ```
-west config manifest.path nrf-softsim
+cd <ncs_base>
+git clone git@github.com:onomondo/nrf-softsim.git modules/lib/onomondo-softsim
+west config manifest.path modles/lib/onomondo-softsim/
 west update
 ```
 
@@ -25,25 +27,26 @@ First time setting it up? We recommend using the [nRF Connect for Desktop](https
 
 You can verify that the SoftSIM code has been cloned by examining the `<ncs_base>/modules/lib/onomondo-softsim` path.
 
+Bonus tip: The Toolchain Manager allows you to easily generate the correct environment variables. Click the small arrow and select `Generate environment script`. The output file contains everything you need to set up the new toolchain. 
 
 ### Get access to your free SoftSIM profiles
-SoftSIM profiles are delivered through our API. As this can be a bit cumbersome we've developed a small tool to make this process a bit easier. The tool is available at [sofsim-cli](https://github.com/onomondo/onomondo-softsim-cli). Additional instructions can be found in the cli repository. 
+SoftSIM profiles are delivered through our API. As this can be a bit cumbersome, we've developed a small tool to make this process easier. The tool is available at [sofsim-cli](https://github.com/onomondo/onomondo-softsim-cli). Additional instructions can be found in the CLI repository. 
 
 1. Generate an API key on [app.onomondo.com/api-keys](https://app.onomondo.com/api-keys). Follow the instructions on the app. 
 2. Download the `softsim` cli tool for your platform.
 3. Fetch your profiles: `./softsim fetch --api-key = <your_api_key> -n 5`. This will create a `profiles` directory for you with `5` encrypted profiles.
 
-Everytime you require a new profiles simple use the `./softsim next --key=<path to your private key>`. It will look in the `./profiles` folder and decrypt and format a profile. _This command guarentees that a new profile is given each time._
+Every time you require a new profile, simply use the `./softsim next --key=<path to your private key>`. It will look in the `./profiles` folder and decrypt and format a profile. _This command guarantees that a new profile is given each time._
 
 
 ### Configure and build
 
-There currently two samples included so showcase how a SoftSIM can be provisioned. It is recommended to start with the *static profile* sample.
+There are currently two samples included to showcase how a SoftSIM can be provisioned. It is recommended to start with the *static profile* sample.
 
 ##### static profile
 `samples/softsim_static_profile` will provision a profile during the first system initialization. The profile is configured in the `prj.conf` 
 
-In the `prj.conf` you'll find the follwing options related to the SoftSIM statically provisioned profile. This setup is handy for development as the profile doesn't have to be re-provisioned everytime the device is flashed. 
+In the `prj.conf` you'll find the following options related to the SoftSIM statically provisioned profile. This setup is useful for development, as the profile doesn't have to be re-provisioned every time the device is flashed. 
 
 ```
 CONFIG_SOFTSIM_STATIC_PROFILE_ENABLE=y
@@ -51,7 +54,7 @@ CONFIG_SOFTSIM_STATIC_PROFILE="011208091..."
 ```
 
 
-Run `./softsim next --key=~/myPrivateKey` (with path to your private key) and grab the output. By default it formats the profile to be accepted by any nrf91 series devices. The profile probably looks something like `01120...`. Replace the `CONFIG_SOFTSIM_STATIC_PROFILE` value with your SoftSIM profile.
+Run `./softsim next --key=~/myPrivateKey` (with path to your private key) and grab the output. By default it formats the profile to be accepted by any nRF91 series devices. The profile will look similar to `01120...`. Replace the `CONFIG_SOFTSIM_STATIC_PROFILE` value with your SoftSIM profile.
 
 
 Build and flash the sample and the device will attach and send data right away.
@@ -96,7 +99,7 @@ Where `PATH_TO_ONOMONDO_SOFTSIM` is the path of the downloaded Onomondo SoftSIM 
 
 
 #### Note
-SoftSIM is relying on some default data in the storage partition. This section of the flash can generated and flashed manually (see steps below) or automatically included by `CONFIG_SOFTSIM_BUNDLE_TEMPLATE_HEX=y` - This is generally recommended. 
+SoftSIM is relying on some default data in the storage partition. This section of the flash can be generated and flashed manually (see steps below) or, as we recommend, automatically included by `CONFIG_SOFTSIM_BUNDLE_TEMPLATE_HEX=y` 
 
 __Manually generating SoftSIM profile template data__
 1. After building the application, generate the application-specific template profile. `west build -b nrf9160dk_nrf9160_ns -t onomondo_softsim_template`
@@ -126,7 +129,7 @@ The same principle applies for RAM requirements.
 
 #### Note
 
-Onomondo SoftSIM uses the heap memory pool. It is expected that `CONFIG_HEAP_MEM_POOL_SIZE` is at least `30000` so if the target application also uses the heap please
+Onomondo SoftSIM uses the heap memory pool. It is expected that `CONFIG_HEAP_MEM_POOL_SIZE` is at least `30000`, so if the target application also uses the heap, please
 consider adjusting this Kconfig accordingly.
 
 #### Note
@@ -194,21 +197,21 @@ To accomodate that we've created a bootstrapping filesystem that should be flash
 
 The list of files is fairly involved - but in the end only a subset of files are ever accessed. 
 
-Internally this is a NVS partition which is a `key-value` store type. It is pretty compact and _good enough_ for what we need it for. So the previous request of reading the `ICCID` internally translates to something like:
+Internally this is a NVS partition which is a `key-value` store type. It is pretty compact and generally sufficient. The previous request of reading the `ICCID` internally translates to something similar to:
 
 `00a408040000022fe20168` -> `open('/3f00/2fe2)` -> `nvs_read(id=14)`
 
-We've made a caching layer as well to avoid i) slow reads ii) excessive writes to flash. So actually the SoftSIM profile data looks something like this:
+We've made a caching layer as well to avoid i) slow reads and ii) excessive writes to flash. So, the SoftSIM profile data looks something like:
 
 <p align="center">
  <img width="358" src="https://github.com/onomondo/nrf-softsim/assets/46489969/c03113b3-f41b-41c7-b681-0e2b09f7ee7b">
 </p>
 
 
-The first entry is used to translate between paths (`'3f00/2fe2`) to an actual `NVS key`. It contains an ordered list of files sorted by frequency of access - i.e. the 'master file, 3f00' is in the top since it is most frequenctly accessed. 
+The first entry is used to translate between paths (`'3f00/2fe2`) to an actual `NVS key`. It contains an ordered list of files sorted by frequency of access - i.e. the 'master file, 3f00' is in the top, since it is most frequently accessed. 
 
 
-The lsit is read and parsed to a linked list - and this makes the base for all cached operations. The order makes the lookup very fast in most cases.
+The list is read and parsed to a linked list - and this makes the base for all cached operations. The order makes the lookup very fast.
 <p align="center">
  <img height="338" src="https://github.com/onomondo/nrf-softsim/assets/46489969/815529a8-caf4-485f-a752-1a6242bec082">
 </p>
@@ -252,14 +255,14 @@ ss_utils_setup_key(KMU_KEY_SIZE, profile.KID, KEY_ID_KID);
 ```
 3 keys are written to the KMU. These are related to the authentication and remote SIM OTA commands. 
 
-When a device finds a network it want to attach to something like this happens:
+When a device finds a network it wants to attach to, something like this happens (simplified version):
 
 <p align="center">
 <img height="600" src="https://github.com/onomondo/nrf-softsim/assets/46489969/19083bea-2727-48d6-ad50-63f80384e4d8">
 </p>
 
 
-That is greatly simplified. Step 5 is a SIM command as well `AUTHENTICATE EVEN` and it is running the `milenage algorithm` that also creates session keys etc (and checks that the network in fact isn't an imposter). 
+Step 5 is a SIM command as well `AUTHENTICATE EVEN` and it is running the `milenage algorithm` that also creates session keys, checks that the network in fact isn't an imposter, etc.  
 
 The milenage algorithm is `AES` based and we utilize the KMU through the `psa_crypto` API to implement this. This means that the keys are _very_ protected and once written they can't ever be extracted. Instead they are used by reference in the crypto engine. 
 
@@ -344,11 +347,11 @@ CONFIG_TFM_PROFILE_TYPE_NOT_SET=y
 
 # Some more details:
 #### Heap
-`mem.h`/`heap_port.c` can now optionally be used to implement custom allocators - i.e. `k_malloc()` to avoid conflict with stdc heap pools. We default to `k_malloc()/k_free()`
+`mem.h`/`heap_port.c` can now be optionally used to implement custom allocators - i.e. `k_malloc()` to avoid conflict with stdc heap pools. We default to `k_malloc()/k_free()`
 #### More on NVS
 The main challenge here is that the NVS is a "key-value" store i.e. `UINT16 -> void *`. SoftSIM needs a `char * path -> void * data` map. 
 
-To over come this the first entry (ID 1) in the NVS will store a mapping from paths to actual ID's. 
+To overcome this, the first entry (ID 1) in the NVS will store a mapping from paths to actual ID's. 
 
 The ID is leveraged to encode additional information, i.e. if content is in protected storage instead. 
 
@@ -357,14 +360,14 @@ Dir entry:
 
 [[ID_1, PATH_LEN, PATH], [ID_n, PATH_LEN, PATH], ...  ]
 
-Where ID is the actual ID where DATA is storred. 
+Where ID is the actual ID where DATA is stored. 
 
 ID & 0xFF00 (upper bits) are used for flags, i.e. 
 
 #define FS_READ_ONLY         (1UL << 8)
 #define FS_COMMIT_ON_CLOSE   (1UL << 7)  // commit changes to NVS on close
 ```
-The inital DIR is designed to prioritize most accessed files as well. Internally files are cached and in general kept in memory. 
+The inital DIR is designed to prioritize most accessed files as well. Internally, files are cached and in general kept in memory. 
 
 `FS_COMMIT_ON_CLOSE` is used for SEQ numbers that should be committed to flash directly to reduce attack vectors.
 
@@ -372,9 +375,9 @@ The inital DIR is designed to prioritize most accessed files as well. Internally
 #### SoftSIM integration in application code
 Either call `nrf_softsim_init()` explicitly or let the kernel do it on boot with the config option. 
 
-SoftSIM entrypoint starts its own workqueue and returns immidiately after. The handler installed with `nrf_modem_softsim_req_handler_set()` will enqueue request as they come and the workqueue will unblock and handle the request. The softsim context will be blocked most of the time. The main interaction happens on boot. 
+SoftSIM entrypoint starts its own work queue and returns immediately after. The handler installed with `nrf_modem_softsim_req_handler_set()` will enqueue requests, as they come and the work queue will unblock and handle the request. The SoftSIM context will be blocked most of the time. The main interaction happens on boot. 
 
 
 ![softsim_nrf_flow](https://github.com/onomondo/nrf-softsim/assets/46489969/7513bb06-99b3-4de4-95bb-34884a9726ed)
 
-Please note that SoftSIM internally need access to a storage partition. This should be pre-populated with the `template.hex` provided in the samples. The adress in the `template.hex` is hardcoded but can freely be moved around as pleased with an appropriate tool. The location is derived from the devicetree at compile time (` FIXED_PARTITION_DEVICE(NVS_PARTITION)`)
+Please note that SoftSIM internally need access to a storage partition. This should be pre-populated with the `template.hex` provided in the samples. The adress in the `template.hex` is hardcoded but can be moved around freely as pleased with an appropriate tool. The location is derived from the devicetree at compile time (` FIXED_PARTITION_DEVICE(NVS_PARTITION)`)
