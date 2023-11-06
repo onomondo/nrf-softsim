@@ -1,5 +1,12 @@
 # Changelog
 
+## [2.1.0](https://github.com/onomondo/nrf-softsim/compare/v2.0.0...v2.1.0) (2023-11-06)
+
+
+### Features
+
+* make asserts Zephyr compatible ([#12](https://github.com/onomondo/nrf-softsim/issues/12)) ([bfc607b](https://github.com/onomondo/nrf-softsim/commit/bfc607b404112174002397b504b4541c970922e6))
+
 ## [2.0.0](https://github.com/onomondo/nrf-softsim/compare/v1.0.0...v2.0.0) (2023-10-10)
 
 

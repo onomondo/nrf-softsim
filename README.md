@@ -19,7 +19,7 @@ For existing toolchains and build systems it is sufficient to update the manifes
 ```
 cd <ncs_base>
 git clone https://github.com/onomondo/nrf-softsim.git modules/lib/onomondo-softsim
-west config manifest.path modles/lib/onomondo-softsim/
+west config manifest.path modules/lib/onomondo-softsim/
 west update
 ```
 
