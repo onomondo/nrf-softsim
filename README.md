@@ -1,30 +1,68 @@
 # nrf-softsim
+#### Table of Contents  
+##### Quickstart
+1. [Configure NCS to include SoftSIM libraries in your build system](#setup)
+2. [Set-up your API key to get access to SoftSIM profiles through our API](#get-access-to-your-free-softsim-profiles)
+3. [Configure you project to build with SoftSIM](#configure-and-build)
+4. [Configuring SoftSIM in NCS samples](#general-usage)
 
-## Setup
+##### General
+- [Building and running](#building-flashing-and-running)
+- [SoftSIM and physical SIM selection](#software-sim-selection)
+- [Understanding the SIM - why SoftSIM is possible](#understanding-the-sim---why-softsim-is-possible)
+- [Details on provisioning](#provisioning)
+- [Details on kConfig options](#kconfig-options)
 
-Update manifest to point to `west.yml` inside this repository:
+### Setup
+For existing toolchains and build systems it is sufficient to update the manifest to point to `west.yml` inside this repository:
 
 ```
-west config manifest.path nrf-softsim
+cd <ncs_base>
+git clone git@github.com:onomondo/nrf-softsim.git modules/lib/onomondo-softsim
+west config manifest.path modles/lib/onomondo-softsim/
 west update
 ```
 
-This will fetch from the required private repositories for `sdk-nrf` (`sdk-nrf-softsim`) and `sdk-nrfxlib` (`sdk-nrfxlib-softsim`).
+First time setting it up? We recommend using the [nRF Connect for Desktop](https://www.nordicsemi.com/Products/Development-tools/nrf-connect-for-desktop) to get the build system correctly set up. Once done, configure the manifest as described above.
 
-## Configuring and building
+You can verify that the SoftSIM code has been cloned by examining the `<ncs_base>/modules/lib/onomondo-softsim` path.
 
-### Samples
-There currently two samples included so showcase how a SoftSIM can be provisioned. 
+Bonus tip: The Toolchain Manager allows you to easily generate the correct environment variables. Click the small arrow and select `Generate environment script`. The output file contains everything you need to set up the new toolchain. 
 
-#### static profile
-`samples/softsim_static_profile` will provision a profile during the first system initialization. The profile is configured in the `prj.conf`
+### Get access to your free SoftSIM profiles
+SoftSIM profiles are delivered through our API. As this can be a bit cumbersome, we've developed a small tool to make this process easier. The tool is available at [sofsim-cli](https://github.com/onomondo/onomondo-softsim-cli). Additional instructions can be found in the CLI repository. 
+
+1. Generate an API key on [app.onomondo.com/api-keys](https://app.onomondo.com/api-keys). Follow the instructions on the app. 
+2. Download the `softsim` cli tool for your platform.
+3. Fetch your profiles: `./softsim fetch --api-key = <your_api_key> -n 5`. This will create a `profiles` directory for you with `5` encrypted profiles.
+
+Every time you require a new profile, simply use the `./softsim next --key=<path to your private key>`. It will look in the `./profiles` folder and decrypt and format a profile. _This command guarantees that a new profile is given each time._
+
+
+### Configure and build
+
+There are currently two samples included to showcase how a SoftSIM can be provisioned. It is recommended to start with the *static profile* sample.
+
+##### static profile
+`samples/softsim_static_profile` will provision a profile during the first system initialization. The profile is configured in the `prj.conf` 
+
+In the `prj.conf` you'll find the following options related to the SoftSIM statically provisioned profile. This setup is useful for development, as the profile doesn't have to be re-provisioned every time the device is flashed. 
+
 ```
 CONFIG_SOFTSIM_STATIC_PROFILE_ENABLE=y
 CONFIG_SOFTSIM_STATIC_PROFILE="011208091..."
 ```
-Replace the profile with a Onomondo supplied profile. 
+
+
+Run `./softsim next --key=~/myPrivateKey` (with path to your private key) and grab the output. By default it formats the profile to be accepted by any nRF91 series devices. The profile will look similar to `01120...`. Replace the `CONFIG_SOFTSIM_STATIC_PROFILE` value with your SoftSIM profile.
+
 
 Build and flash the sample and the device will attach and send data right away.
+
+```
+west build
+west flash
+```
 
 __This is only to be used during development.__
 
@@ -51,13 +89,30 @@ Which results in:
 [00:00:07.096,221] <inf> softsim_sample: Network registration status: Connected - roaming
 [00:00:07.096,405] <inf> softsim_sample: LTE connected!
 ```
-### General
+### General usage
 
 For most samples and applications, it's sufficient to build by executing the following command:
 ```
 west build -b nrf9160dk_nrf9160_ns -- "-DOVERLAY_CONFIG=$PATH_TO_ONOMONDO_SOFTSIM/overlay-softsim.conf"
 ```
 Where `PATH_TO_ONOMONDO_SOFTSIM` is the path of the downloaded Onomondo SoftSIM repository, for example `$HOME/ncs/nrf-softsim-dev`.
+
+
+#### Note
+SoftSIM is relying on some default data in the storage partition. This section of the flash can be generated and flashed manually (see steps below) or, as we recommend, automatically included by `CONFIG_SOFTSIM_BUNDLE_TEMPLATE_HEX=y` 
+
+__Manually generating SoftSIM profile template data__
+1. After building the application, generate the application-specific template profile. `west build -b nrf9160dk_nrf9160_ns -t onomondo_softsim_template`
+2. Flash the application-specific template profile. `west flash --hex-file build/onomondo-softsim/template.hex`
+
+If the partition table of the application changes, for example due to another partition changing size, the template profile must be rebuilt and flashed again.
+The partition table can be checked at any time with:
+```
+west build -t partition_manager_report
+```
+
+#### Note
+
 
 Some applications will fail to link with error `zephyr/zephyr_pre0.elf uses VFP register arguments` (for example `modem_shell`). In this case it is required to also enable `CONFIG_FP_SOFTABI=y`. It is suggested to create an additional Kconfig overlay for application specific SoftSIM configurations and add them to `overlay-softsim.conf` inside
 the application directory.
@@ -66,71 +121,38 @@ The application can then be built like this:
 west build -b nrf9160dk_nrf9160_ns -- "-DOVERLAY_CONFIG=$PATH_TO_ONOMONDO_SOFTSIM/overlay-softsim.conf;overlay-softsim.conf"
 ```
 
-### Note
+#### Note
 
 For very large applications, it is required to disable features in order to reduce the size of the application binary and leave space on Flash for the SIM profile. 
 During the build step, a Flash overflow error will be reported if this requirement is not satisfied.
 The same principle applies for RAM requirements.
 
-### Note
+#### Note
 
-Onomondo SoftSIM uses the heap memory pool. It is expected that `CONFIG_HEAP_MEM_POOL_SIZE` is at least `30000` so if the target application also uses the heap please
+Onomondo SoftSIM uses the heap memory pool. It is expected that `CONFIG_HEAP_MEM_POOL_SIZE` is at least `30000`, so if the target application also uses the heap, please
 consider adjusting this Kconfig accordingly.
 
-### Note
+#### Note
 
 Onomondo SoftSIM cannot coexist with `CONFIG_SETTINGS` with NVS backend `CONFIG_SETTINGS_NVS`. Please consider switching instead to FCB backend by enabling `CONFIG_SETTINGS_FCB`.
 
-## Building, flashing and running
+### Building, flashing and running
 
-To build an application, follow `Configuring and building`. For static provisioning, inside the target application `overlay-softsim.conf` add:
+To build sample, follow `Configure and build`. For static provisioning, inside the target application `overlay-softsim.conf` add:
 ```
 CONFIG_SOFTSIM_STATIC_PROFILE_ENABLE=y
-CONFIG_SOFTSIM_STATIC_PROFILE="123..."
+CONFIG_SOFTSIM_STATIC_PROFILE="123abc..."
 ```
 This will enable provisioning at system initialization if the device has not been provisioned yet. `CONFIG_SOFTSIM_STATIC_PROFILE` is the string representing
 the unique SIM profile to be provisioned.
 
-### Note
-After building the application, generate the application-specific template profile:
-```
-west build -b nrf9160dk_nrf9160_ns -t onomondo_softsim_template
-```
-Flash the application-specific template profile:
-```
-west flash --hex-file build/onomondo-softsim/template.hex
-```
-If the partition table of the application changes, for example due to another partition changing size, the template profile must be rebuilt and flashed again.
-The partition table can be checked at any time with:
-```
-west build -t partition_manager_report
-```
 
-## Software SIM selection
+
+### Software SIM selection
 
 The Modem is runtime-configurable to use regular SIM and/or SoftSIM (iSIM). The configuration is done by the AT command `AT%CSUS=2` for Software SIM selection. The configuration can be done only when the Modem is deactivated. When reverting to physical SIM, configure with the AT command `AT%CSUS=0`. SIM selection is committed to NVM after a `AT+CFUN=0`.
 
 When enabling SoftSIM, the Software SIM will be selected automatically upon initialization.
-
-## Changelog 2023-08-11
-- Bug fix. Device was unable to re-initialize SIM after deactivation.
-- Additional logging can now be enabled
-- SoftSIM log level now set with `CONFIG_SOFTSIM_LOG_xxx`
-## Changelog 2023-08-03
-- Upgraded cryptographic functionality by replacing the internal AES implementation with the Nordic Security Module, leveraging the Arm CryptoCell cc3xx hardware acceleration for improved security and efficiency.
-- Enhanced key management by offloading it to the internal Key Management Unit.
-- Implemented TLV encoding for profiles to ensure seamless backwards compatibility in future updates.
-- Introduced experimental support for UICC Suspend, aimed at reducing unnecessary flash writes, although it may not be directly applicable to the SoftSIM context.
-- Added reboot sequence after provisioning the softsim in the provided sample, freeing the UART for AT commands.
-- Dropped support for psa_protected_storage to reduce complexity and optimize code size
-- Improved file updates on deinit requests, resulting in a significant reduction in the time to attach during the next boot, with a typical attachment time now under 4 seconds from boot.
-- Bumped to nrf-sdk-2.4
-
-### LTE-M attaching after reboot
-
-Since the EF_LOCI is correctly updated now the device can attach significantly faster. 
-
-<img width="884" alt="image" src="https://github.com/onomondo/nrf-softsim/assets/46489969/7e880629-b69f-437c-a4b1-5da4328f6b75">
 
 
 ## Understanding the SIM - why SoftSIM is possible.
@@ -169,33 +191,29 @@ The main point here is that EF_DIR, EF_PL, EF_UMPC etc are the same for all SIMs
 To accomodate that we've created a bootstrapping filesystem that should be flashed together with the application.
 
 <p align="center">
- <img width="338" src="https://github.com/onomondo/nrf-softsim/assets/46489969/4de502a0-a2c9-4759-b2ed-74ae0adaef25">
+ <img width="338" src="https://github.com/onomondo/nrf-softsim/assets/46489969/e77404ed-f8fd-46c8-98d8-054258727b8b">
 </p>
 
 
 The list of files is fairly involved - but in the end only a subset of files are ever accessed. 
 
-Internally this is a NVS partition which is a `key-value` store type. It is pretty compact and _good enough_ for what we need it fore. So the previous request of reading the `ICCID` internally translates to something like:
+Internally this is a NVS partition which is a `key-value` store type. It is pretty compact and generally sufficient. The previous request of reading the `ICCID` internally translates to something similar to:
 
 `00a408040000022fe20168` -> `open('/3f00/2fe2)` -> `nvs_read(id=14)`
 
-We've made a caching layer as well to avoid i) slow reads ii) excessive writes to flash. So actually the SoftSIM profile data looks something like this:
+We've made a caching layer as well to avoid i) slow reads and ii) excessive writes to flash. So, the SoftSIM profile data looks something like:
 
 <p align="center">
- <img width="358" src="https://github.com/onomondo/nrf-softsim/assets/46489969/e778a7ea-4d5e-4ed0-aff0-f162f9894dbe">
+ <img width="358" src="https://github.com/onomondo/nrf-softsim/assets/46489969/c03113b3-f41b-41c7-b681-0e2b09f7ee7b">
 </p>
 
 
-The first entry is used to translate between paths (`'3f00/2fe2`) to an actual `NVS key`. It contains an ordered list of files sorted by frequency of access - i.e. the 'master file, 3f00' is in the top since it is most frequenctly accessed. 
+The first entry is used to translate between paths (`'3f00/2fe2`) to an actual `NVS key`. It contains an ordered list of files sorted by frequency of access - i.e. the 'master file, 3f00' is in the top, since it is most frequently accessed. 
 
+
+The list is read and parsed to a linked list - and this makes the base for all cached operations. The order makes the lookup very fast.
 <p align="center">
-<img width="280" alt="image-3" src="https://github.com/onomondo/nrf-softsim/assets/46489969/89515114-c3e7-4d2f-ae4f-6797c6411a1f">
-</p>
-
-
-List is read and parsed to a linked list - and this makes the base for all cached operations. The order makes the lookup very fast in most cases.
-<p align="center">
- <img height="338" src="https://github.com/onomondo/nrf-softsim/assets/46489969/b1fef4e6-623e-4df5-9fa5-db645a23dd8c">
+ <img height="338" src="https://github.com/onomondo/nrf-softsim/assets/46489969/815529a8-caf4-485f-a752-1a6242bec082">
 </p>
 
 
@@ -237,18 +255,16 @@ ss_utils_setup_key(KMU_KEY_SIZE, profile.KID, KEY_ID_KID);
 ```
 3 keys are written to the KMU. These are related to the authentication and remote SIM OTA commands. 
 
-When a device finds a network it want to attach to something like this happens:
+When a device finds a network it wants to attach to, something like this happens (simplified version):
 
 <p align="center">
-<img height="600" src="https://github.com/onomondo/nrf-softsim/assets/46489969/54703e7d-6cca-402f-a747-cc2b3a2455b7">
+<img height="600" src="https://github.com/onomondo/nrf-softsim/assets/46489969/19083bea-2727-48d6-ad50-63f80384e4d8">
 </p>
 
 
+Step 5 is a SIM command as well `AUTHENTICATE EVEN` and it is running the `milenage algorithm` that also creates session keys, checks that the network in fact isn't an imposter, etc.  
 
-
-That is greatly simplified. Step 5 is a SIM command as well `AUTHENTICATE EVEN` and it is running the `milenage algorithm` that also creates session keys etc (and checks that the network in fact isn't an imposter). 
-
-The milenage algorithm is `AES` based and we utilize the KMU through the `psa_crypto` API to implement this. This means that the keys are _very_ protected and once written they can't ever be extracted. Instead they are used by refernce in the crypto engine. 
+The milenage algorithm is `AES` based and we utilize the KMU through the `psa_crypto` API to implement this. This means that the keys are _very_ protected and once written they can't ever be extracted. Instead they are used by reference in the crypto engine. 
 
 
 #### Provisioning SoftSIMs 
@@ -301,9 +317,13 @@ CONFIG_FLASH_MAP=y
 CONFIG_FLASH_PAGE_LAYOUT=y
 CONFIG_MPU_ALLOW_FLASH_WRITE=y
 
-# softsim is flashed seperately. location and size must be static and well defined
-CONFIG_BUILD_WITH_TFM=y
-CONFIG_TFM_PROFILE_TYPE_MEDIUM=y
+# Enable nordic security backend and PSA APIs
+# probably already the default? 
+CONFIG_NRF_SECURITY=y
+CONFIG_PSA_CRYPTO_DRIVER_CC3XX=y
+CONFIG_PSA_WANT_ALG_CBC_NO_PADDING=y
+CONFIG_PSA_WANT_ALG_CMAC=y
+CONFIG_PSA_WANT_KEY_TYPE_AES=y
 
 CONFIG_NVS=y
 CONFIG_PM_PARTITION_SIZE_NVS_STORAGE=0x8000 
@@ -311,38 +331,27 @@ CONFIG_PM_PARTITION_SIZE_NVS_STORAGE=0x8000
 # include softsim in build
 CONFIG_SOFTSIM=y
 CONFIG_SOFTSIM_AUTO_INIT=y
+CONFIG_SOFTSIM_BUNDLE_TEMPLATE_HEX=y
+
+# Currently needed for persistent key storage
+CONFIG_TFM_PROFILE_TYPE_NOT_SET=y
 ```
 
 
 
 # Flashing your device:
 ### By command line:
-1 - flash sim profile
-
-`nrfjprog -f NRF91 --sectorerase --log --program path/to/profile/template.he`
-
-2 - flash application
 
 `nrfjprog -f NRF91 --sectorerase --log --program /path/to/build/zephyr/merged.hex --reset`
 
 
-### using nrf Connect programmer
-Add the compiled sample (`merged.hex`). 
-
-Drag the `template.hex` into the view. `Erase and write`. SoftSIM sample is ready to provision
-
-
-
-
-
-
 # Some more details:
 #### Heap
-`mem.h`/`heap_port.c` can now optionally be used to implement custom allocators - i.e. `k_malloc()` to avoid conflict with stdc heap pools. We default to `k_malloc()/k_free()`
+`mem.h`/`heap_port.c` can now be optionally used to implement custom allocators - i.e. `k_malloc()` to avoid conflict with stdc heap pools. We default to `k_malloc()/k_free()`
 #### More on NVS
 The main challenge here is that the NVS is a "key-value" store i.e. `UINT16 -> void *`. SoftSIM needs a `char * path -> void * data` map. 
 
-To over come this the first entry (ID 1) in the NVS will store a mapping from paths to actual ID's. 
+To overcome this, the first entry (ID 1) in the NVS will store a mapping from paths to actual ID's. 
 
 The ID is leveraged to encode additional information, i.e. if content is in protected storage instead. 
 
@@ -351,14 +360,14 @@ Dir entry:
 
 [[ID_1, PATH_LEN, PATH], [ID_n, PATH_LEN, PATH], ...  ]
 
-Where ID is the actual ID where DATA is storred. 
+Where ID is the actual ID where DATA is stored. 
 
 ID & 0xFF00 (upper bits) are used for flags, i.e. 
 
 #define FS_READ_ONLY         (1UL << 8)
 #define FS_COMMIT_ON_CLOSE   (1UL << 7)  // commit changes to NVS on close
 ```
-The inital DIR is designed to prioritize most accessed files as well. Internally files are cached and in general kept in memory. 
+The inital DIR is designed to prioritize most accessed files as well. Internally, files are cached and in general kept in memory. 
 
 `FS_COMMIT_ON_CLOSE` is used for SEQ numbers that should be committed to flash directly to reduce attack vectors.
 
@@ -366,9 +375,9 @@ The inital DIR is designed to prioritize most accessed files as well. Internally
 #### SoftSIM integration in application code
 Either call `nrf_softsim_init()` explicitly or let the kernel do it on boot with the config option. 
 
-SoftSIM entrypoint starts its own workqueue and returns immidiately after. The handler installed with `nrf_modem_softsim_req_handler_set()` will enqueue request as they come and the workqueue will unblock and handle the request. The softsim context will be blocked most of the time. The main interaction happens on boot. 
+SoftSIM entrypoint starts its own work queue and returns immediately after. The handler installed with `nrf_modem_softsim_req_handler_set()` will enqueue requests, as they come and the work queue will unblock and handle the request. The SoftSIM context will be blocked most of the time. The main interaction happens on boot. 
 
 
 ![softsim_nrf_flow](https://github.com/onomondo/nrf-softsim/assets/46489969/7513bb06-99b3-4de4-95bb-34884a9726ed)
 
-Please note that SoftSIM internally need access to a storage partition. This should be pre-populated with the `template.hex` provided in the samples. The adress in the `template.hex` is hardcoded but can freely be moved around as pleased with an appropriate tool. The location is derived from the devicetree at compile time (` FIXED_PARTITION_DEVICE(NVS_PARTITION)`)
+Please note that SoftSIM internally need access to a storage partition. This should be pre-populated with the `template.hex` provided in the samples. The adress in the `template.hex` is hardcoded but can be moved around freely as pleased with an appropriate tool. The location is derived from the devicetree at compile time (` FIXED_PARTITION_DEVICE(NVS_PARTITION)`)
