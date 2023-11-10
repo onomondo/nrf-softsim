@@ -164,14 +164,14 @@ void serial_cb(const struct device *dev, void *user_data) {
   }
 }
 
-void main(void) {
+int main(void) {
   int32_t err;
   LOG_INF("SoftSIM sample started.");
 
   if (!nrf_softsim_check_provisioned()) {
     if (!device_is_ready(uart_dev)) {
       LOG_ERR("UART device not found!");
-      return;
+      return -1;
     }
 
     char *profile_read_from_external_source = k_malloc(PROFILE_SIZE);
@@ -210,7 +210,7 @@ void main(void) {
   err = lte_lc_init();
   if (err) {
     LOG_ERR("Failed to initialize nrf link control, err %d\n", err);
-    return;
+    return -1;
   }
 
   work_init();
@@ -219,13 +219,13 @@ void main(void) {
   err = nrf_modem_at_printf("AT%%CSUS=2");
   if (err) {
     LOG_ERR("Failed to select softsim, err %d\n", err);
-    return;
+    return -1;
   }
 
   err = nrf_modem_at_printf("AT+CFUN=41");
   if (err) {
     LOG_ERR("Failed to activate uicc, err %d\n", err);
-    return;
+    return -1;
   }
 
   modem_connect();
@@ -235,14 +235,14 @@ void main(void) {
   LOG_INF("LTE connected!\n");
   err = server_init();
   if (err) {
-    return;
     LOG_ERR("Not able to initialize UDP server connection\n");
+    return -1;
   }
 
   err = server_connect();
   if (err) {
-    return;
     LOG_ERR("Not able to connect to UDP server\n");
+    return -1;
   }
 
   k_work_schedule(&server_transmission_work, K_NO_WAIT);
