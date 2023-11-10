@@ -176,7 +176,7 @@ void main(void) {
     }
 
     char *profile_read_from_external_source = k_malloc(PROFILE_SIZE);
-    assert(profile_read_from_external_source != NULL);
+    __ASSERT_NO_MSG(profile_read_from_external_source != NULL);
 
     struct rx_buf_t rx = {
         .buf = profile_read_from_external_source,
