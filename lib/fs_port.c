@@ -77,7 +77,7 @@ int init_fs() {
   if (!data && rc) {
     data = SS_ALLOC_N(len * sizeof(uint8_t));
     rc = nvs_read(&fs, DIR_ID, data, len);
-    assert(rc == len);
+    __ASSERT_NO_MSG(rc == len);
   }
 
   ss_list_init(&fs_cache);

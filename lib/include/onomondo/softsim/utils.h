@@ -1,8 +1,8 @@
 #pragma once
 
-#include <assert.h>
 #include <stdint.h>
 #include <string.h>
+#include <zephyr/kernel.h>
 #include "mem.h"
 
 #define SS_ARRAY_SIZE(x) (sizeof(x) / sizeof((x)[0]))
@@ -30,7 +30,7 @@ static inline char *ss_buf_hexdump(const struct ss_buf *buf)
 static inline struct ss_buf *ss_buf_alloc(size_t len)
 {
 	struct ss_buf *sb = SS_ALLOC_N(sizeof(*sb) + len);
-	assert(sb);
+	__ASSERT_NO_MSG(sb);
 
 	sb->data = (uint8_t *) sb + sizeof(*sb);
 	sb->len = len;
