@@ -390,12 +390,21 @@ int port_remove(const char *path) {
 // list for each { is_name_partial_match? {remove port_remove(cursor->name)} }
 int port_rmdir(const char *) { return 0; }  // todo. Remove all entries with directory match.
 
+static uint8_t default_imsi[] = {0x08, 0x09, 0x10, 0x10, 0x00, 0x00, 0x00, 0x00, 0x10};
+
 int port_check_provisioned() {
+  int ret;
   uint8_t buffer[IMSI_LEN] = {0};
   struct cache_entry *entry = (struct cache_entry *)f_cache_find_by_name(IMSI_PATH, &fs_cache);
 
-  if (nvs_read(&fs, entry->key, buffer, IMSI_LEN) < 0) {
-    return -1;
+  ret = nvs_read(&fs, entry->key, buffer, IMSI_LEN);
+  if (ret < 0) {
+    return 0;
+  }
+
+  // IMSI read is still the default one from the template
+  if (memcmp(buffer, default_imsi, IMSI_LEN) == 0) {
+    return 0;
   }
 
   return 1;

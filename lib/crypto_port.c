@@ -244,6 +244,16 @@ int ss_utils_setup_key_helper(size_t key_len, uint8_t key[static key_len], int k
   psa_key_attributes_t key_attributes = PSA_KEY_ATTRIBUTES_INIT;
   psa_key_handle_t key_handle;
 
+  // Check if it exists already, if it does, destroy it so the new one can be imported
+  status = psa_open_key(key_id, &key_handle);
+  if (status == PSA_SUCCESS) {
+    status = psa_destroy_key(key_handle);
+    if (status != PSA_SUCCESS) {
+      LOG_ERR("Failed to destroy a persistent key, ERR: %d", status);
+      return -1;
+    }
+  }
+
   psa_set_key_usage_flags(&key_attributes, usage_flags);
   psa_set_key_algorithm(&key_attributes, alg);
   psa_set_key_type(&key_attributes, key_type);
