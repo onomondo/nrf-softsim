@@ -39,7 +39,7 @@ static void server_transmission_work_fn(struct k_work *work) {
   char buffer[] = "{\"message\":\"Hello from Onomondo!\"}";
   err = send(client_fd, buffer, sizeof(buffer) - 1, 0);
   if (err < 0) {
-    LOG_ERR("Failed to transmit TCP packet, %d", errno);
+    LOG_ERR("Failed to transmit UDP packet, %d", errno);
 
     k_work_schedule(&server_transmission_work, K_SECONDS(2));
 
@@ -113,9 +113,9 @@ static int server_init(void) {
 static int server_connect(void) {
   int err;
 
-  client_fd = socket(AF_INET, SOCK_STREAM, IPPROTO_TCP);
+  client_fd = socket(AF_INET, SOCK_DGRAM, IPPROTO_UDP);
   if (client_fd < 0) {
-    LOG_ERR("Failed to create TCP socket: %d\n", errno);
+    LOG_ERR("Failed to create UDP socket: %d\n", errno);
     err = -errno;
     goto error;
   }
@@ -155,14 +155,14 @@ void main(void) {
   LOG_INF("LTE connected!\n");
   err = server_init();
   if (err) {
-    LOG_ERR("Not able to initialize TCP server connection\n");
     return;
+    LOG_ERR("Not able to initialize UDP server connection\n");
   }
 
   err = server_connect();
   if (err) {
-    LOG_ERR("Not able to connect to TCP server\n");
     return;
+    LOG_ERR("Not able to connect to UDP server\n");
   }
 
   k_work_schedule(&server_transmission_work, K_NO_WAIT);
