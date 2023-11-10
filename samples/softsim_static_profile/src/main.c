@@ -134,14 +134,14 @@ error:
   return err;
 }
 
-void main(void) {
+int main(void) {
   int32_t err;
   LOG_INF("SoftSIM sample started.");
 
   err = lte_lc_init();
   if (err) {
     LOG_ERR("Failed to initialize nrf link control, err %d\n", err);
-    return;
+    return -1;
   }
 
   work_init();
@@ -155,14 +155,14 @@ void main(void) {
   LOG_INF("LTE connected!\n");
   err = server_init();
   if (err) {
-    return;
     LOG_ERR("Not able to initialize UDP server connection\n");
+    return -1;
   }
 
   err = server_connect();
   if (err) {
-    return;
     LOG_ERR("Not able to connect to UDP server\n");
+    return -1;
   }
 
   k_work_schedule(&server_transmission_work, K_NO_WAIT);
