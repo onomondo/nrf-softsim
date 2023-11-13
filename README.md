@@ -18,16 +18,34 @@ For existing toolchains and build systems it is sufficient to update the manifes
 
 ```
 cd <ncs_base>
-git clone git@github.com:onomondo/nrf-softsim.git modules/lib/onomondo-softsim
+git clone https://github.com/onomondo/nrf-softsim.git modules/lib/onomondo-softsim
 west config manifest.path modules/lib/onomondo-softsim/
 west update
 ```
 
 First time setting it up? We recommend using the [nRF Connect for Desktop](https://www.nordicsemi.com/Products/Development-tools/nrf-connect-for-desktop) to get the build system correctly set up. Once done, configure the manifest as described above.
 
-You can verify that the SoftSIM code has been cloned by examining the `<ncs_base>/modules/lib/onomondo-softsim` path.
 
 Bonus tip: The Toolchain Manager allows you to easily generate the correct environment variables. Click the small arrow and select `Generate environment script`. The output file contains everything you need to set up the new toolchain. 
+
+Your folder structure should look something like:
+```
+ncs
+ |___ .west
+ |___ modules
+ |___ nrf
+ |___ nrfxlib
+ |___ modules
+     |___lib
+         |___onomondo-softsim
+         |___ ...
+     |___ ...
+ |___ zephyr
+ |___ ...
+```
+
+Alternatively, a new SDK can be initiated with `west init -m https://github.com/onomondo/nrf-softsim.git`. 
+
 
 ### Get access to your free SoftSIM profiles
 SoftSIM profiles are delivered through our API. As this can be a bit cumbersome, we've developed a small tool to make this process easier. The tool is available at [sofsim-cli](https://github.com/onomondo/onomondo-softsim-cli). Additional instructions can be found in the CLI repository. 
