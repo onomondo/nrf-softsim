@@ -32,7 +32,6 @@ Your folder structure should look something like:
 ```
 ncs
  |___ .west
- |___ modules
  |___ nrf
  |___ nrfxlib
  |___ modules
