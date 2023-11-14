@@ -1,5 +1,19 @@
 # Changelog
 
+## [2.2.0](https://github.com/onomondo/nrf-softsim/compare/v2.1.0...v2.2.0) (2023-11-14)
+
+
+### Features
+
+* add missed Zephyr compatible asserts ([09be236](https://github.com/onomondo/nrf-softsim/commit/09be2366a1a26e4dfbaabc636b66aa5460dfeb7a))
+
+
+### Bug Fixes
+
+* address compilation warning for `main` return ([1a348e8](https://github.com/onomondo/nrf-softsim/commit/1a348e8d52b8611e8cd24d9a07b9bee10637148a))
+* address provision check inconsistencies ([9a28958](https://github.com/onomondo/nrf-softsim/commit/9a289585e8c6188295bdab5ab36921517555102b))
+* samples: change TCP to UDP ([49c9974](https://github.com/onomondo/nrf-softsim/commit/49c9974c82ed6a6f0435c12cf045d77da67c33f1))
+
 ## [2.1.0](https://github.com/onomondo/nrf-softsim/compare/v2.0.0...v2.1.0) (2023-11-06)
 
 
