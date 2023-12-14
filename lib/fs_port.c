@@ -88,7 +88,7 @@ int init_fs() {
   fs_is_initialized++;
 
 out:
-  free(data);
+  SS_FREE(data);
   return ss_list_empty(&fs_cache);
 }
 
