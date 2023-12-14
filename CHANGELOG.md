@@ -1,5 +1,12 @@
 # Changelog
 
+## [2.2.1](https://github.com/onomondo/nrf-softsim/compare/v2.2.0...v2.2.1) (2023-12-14)
+
+
+### Bug Fixes
+
+* 🐛 Heap corrupted by de-initializing softsim many times ([00bcdab](https://github.com/onomondo/nrf-softsim/commit/00bcdab2ee12965ca9cd690b2bb77c76bfca034c))
+
 ## [2.2.0](https://github.com/onomondo/nrf-softsim/compare/v2.1.0...v2.2.0) (2023-11-14)
 
 
