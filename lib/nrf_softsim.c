@@ -1,5 +1,3 @@
-
-
 #include <nrf_modem_softsim.h>
 #include <nrf_softsim.h>
 #include <onomondo/softsim/softsim.h>
@@ -13,9 +11,6 @@
 #include "crypto_port.h"
 #include "profile.h"
 #include <autoconf.h>
-static void softsim_req_task(struct k_work *item);
-int port_provision(struct ss_profile *profile);
-int port_check_provisioned(void);
 
 LOG_MODULE_REGISTER(softsim, CONFIG_SOFTSIM_LOG_LEVEL);
 
@@ -25,13 +20,17 @@ K_THREAD_STACK_DEFINE(softsim_stack_area, SOFTSIM_STACK_SIZE);
 
 #define SIM_HAL_MAX_LE 260
 
-struct k_work_q softsim_work_q;
+static void softsim_req_task(struct k_work *item);
+int port_provision(struct ss_profile *profile);
+int port_check_provisioned(void);
+
+static struct k_work_q softsim_work_q;
 static K_FIFO_DEFINE(softsim_req_fifo);
 static K_WORK_DEFINE(softsim_req_work, softsim_req_task);
 static uint8_t softsim_buffer_out[SIM_HAL_MAX_LE];
 
 // softsim handle
-struct ss_context *ctx = NULL;
+struct ss_context *ctx = NULL; // Should this be converted to a static struct?
 
 struct payload_t {
   void *data;
@@ -61,7 +60,7 @@ int onomondo_init(void) {
    *
    * Maybe just call fs_commit() of so on de-init.?
    */
-  int rc = init_fs();
+  int rc = ss_init_fs();
 
 #ifdef CONFIG_SOFTSIM_STATIC_PROFILE_ENABLE
 #pragma message "Using static profile. Only for development!"
@@ -141,7 +140,7 @@ static void softsim_req_task(struct k_work *item) {
 
         if (!ss_is_suspended(ctx)) {
           ss_reset(ctx);
-          init_fs();
+          ss_init_fs();
         }
 
         int atr_len = ss_atr(ctx, softsim_buffer_out, SIM_HAL_MAX_LE);
@@ -177,7 +176,7 @@ static void softsim_req_task(struct k_work *item) {
         if (ctx && !ss_is_suspended(ctx)) {  // ignore if suspended. Then we just keep the context around
           ss_free_ctx(ctx);
           ctx = NULL;
-          deinit_fs();  // Commit any cached changes to flash
+          ss_deinit_fs();  // Commit any cached changes to flash
         } else {
           LOG_DBG("SoftSIM suspended. Keeping context.");
         }
@@ -236,7 +235,7 @@ void nrf_modem_softsim_req_handler(enum nrf_modem_softsim_cmd req, uint16_t req_
 #ifdef CONFIG_SOFTSIM_AUTO_INIT
 SYS_INIT(onomondo_init, APPLICATION, 0);
 
-static void on_modem_lib_init(int ret, void *ctx) {
+static void ss_on_modem_lib_init(int ret, void *ctx) {
   int err;
 
   err = nrf_modem_at_printf("AT%%CSUS=2");
@@ -244,5 +243,5 @@ static void on_modem_lib_init(int ret, void *ctx) {
     LOG_ERR("Failed to select software SIM.");
   }
 }
-NRF_MODEM_LIB_ON_INIT(sim_select_hook, on_modem_lib_init, NULL);
+NRF_MODEM_LIB_ON_INIT(sim_select_hook, ss_on_modem_lib_init, NULL);
 #endif

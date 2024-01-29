@@ -1,12 +1,10 @@
-
-#include "provision.h"
-
 #include <stdlib.h>
 #include <string.h>
 #include <zephyr/sys/printk.h>
-#include <onomondo/softsim/mem.h>
+
 #include "f_cache.h"
-char storage_path[] = "";
+#include "provision.h"
+#include <onomondo/softsim/mem.h>
 
 /**
  * @brief TODO: move this function to a more appropriate place
@@ -14,12 +12,12 @@ char storage_path[] = "";
  * "DIR" file. The DIR file encodes ID (used to locate actual file in flash) and
  * name of the file.
  *
-
  * @param dirs linked list to populate
  * @param blob pointer to blob of data
  * @param size size of blob
  */
-void generate_dir_table_from_blob(struct ss_list *dirs, uint8_t *blob, size_t size) {
+void generate_dir_table_from_blob(struct ss_list *dirs, uint8_t *blob, size_t size) 
+{
   size_t cursor = 0;
   while (cursor < size) {
     uint8_t len = blob[cursor++];

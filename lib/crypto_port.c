@@ -1,14 +1,16 @@
 #include <stdint.h>
 #include <stddef.h>
-#include <onomondo/softsim/log.h>
-#include "crypto_port.h"
-#include <psa/crypto.h>
-#include <zephyr/logging/log.h>
-#include "profile.h"
-#include <onomondo/softsim/mem.h>
-#include <zephyr/sys/printk.h>
-#include <zephyr/kernel.h>
 #include <string.h>
+#include <psa/crypto.h>
+#include <zephyr/kernel.h>
+#include <zephyr/logging/log.h>
+#include <zephyr/sys/printk.h>
+
+#include "profile.h"
+#include "crypto_port.h"
+#include <onomondo/softsim/log.h>
+#include <onomondo/softsim/mem.h>
+
 LOG_MODULE_REGISTER(softsim_crypto, CONFIG_SOFTSIM_LOG_LEVEL);
 
 enum key_identifier_base key_id_to_kmu_slot(uint8_t key_id) {
@@ -25,7 +27,7 @@ enum key_identifier_base key_id_to_kmu_slot(uint8_t key_id) {
 }
 
 #define SHARED_BUFFER_SIZE (256)
-uint8_t shared_buffer[SHARED_BUFFER_SIZE];
+static uint8_t shared_buffer[SHARED_BUFFER_SIZE];
 
 #define ASSERT_STATUS(actual, expected)                                      \
   do {                                                                       \
@@ -99,7 +101,7 @@ int ss_utils_ota_calc_cc(uint8_t *cc, size_t cc_len, uint8_t *key, size_t key_le
 
   uint8_t mac_buf[16];
   size_t mac_len, stream_block_size = 16, bytes_processed = 0;
-  // guarenteed to be multiple of 16
+  // Guaranteed to be multiple of 16
   size_t blocks_data_1 = data1_len / stream_block_size;
 
   for (size_t i = 0; i < blocks_data_1; i++) {
@@ -130,7 +132,7 @@ exit:
   return status == PSA_SUCCESS ? 0 : -EINVAL;
 }
 
-// we have dropped 3DES support. AES is better in all aspects execpt support by other operators
+// we have dropped 3DES support. AES is better in all aspects except support by other operators
 // might be limited.
 void ss_utils_3des_decrypt(uint8_t *buffer, size_t buffer_len, const uint8_t *key) { return; }
 void ss_utils_3des_encrypt(uint8_t *buffer, size_t buffer_len, const uint8_t *key) { return; }
@@ -230,7 +232,7 @@ exit:
   return;
 }
 
-int aes_128_encrypt_block(const uint8_t *key, const uint8_t *in, uint8_t *out) {
+int ss_aes_128_encrypt_block(const uint8_t *key, const uint8_t *in, uint8_t *out) {
   uint8_t buffer_cpy[16];
   memcpy(buffer_cpy, in, 16);
   ss_utils_aes_encrypt(buffer_cpy, 16, key, 16);
@@ -238,8 +240,8 @@ int aes_128_encrypt_block(const uint8_t *key, const uint8_t *in, uint8_t *out) {
   return 0;
 }
 
-int ss_utils_setup_key_helper(size_t key_len, uint8_t key[static key_len], int key_id, psa_key_usage_t usage_flags,
-                              psa_algorithm_t alg, psa_key_type_t key_type) {
+int ss_utils_setup_key_helper(size_t key_len, uint8_t key[static key_len], int key_id, psa_key_usage_t usage_flags, psa_algorithm_t alg, psa_key_type_t key_type) 
+{
   psa_status_t status;
   psa_key_attributes_t key_attributes = PSA_KEY_ATTRIBUTES_INIT;
   psa_key_handle_t key_handle;
@@ -273,7 +275,8 @@ int ss_utils_setup_key_helper(size_t key_len, uint8_t key[static key_len], int k
   return 0;
 }
 
-int ss_utils_setup_key(size_t key_len, uint8_t key[static key_len], enum key_identifier_base key_id) {
+int ss_utils_setup_key(size_t key_len, uint8_t key[static key_len], enum key_identifier_base key_id) 
+{
   psa_status_t status;
 
   __ASSERT_NO_MSG(key_len == 16);
@@ -309,7 +312,8 @@ int ss_utils_setup_key(size_t key_len, uint8_t key[static key_len], enum key_ide
   return 0;
 }
 
-int ss_utils_check_key_existence(enum key_identifier_base key_id) {
+int ss_utils_check_key_existence(enum key_identifier_base key_id) 
+{
   psa_status_t status;
   status = psa_open_key((psa_key_id_t)key_id, &(psa_key_handle_t){0});
   LOG_DBG("Check key existence - open key returned: %d\n", status);

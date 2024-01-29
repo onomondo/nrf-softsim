@@ -4,19 +4,19 @@
 #include <stdint.h>
 #include <stddef.h>
 
-#define IMSI_LEN (18 / 2)
-#define A001_LEN (66 / 2)
-#define A004_LEN (228 / 2)
+#define IMSI_LEN  (18 / 2)
+#define A001_LEN  (66 / 2)
+#define A004_LEN  (228 / 2)
 #define ICCID_LEN (20 / 2)
 
-#define IMSI_TAG (0x01)
+#define IMSI_TAG  (0x01)
 #define ICCID_TAG (0x02)
-#define OPC_TAG (0x03)
-#define KI_TAG (0x04)
-#define KIC_TAG (0x05)
-#define KID_TAG (0x06)
-#define SMSP_TAG (0x07)  // SFI '6F42' -> TODO figure out formatting
-#define END_TAG (0xFF)
+#define OPC_TAG   (0x03)
+#define KI_TAG    (0x04)
+#define KIC_TAG   (0x05)
+#define KID_TAG   (0x06)
+#define SMSP_TAG  (0x07)  // SFI '6F42' -> TODO figure out formatting
+#define END_TAG   (0xFF)
 
 #define KEY_SIZE (32 / 2)
 #define KMU_KEY_SIZE (16)
@@ -38,7 +38,6 @@ struct ss_profile {
 
 /**
  * @brief
- *
  *
  * @param len Len of profile
  * @param data Raw profile data

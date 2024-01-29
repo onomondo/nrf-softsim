@@ -54,10 +54,9 @@ int ss_utils_setup_key(size_t key_len, uint8_t key[static key_len], enum key_ide
  * @brief check if a key exists in KMU or not. Use this to check for softsim
  * provisioning status.
  *
- *
  * @param key_id key identifier. Resolves into a slot in the KMU eventually.
  * @return int 1 if key exists, 0 if not
  */
 int ss_utils_check_key_existence(enum key_identifier_base key_id);
 
-int aes_128_encrypt_block(const uint8_t *key, const uint8_t *in, uint8_t *out);
+int ss_aes_128_encrypt_block(const uint8_t *key, const uint8_t *in, uint8_t *out);
