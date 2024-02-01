@@ -1,5 +1,12 @@
 # Changelog
 
+## [2.2.2](https://github.com/onomondo/nrf-softsim/compare/v2.2.1...v2.2.2) (2024-01-30)
+
+
+### Bug Fixes
+
+* disable TFM logs to reduce PSM Sleep Current ([c202fe4](https://github.com/onomondo/nrf-softsim/commit/c202fe4c772fc44a11704160492e5d248fc40656))
+
 ## [2.2.1](https://github.com/onomondo/nrf-softsim/compare/v2.2.0...v2.2.1) (2023-12-14)
 
 
