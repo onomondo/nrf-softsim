@@ -166,7 +166,7 @@ port_FILE port_fopen(char *path, char *mode)
   cursor->_p = 0;
 
   // Guarantee buffer contains valid data
-  read_nvs_to_cache(cursor);
+  ss_read_nvs_to_cache(cursor);
   return (void *)cursor;
 }
 
@@ -202,7 +202,7 @@ size_t port_fread(void *ptr, size_t size, size_t nmemb, port_FILE fp)
  * 
  * @param entry Pointer to a cache entry.
  */
-void read_nvs_to_cache(struct cache_entry *entry) 
+void ss_read_nvs_to_cache(struct cache_entry *entry) 
 {
   struct cache_entry *tmp;
 

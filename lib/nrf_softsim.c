@@ -30,7 +30,7 @@ static K_WORK_DEFINE(softsim_req_work, softsim_req_task);
 static uint8_t softsim_buffer_out[SIM_HAL_MAX_LE];
 
 // softsim handle
-struct ss_context *ctx = NULL; // Should this be converted to a static struct?
+struct ss_context *ctx = NULL;
 
 struct payload_t {
   void *data;
