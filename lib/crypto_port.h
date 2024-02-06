@@ -59,4 +59,4 @@ int ss_utils_setup_key(size_t key_len, uint8_t key[static key_len], enum key_ide
  */
 int ss_utils_check_key_existence(enum key_identifier_base key_id);
 
-int ss_aes_128_encrypt_block(const uint8_t *key, const uint8_t *in, uint8_t *out);
+int aes_128_encrypt_block(const uint8_t *key, const uint8_t *in, uint8_t *out);

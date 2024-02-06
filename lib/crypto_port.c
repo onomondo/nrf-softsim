@@ -232,7 +232,7 @@ exit:
   return;
 }
 
-int ss_aes_128_encrypt_block(const uint8_t *key, const uint8_t *in, uint8_t *out) {
+int aes_128_encrypt_block(const uint8_t *key, const uint8_t *in, uint8_t *out) {
   uint8_t buffer_cpy[16];
   memcpy(buffer_cpy, in, 16);
   ss_utils_aes_encrypt(buffer_cpy, 16, key, 16);
