@@ -2,12 +2,12 @@ zephyr_library()
 
 include_directories(include)
 
-zephyr_library_sources(nrf_softsim.c provision.c f_cache.c heap_port.c profile.c crypto_port.c build_asserts.c )
+zephyr_library_sources(nrf_softsim.c provision.c  heap_port.c profile.c crypto_port.c build_asserts.c )
 
 if (CONFIG_SOFTSIM_LITTLE_FS_BACKEND)
   zephyr_library_sources(ss_littlefs.c)
 else()
-  zephyr_library_sources(fs_port.c)
+  zephyr_library_sources(fs_port.c f_cache.c)
 endif()
 
 zephyr_library_import(crypto ${CMAKE_CURRENT_SOURCE_DIR}/libcrypto.a)
