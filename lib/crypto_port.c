@@ -41,7 +41,8 @@ static uint8_t shared_buffer[SHARED_BUFFER_SIZE];
   } while (0)
 
 static psa_status_t cipher_operation(psa_cipher_operation_t *operation, const uint8_t *input, size_t input_size,
-                                     size_t part_size, uint8_t *output, size_t output_size, size_t *output_len) {
+                                     size_t part_size, uint8_t *output, size_t output_size, size_t *output_len) 
+{
   psa_status_t status;
   size_t bytes_to_write = 0, bytes_written = 0, len = 0;
 
@@ -66,7 +67,8 @@ exit:
 }
 
 int ss_utils_ota_calc_cc(uint8_t *cc, size_t cc_len, uint8_t *key, size_t key_len, enum enc_algorithm alg,
-                         uint8_t *data1, size_t data1_len, uint8_t *data2, size_t data2_len) {
+                         uint8_t *data1, size_t data1_len, uint8_t *data2, size_t data2_len) 
+{
   psa_mac_operation_t operation = PSA_MAC_OPERATION_INIT;
   enum key_identifier_base slot_id = key_id_to_kmu_slot(key[0]);
 
@@ -137,12 +139,8 @@ exit:
 void ss_utils_3des_decrypt(uint8_t *buffer, size_t buffer_len, const uint8_t *key) { return; }
 void ss_utils_3des_encrypt(uint8_t *buffer, size_t buffer_len, const uint8_t *key) { return; }
 
-/*! Perform an in-place AES decryption with the common settings of OTA
- *  (CBC mode, zero IV).
- *  \param[inout] buffer user provided memory with plaintext to decrypt.
- *  \param[in] buffer_len length of the plaintext data to decrypt (multiple of
- * 16). \param[in] key AES key. \param[in] key_len length of the AES key. */
-void ss_utils_aes_decrypt(uint8_t *buffer, size_t buffer_len, const uint8_t *key, size_t key_len) {
+void ss_utils_aes_decrypt(uint8_t *buffer, size_t buffer_len, const uint8_t *key, size_t key_len) 
+{
   enum key_identifier_base slot_id = key_id_to_kmu_slot(key[0]);
   psa_key_handle_t key_handle;
   psa_status_t status;
@@ -184,13 +182,8 @@ exit:
   return;
 }
 
-/*! Perform an in-place AES encryption with the common settings of OTA
- *  (CBC mode, zero IV).
- *  \param[inout] buffer user provided memory with plaintext to encrypt.
- *  \param[in] buffer_len length of the plaintext data to encrypt (multiple of
- * 16). \param[in] key 16 byte AES key. \param[in] key_len length of the AES
- * key. */
-void ss_utils_aes_encrypt(uint8_t *buffer, size_t buffer_len, const uint8_t *key, size_t key_len) {
+void ss_utils_aes_encrypt(uint8_t *buffer, size_t buffer_len, const uint8_t *key, size_t key_len) 
+{
   // Key derived from the fist byte of the KIC/KID key
   enum key_identifier_base slot_id = key_id_to_kmu_slot(key[0]);
   psa_key_handle_t key_handle;
@@ -232,15 +225,17 @@ exit:
   return;
 }
 
-int aes_128_encrypt_block(const uint8_t *key, const uint8_t *in, uint8_t *out) {
-  uint8_t buffer_cpy[16];
-  memcpy(buffer_cpy, in, 16);
-  ss_utils_aes_encrypt(buffer_cpy, 16, key, 16);
-  memcpy(out, buffer_cpy, 16);
+int aes_128_encrypt_block(const uint8_t *key, const uint8_t *in, uint8_t *out) 
+{
+  uint8_t buffer_cpy[AES_BLOCKSIZE];
+  memcpy(buffer_cpy, in, AES_BLOCKSIZE);
+  ss_utils_aes_encrypt(buffer_cpy, AES_BLOCKSIZE, key, AES_BLOCKSIZE);
+  memcpy(out, buffer_cpy, AES_BLOCKSIZE);
   return 0;
 }
 
-int ss_utils_setup_key_helper(size_t key_len, uint8_t key[static key_len], int key_id, psa_key_usage_t usage_flags, psa_algorithm_t alg, psa_key_type_t key_type) 
+int ss_utils_setup_key_helper(size_t key_len, uint8_t key[static key_len], int key_id, psa_key_usage_t usage_flags,
+                              psa_algorithm_t alg, psa_key_type_t key_type) 
 {
   psa_status_t status;
   psa_key_attributes_t key_attributes = PSA_KEY_ATTRIBUTES_INIT;
@@ -279,7 +274,7 @@ int ss_utils_setup_key(size_t key_len, uint8_t key[static key_len], enum key_ide
 {
   psa_status_t status;
 
-  __ASSERT_NO_MSG(key_len == 16);
+  __ASSERT_NO_MSG(key_len == AES_BLOCKSIZE);
   __ASSERT_NO_MSG(key_id >= KEY_ID_KI && key_id <= KEY_ID_KID);
   LOG_DBG("Provisioning key %d...", key_id);
 

@@ -1,10 +1,13 @@
 #include <stdlib.h>
 #include <string.h>
+
 #include <zephyr/sys/printk.h>
 
 #include "f_cache.h"
 #include "provision.h"
 #include <onomondo/softsim/mem.h>
+
+char storage_path[] = "";
 
 /**
  * @brief TODO: move this function to a more appropriate place

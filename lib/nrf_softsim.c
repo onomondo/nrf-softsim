@@ -1,16 +1,18 @@
-#include <nrf_modem_softsim.h>
-#include <nrf_softsim.h>
-#include <onomondo/softsim/softsim.h>
-#include <onomondo/softsim/utils.h>
+#include <autoconf.h>
+
 #include <zephyr/init.h>
 #include <zephyr/kernel.h>
 #include <zephyr/logging/log.h>
-#include <onomondo/softsim/fs_port.h>
-#include <nrf_modem_at.h>
-#include <modem/nrf_modem_lib.h>
-#include "crypto_port.h"
+
 #include "profile.h"
-#include <autoconf.h>
+#include "crypto_port.h"
+#include <nrf_softsim.h>
+#include <nrf_modem_at.h>
+#include <nrf_modem_softsim.h>
+#include <modem/nrf_modem_lib.h>
+#include <onomondo/softsim/softsim.h>
+#include <onomondo/softsim/utils.h>
+#include <onomondo/softsim/fs_port.h>
 
 LOG_MODULE_REGISTER(softsim, CONFIG_SOFTSIM_LOG_LEVEL);
 
@@ -49,7 +51,8 @@ static void softsim_req_task(struct k_work *item);
 static void nrf_modem_softsim_req_handler(enum nrf_modem_softsim_cmd req, uint16_t req_id, void *data,
                                           uint16_t data_len);
 
-int onomondo_init(void) {
+int onomondo_init(void) 
+{
   /**
    * Init here?
    * Pro: pretty smooth :) -> no need to init and deinit more than needed..
@@ -97,7 +100,8 @@ int onomondo_init(void) {
 int nrf_softsim_init(void) { return onomondo_init(); }
 
 // public provision api
-int nrf_softsim_provision(uint8_t *profile_r, size_t len) {
+int nrf_softsim_provision(uint8_t *profile_r, size_t len) 
+{
   struct ss_profile profile = {0};
   decode_profile(len, profile_r, &profile);
 
@@ -119,7 +123,8 @@ int nrf_softsim_provision(uint8_t *profile_r, size_t len) {
   return status;
 }
 
-int nrf_softsim_check_provisioned(void) {
+int nrf_softsim_check_provisioned(void) 
+{
   /* Check first PSA key and also first NVS key. */
   return ss_utils_check_key_existence(KEY_ID_KI) && port_check_provisioned();
 }
@@ -127,9 +132,11 @@ int nrf_softsim_check_provisioned(void) {
 // still needed?
 __weak void nrf_modem_softsim_reset_handler(void) { LOG_DBG("SoftSIM RESET"); }
 
-static void softsim_req_task(struct k_work *item) {
+static void softsim_req_task(struct k_work *item) 
+{
   int err;
   struct softsim_req_node *s_req;
+
   while ((s_req = k_fifo_get(&softsim_req_fifo, K_NO_WAIT))) {
     switch (s_req->req) {
       case NRF_MODEM_SOFTSIM_INIT: {
@@ -212,7 +219,8 @@ static void softsim_req_task(struct k_work *item) {
   }
 }
 
-void nrf_modem_softsim_req_handler(enum nrf_modem_softsim_cmd req, uint16_t req_id, void *data, uint16_t data_len) {
+void nrf_modem_softsim_req_handler(enum nrf_modem_softsim_cmd req, uint16_t req_id, void *data, uint16_t data_len) 
+{
   struct softsim_req_node *req_node = NULL;
 
   req_node = k_malloc(sizeof(struct softsim_req_node));
@@ -235,7 +243,8 @@ void nrf_modem_softsim_req_handler(enum nrf_modem_softsim_cmd req, uint16_t req_
 #ifdef CONFIG_SOFTSIM_AUTO_INIT
 SYS_INIT(onomondo_init, APPLICATION, 0);
 
-static void ss_on_modem_lib_init(int ret, void *ctx) {
+static void ss_on_modem_lib_init(int ret, void *ctx) 
+{
   int err;
 
   err = nrf_modem_at_printf("AT%%CSUS=2");

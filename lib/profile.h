@@ -18,9 +18,9 @@
 #define SMSP_TAG  (0x07)  // SFI '6F42' -> TODO figure out formatting
 #define END_TAG   (0xFF)
 
-#define KEY_SIZE (32 / 2)
-#define KMU_KEY_SIZE (16)
-#define SMSP_RECORD_SIZE (52 / 2)
+#define KEY_SIZE          (32 / 2)
+#define KMU_KEY_SIZE      (16)
+#define SMSP_RECORD_SIZE  (52 / 2)
 
 struct ss_profile {
   uint8_t ICCID[ICCID_LEN];        // ICCID formatted to be written directly to FS

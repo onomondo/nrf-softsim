@@ -1,8 +1,8 @@
 #ifndef _F_CACHE_H_
 #define _F_CACHE_H_
 
-#include <onomondo/softsim/list.h>
 #include <stdint.h>
+#include <onomondo/softsim/list.h>
 
 #define FS_READ_ONLY (1UL << 8)
 #define FS_COMMIT_ON_CLOSE (1UL << 7)  // commit changes to NVS on close
@@ -22,7 +22,6 @@ struct cache_entry {
 
 /**
  * @brief find a suitable cache entry with a buffer that can be re-used
- *
  */
 struct cache_entry *f_cache_find_buffer(struct cache_entry *entry, struct ss_list *cache);
 struct cache_entry *f_cache_find_by_name(const char *name, struct ss_list *cache);

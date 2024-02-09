@@ -46,7 +46,7 @@ uint8_t fs_is_initialized = 0;
 
 // that the buffer is set. Either by allocating new memory or by
 // stealing from another entry.
-void ss_read_nvs_to_cache(struct cache_entry *entry);
+static void ss_read_nvs_to_cache(struct cache_entry *entry);
 
 int ss_init_fs() 
 {
@@ -129,8 +129,7 @@ int ss_deinit_fs()
  * 
  * @param path Full path.
  * @param mode Currently ignorred.
- * @return Pointer to a "file" represented by a struct cache_entry internally.
- */
+ * @return Pointer to a "file" represented by a struct cache_entry internally. */
 port_FILE port_fopen(char *path, char *mode) 
 {
   struct cache_entry *cursor = NULL;
@@ -145,13 +144,10 @@ port_FILE port_fopen(char *path, char *mode)
    * Currently not used.
    * Could potentially be used in the future to re-arrange order.
    * Initial order is ordered by frequency already so not big optimizations can
-   * be achieved.
-   */
+   * be achieved. */
   if (cursor->_cache_hits < 0xFF) cursor->_cache_hits++;
 
-  /**
-   * File opened first time.
-   */
+  // File opened first time.
   if (!cursor->_l) {
     rc = nvs_read(&fs, cursor->key, NULL, 0);
 
@@ -178,8 +174,7 @@ port_FILE port_fopen(char *path, char *mode)
  * @param size size of element
  * @param nmemb number of elements
  * @param fp file pointer
- * @return elements read
- */
+ * @return elements read */
 size_t port_fread(void *ptr, size_t size, size_t nmemb, port_FILE fp) 
 {
   if (nmemb == 0 || size == 0) {
@@ -206,10 +201,7 @@ void ss_read_nvs_to_cache(struct cache_entry *entry)
 {
   struct cache_entry *tmp;
 
-  /**
-   * If entry has a buffer assigned it contains valid data.
-   * Return early.
-   */
+  // If entry has a buffer assigned it contains valid data. Return early.
   if (entry->buf) return;
 
   // best bet for a buffer we can reuse
