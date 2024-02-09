@@ -43,8 +43,11 @@ ncs
  |___ ...
 ```
 
-Alternatively, a new SDK can be initiated with `west init -m https://github.com/onomondo/nrf-softsim.git`. 
-
+Alternatively, a new SDK can be initiated with the following two commands if you are already a user of west and nrf:
+```
+west init -m https://github.com/onomondo/nrf-softsim.git
+west update
+```
 
 ### Get access to your free SoftSIM profiles
 SoftSIM profiles are delivered through our API. As this can be a bit cumbersome, we've developed a small tool to make this process easier. The tool is available at [sofsim-cli](https://github.com/onomondo/onomondo-softsim-cli). Additional instructions can be found in the CLI repository. 

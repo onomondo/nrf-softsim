@@ -1,5 +1,16 @@
 # Changelog
 
+## [3.0.0](https://github.com/onomondo/nrf-softsim/compare/v2.2.2...v3.0.0) (2024-02-08)
+
+
+### ⚠ BREAKING CHANGES
+
+* tfm reference implementation flash usage optimization ([#32](https://github.com/onomondo/nrf-softsim/issues/32))
+
+### Features
+
+* tfm reference implementation flash usage optimization ([#32](https://github.com/onomondo/nrf-softsim/issues/32)) ([00576ac](https://github.com/onomondo/nrf-softsim/commit/00576ac9421b5362ee5430572db401fea28d664f))
+
 ## [2.2.2](https://github.com/onomondo/nrf-softsim/compare/v2.2.1...v2.2.2) (2024-01-30)
 
 
