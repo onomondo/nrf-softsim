@@ -1,5 +1,12 @@
 # Changelog
 
+## [3.0.1](https://github.com/onomondo/nrf-softsim/compare/v3.0.0...v3.0.1) (2024-02-13)
+
+
+### Bug Fixes
+
+* auto append softsim overlay fragment to the samples ([#36](https://github.com/onomondo/nrf-softsim/issues/36)) ([e8230c7](https://github.com/onomondo/nrf-softsim/commit/e8230c7d416b66624231a0d87065f536d81be439))
+
 ## [3.0.0](https://github.com/onomondo/nrf-softsim/compare/v2.2.2...v3.0.0) (2024-02-08)
 
 
