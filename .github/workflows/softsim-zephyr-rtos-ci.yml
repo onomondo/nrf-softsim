@@ -2,13 +2,15 @@ on:
   pull_request:
     branches: 
       - master
-  push:
-    branches: 
-      - feat/ci-cd-test-flow
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
 
 jobs:
   build-in-zyphyr-ci-container:
     runs-on: ubuntu-22.04
+    timeout-minutes: 60
     container: ghcr.io/zephyrproject-rtos/ci:v0.26.9 
     env:
       CMAKE_PREFIX_PATH: /opt/toolchains
