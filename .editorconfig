@@ -8,6 +8,21 @@ end_of_line = lf
 insert_final_newline = true
 trim_trailing_whitespace = true
 
+# Assembly
+[*.S]
+indent_style = tab
+indent_size = 8
+
+# C
+[*.{c,h}]
+indent_style = tab
+indent_size = 8
+
+# C++
+[*.{cpp,hpp}]
+indent_style = tab
+indent_size = 8
+
 # YAML
 [*.{yml,yaml}]
 indent_style = space
