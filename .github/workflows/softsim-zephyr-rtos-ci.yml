@@ -1,0 +1,48 @@
+on:
+  pull_request:
+    branches: 
+      - master
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  build-in-zyphyr-ci-container:
+    runs-on: ubuntu-22.04
+    timeout-minutes: 60
+    container: ghcr.io/zephyrproject-rtos/ci:v0.26.9 
+    env:
+      CMAKE_PREFIX_PATH: /opt/toolchains
+    
+    strategy:
+      matrix:
+        board: [nrf9160dk_nrf9160_ns, nrf9161dk_nrf9161_ns, actinius_icarus_ns]
+    
+    steps:   
+      - name: Initialize workspace
+        run: |
+          west init -m https://github.com/${GITHUB_REPOSITORY}
+          west update -o=--depth=1 -n
+      
+      - name: Build firmware of static profile sample
+        working-directory: modules/lib/onomondo-softsim/samples/softsim_static_profile
+        run: |
+          west build --pristine=always --board ${{ matrix.board }}
+
+      - name: Build firmware of static profile sample
+        working-directory: modules/lib/onomondo-softsim/samples/softsim_external_profile
+        run: |
+          west build --pristine=always --board ${{ matrix.board }}
+
+      - name: Build RAM and ROM report for static profile sample
+        working-directory: modules/lib/onomondo-softsim/samples/softsim_static_profile
+        run: |
+          west build -t ram_report
+          west build -t rom_report
+
+      - name: Build RAM and ROM report for external profile sample
+        working-directory: modules/lib/onomondo-softsim/samples/softsim_external_profile
+        run: |
+          west build -t ram_report
+          west build -t rom_report
