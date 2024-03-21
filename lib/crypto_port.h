@@ -2,6 +2,9 @@
 #include <stddef.h>
 #include <onomondo/softsim/log.h>
 
+#define EINVAL        22
+#define AES_BLOCKSIZE 16
+
 // argument to calc_cc
 enum enc_algorithm {
   NONE,
@@ -14,8 +17,6 @@ enum enc_algorithm {
 // TODO make configurable
 enum key_identifier_base { KEY_ID_KI = 10, KEY_ID_KIC = 11, KEY_ID_KID = 12, KEY_ID_UNKNOWN = 13 };
 
-#define AES_BLOCKSIZE 16
-#define EINVAL 22
 int ss_utils_ota_calc_cc(uint8_t *cc, size_t cc_len, uint8_t *key, size_t key_len, enum enc_algorithm alg,
                          uint8_t *data1, size_t data1_len, uint8_t *data2, size_t data2_len);
 
@@ -45,19 +46,15 @@ void ss_utils_aes_encrypt(uint8_t *buffer, size_t buffer_len, const uint8_t *key
  * @param key_len length of key data
  * @param key_id key identifier. Resolves into a slot in the KMU eventually.
  * This key id is derived during runtime by the content of the now unused
- * EF_A001 and EF_a004 file
- */
-
+ * EF_A001 and EF_a004 file */
 int ss_utils_setup_key(size_t key_len, uint8_t key[static key_len], enum key_identifier_base key_id);
 
 /**
  * @brief check if a key exists in KMU or not. Use this to check for softsim
  * provisioning status.
  *
- *
  * @param key_id key identifier. Resolves into a slot in the KMU eventually.
- * @return int 1 if key exists, 0 if not
- */
+ * @return int 1 if key exists, 0 if not */
 int ss_utils_check_key_existence(enum key_identifier_base key_id);
 
 int aes_128_encrypt_block(const uint8_t *key, const uint8_t *in, uint8_t *out);

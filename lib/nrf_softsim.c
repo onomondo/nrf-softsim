@@ -1,21 +1,18 @@
+#include <autoconf.h>
 
-
-#include <nrf_modem_softsim.h>
-#include <nrf_softsim.h>
-#include <onomondo/softsim/softsim.h>
-#include <onomondo/softsim/utils.h>
 #include <zephyr/init.h>
 #include <zephyr/kernel.h>
 #include <zephyr/logging/log.h>
-#include <onomondo/softsim/fs_port.h>
-#include <nrf_modem_at.h>
-#include <modem/nrf_modem_lib.h>
-#include "crypto_port.h"
+
 #include "profile.h"
-#include <autoconf.h>
-static void softsim_req_task(struct k_work *item);
-int port_provision(struct ss_profile *profile);
-int port_check_provisioned(void);
+#include "crypto_port.h"
+#include <nrf_softsim.h>
+#include <nrf_modem_at.h>
+#include <nrf_modem_softsim.h>
+#include <modem/nrf_modem_lib.h>
+#include <onomondo/softsim/softsim.h>
+#include <onomondo/softsim/utils.h>
+#include <onomondo/softsim/fs_port.h>
 
 LOG_MODULE_REGISTER(softsim, CONFIG_SOFTSIM_LOG_LEVEL);
 
@@ -25,7 +22,11 @@ K_THREAD_STACK_DEFINE(softsim_stack_area, SOFTSIM_STACK_SIZE);
 
 #define SIM_HAL_MAX_LE 260
 
-struct k_work_q softsim_work_q;
+static void softsim_req_task(struct k_work *item);
+int port_provision(struct ss_profile *profile);
+int port_check_provisioned(void);
+
+static struct k_work_q softsim_work_q;
 static K_FIFO_DEFINE(softsim_req_fifo);
 static K_WORK_DEFINE(softsim_req_work, softsim_req_task);
 static uint8_t softsim_buffer_out[SIM_HAL_MAX_LE];
@@ -50,7 +51,8 @@ static void softsim_req_task(struct k_work *item);
 static void nrf_modem_softsim_req_handler(enum nrf_modem_softsim_cmd req, uint16_t req_id, void *data,
                                           uint16_t data_len);
 
-int onomondo_init(void) {
+int onomondo_init(void) 
+{
   /**
    * Init here?
    * Pro: pretty smooth :) -> no need to init and deinit more than needed..
@@ -61,7 +63,7 @@ int onomondo_init(void) {
    *
    * Maybe just call fs_commit() of so on de-init.?
    */
-  int rc = init_fs();
+  int rc = ss_init_fs();
 
 #ifdef CONFIG_SOFTSIM_STATIC_PROFILE_ENABLE
 #pragma message "Using static profile. Only for development!"
@@ -98,7 +100,8 @@ int onomondo_init(void) {
 int nrf_softsim_init(void) { return onomondo_init(); }
 
 // public provision api
-int nrf_softsim_provision(uint8_t *profile_r, size_t len) {
+int nrf_softsim_provision(uint8_t *profile_r, size_t len) 
+{
   struct ss_profile profile = {0};
   decode_profile(len, profile_r, &profile);
 
@@ -120,7 +123,8 @@ int nrf_softsim_provision(uint8_t *profile_r, size_t len) {
   return status;
 }
 
-int nrf_softsim_check_provisioned(void) {
+int nrf_softsim_check_provisioned(void) 
+{
   /* Check first PSA key and also first NVS key. */
   return ss_utils_check_key_existence(KEY_ID_KI) && port_check_provisioned();
 }
@@ -128,9 +132,11 @@ int nrf_softsim_check_provisioned(void) {
 // still needed?
 __weak void nrf_modem_softsim_reset_handler(void) { LOG_DBG("SoftSIM RESET"); }
 
-static void softsim_req_task(struct k_work *item) {
+static void softsim_req_task(struct k_work *item) 
+{
   int err;
   struct softsim_req_node *s_req;
+
   while ((s_req = k_fifo_get(&softsim_req_fifo, K_NO_WAIT))) {
     switch (s_req->req) {
       case NRF_MODEM_SOFTSIM_INIT: {
@@ -141,7 +147,7 @@ static void softsim_req_task(struct k_work *item) {
 
         if (!ss_is_suspended(ctx)) {
           ss_reset(ctx);
-          init_fs();
+          ss_init_fs();
         }
 
         int atr_len = ss_atr(ctx, softsim_buffer_out, SIM_HAL_MAX_LE);
@@ -177,7 +183,7 @@ static void softsim_req_task(struct k_work *item) {
         if (ctx && !ss_is_suspended(ctx)) {  // ignore if suspended. Then we just keep the context around
           ss_free_ctx(ctx);
           ctx = NULL;
-          deinit_fs();  // Commit any cached changes to flash
+          ss_deinit_fs();  // Commit any cached changes to flash
         } else {
           LOG_DBG("SoftSIM suspended. Keeping context.");
         }
@@ -213,7 +219,8 @@ static void softsim_req_task(struct k_work *item) {
   }
 }
 
-void nrf_modem_softsim_req_handler(enum nrf_modem_softsim_cmd req, uint16_t req_id, void *data, uint16_t data_len) {
+void nrf_modem_softsim_req_handler(enum nrf_modem_softsim_cmd req, uint16_t req_id, void *data, uint16_t data_len) 
+{
   struct softsim_req_node *req_node = NULL;
 
   req_node = k_malloc(sizeof(struct softsim_req_node));
@@ -236,7 +243,8 @@ void nrf_modem_softsim_req_handler(enum nrf_modem_softsim_cmd req, uint16_t req_
 #ifdef CONFIG_SOFTSIM_AUTO_INIT
 SYS_INIT(onomondo_init, APPLICATION, 0);
 
-static void on_modem_lib_init(int ret, void *ctx) {
+static void ss_on_modem_lib_init(int ret, void *ctx) 
+{
   int err;
 
   err = nrf_modem_at_printf("AT%%CSUS=2");
@@ -244,5 +252,5 @@ static void on_modem_lib_init(int ret, void *ctx) {
     LOG_ERR("Failed to select software SIM.");
   }
 }
-NRF_MODEM_LIB_ON_INIT(sim_select_hook, on_modem_lib_init, NULL);
+NRF_MODEM_LIB_ON_INIT(sim_select_hook, ss_on_modem_lib_init, NULL);
 #endif
