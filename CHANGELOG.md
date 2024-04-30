@@ -1,5 +1,16 @@
 # Changelog
 
+## [4.0.0](https://github.com/onomondo/nrf-softsim/compare/v3.0.1...v4.0.0) (2024-04-30)
+
+
+### ⚠ BREAKING CHANGES
+
+* bump to ncs 2.6.1 (CEL-138) ([#42](https://github.com/onomondo/nrf-softsim/issues/42))
+
+### Features
+
+* bump to ncs 2.6.1 (CEL-138) ([#42](https://github.com/onomondo/nrf-softsim/issues/42)) ([4d0e56b](https://github.com/onomondo/nrf-softsim/commit/4d0e56b9a7c4348b9a09640695d5383232ec5e48))
+
 ## [3.0.1](https://github.com/onomondo/nrf-softsim/compare/v3.0.0...v3.0.1) (2024-02-13)
 
 
