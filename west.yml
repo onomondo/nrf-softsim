@@ -7,10 +7,10 @@ manifest:
   projects:
     - name: sdk-nrf
       path: nrf
-      revision: v2.5.2
+      revision: v2.6.1
       remote: nrfconnect
       import: true
 
   self:
     path: modules/lib/onomondo-softsim
- 
+
