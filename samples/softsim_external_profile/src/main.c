@@ -210,10 +210,9 @@ int main(void) {
     sys_reboot(0);
   }
 
-  err = lte_lc_init();
+  err = nrf_modem_lib_init();
   if (err) {
-    LOG_ERR("Failed to initialize nrf link control, err %d\n", err);
-    return -1;
+    LOG_ERR("Failed to initialize modem library, error: %d\n", err);
   }
 
   work_init();
