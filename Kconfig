@@ -35,6 +35,11 @@ config SOFTSIM_BUNDLE_TEMPLATE_HEX
     bool "Automatically bundle the template profile hex into the application"
     default n
 
+config SOFTSIM_LITTLE_FS_BACKEND
+    bool "Use LittleFS as the backend for SoftSIM"
+    default n
+    help
+        Use LittleFS as the backend for SoftSIM. 
 endif #SOFTSIM
 
 
