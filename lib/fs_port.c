@@ -48,7 +48,7 @@ uint8_t fs_is_initialized = 0;
 // stealing from another entry.
 static void ss_read_nvs_to_cache(struct cache_entry *entry);
 
-int ss_init_fs() 
+int ss_init_fs()
 {
   if (fs_is_initialized) return 0;  // already initialized
 
@@ -94,7 +94,7 @@ out:
   return ss_list_empty(&fs_cache);
 }
 
-int ss_deinit_fs() 
+int ss_deinit_fs()
 {
   // TODO: check if DIR entry is still valid
   // if not recreate and write.
@@ -126,11 +126,11 @@ int ss_deinit_fs()
 
 /**
  * @brief Implements a version of standard C fopen.
- * 
+ *
  * @param path Full path.
  * @param mode Currently ignorred.
  * @return Pointer to a "file" represented by a struct cache_entry internally. */
-port_FILE port_fopen(char *path, char *mode) 
+port_FILE port_fopen(char *path, char *mode)
 {
   struct cache_entry *cursor = NULL;
   int rc = 0;
@@ -175,7 +175,7 @@ port_FILE port_fopen(char *path, char *mode)
  * @param nmemb number of elements
  * @param fp file pointer
  * @return elements read */
-size_t port_fread(void *ptr, size_t size, size_t nmemb, port_FILE fp) 
+size_t port_fread(void *ptr, size_t size, size_t nmemb, port_FILE fp)
 {
   if (nmemb == 0 || size == 0) {
     return 0;
@@ -194,10 +194,10 @@ size_t port_fread(void *ptr, size_t size, size_t nmemb, port_FILE fp)
 /**
  * @brief Makes sure internal buffer points to the actual data by fetching it
  * from NVS or protected storage if needed.
- * 
+ *
  * @param entry Pointer to a cache entry.
  */
-void ss_read_nvs_to_cache(struct cache_entry *entry) 
+void ss_read_nvs_to_cache(struct cache_entry *entry)
 {
   struct cache_entry *tmp;
 
@@ -277,7 +277,7 @@ char *port_fgets(char *str, int n, port_FILE fp) {
   return str;
 }
 
-int port_fclose(port_FILE fp) 
+int port_fclose(port_FILE fp)
 {
   struct cache_entry *entry = (struct cache_entry *)fp;
 
@@ -301,7 +301,7 @@ out:
   return 0;
 }
 
-int port_fseek(port_FILE fp, long offset, int whence) 
+int port_fseek(port_FILE fp, long offset, int whence)
 {
   struct cache_entry *entry = (struct cache_entry *)fp;
 
@@ -320,7 +320,7 @@ int port_fseek(port_FILE fp, long offset, int whence)
   return 0;
 }
 
-long port_ftell(port_FILE fp) 
+long port_ftell(port_FILE fp)
 {
   struct cache_entry *entry = (struct cache_entry *)fp;
 
@@ -331,7 +331,7 @@ long port_ftell(port_FILE fp)
   return entry->_p;
 }
 
-int port_fputc(int c, port_FILE fp) 
+int port_fputc(int c, port_FILE fp)
 {
   struct cache_entry *entry = (struct cache_entry *)fp;
 
@@ -361,20 +361,20 @@ int port_fputc(int c, port_FILE fp)
   return c;
 }
 
-int port_access(const char *path, int amode) 
+int port_access(const char *path, int amode)
 {
   return 0;
 }  // TODO -> safe to omit for now. Internally SoftSIM will verify that a
    // directory exists after creation. Easier to guarentee since it isn't a
    // 'thing'
 
-int port_mkdir(const char *, int) 
+int port_mkdir(const char *, int)
 {
   return 0;
 }  // don't care. We don't really obey directories (creating file
    // 'test/a/b/c.def) implicitly creates the directories
 
-int port_remove(const char *path) 
+int port_remove(const char *path)
 {
   struct cache_entry *entry = f_cache_find_by_name(path, &fs_cache);
 
@@ -400,7 +400,7 @@ int port_rmdir(const char *) { return 0; }  // todo. Remove all entries with dir
 
 static uint8_t default_imsi[] = {0x08, 0x09, 0x10, 0x10, 0x00, 0x00, 0x00, 0x00, 0x10};
 
-int port_check_provisioned() 
+int port_check_provisioned()
 {
   int ret;
   uint8_t buffer[IMSI_LEN] = {0};
@@ -425,7 +425,7 @@ int port_check_provisioned()
  * @param profile ptr to the profile
  * @param len Len of profile. 332 otherwise invalid.
  */
-int port_provision(struct ss_profile *profile) 
+int port_provision(struct ss_profile *profile)
 {
   int rc = ss_init_fs();
   if (rc) {
@@ -473,7 +473,7 @@ out_err:
   return -1;
 }
 
-size_t port_fwrite(const void *prt, size_t size, size_t count, port_FILE f) 
+size_t port_fwrite(const void *prt, size_t size, size_t count, port_FILE f)
 {
   struct cache_entry *entry = (struct cache_entry *)f;
 

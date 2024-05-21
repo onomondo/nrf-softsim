@@ -19,7 +19,7 @@ char storage_path[] = "";
  * @param blob pointer to blob of data
  * @param size size of blob
  */
-void generate_dir_table_from_blob(struct ss_list *dirs, uint8_t *blob, size_t size) 
+void generate_dir_table_from_blob(struct ss_list *dirs, uint8_t *blob, size_t size)
 {
   size_t cursor = 0;
   while (cursor < size) {

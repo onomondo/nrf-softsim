@@ -6,7 +6,7 @@
 #define MAX_ENTRIES (10)
 
 // find a suitable cache entry with a buffer that can be re-used
-struct cache_entry *f_cache_find_buffer(struct cache_entry *entry, struct ss_list *cache) 
+struct cache_entry *f_cache_find_buffer(struct cache_entry *entry, struct ss_list *cache)
 {
   struct cache_entry *cursor;
   size_t min_hits_1 = 100, min_hits_2 = 100, min_hits_3 = 100;
@@ -56,7 +56,7 @@ struct cache_entry *f_cache_find_buffer(struct cache_entry *entry, struct ss_lis
 }
 
 // lookup cache entry by name
-struct cache_entry *f_cache_find_by_name(const char *name, struct ss_list *cache) 
+struct cache_entry *f_cache_find_by_name(const char *name, struct ss_list *cache)
 {
   struct cache_entry *cursor;
 
