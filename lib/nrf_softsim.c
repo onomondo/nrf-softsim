@@ -5,7 +5,7 @@
 #include <zephyr/logging/log.h>
 
 #include "profile.h"
-#include "crypto_port.h"
+#include "ss_crypto.h"
 #include <nrf_softsim.h>
 #include <nrf_modem_at.h>
 #include <nrf_modem_softsim.h>
@@ -51,7 +51,7 @@ static void softsim_req_task(struct k_work *item);
 static void nrf_modem_softsim_req_handler(enum nrf_modem_softsim_cmd req, uint16_t req_id, void *data,
                                           uint16_t data_len);
 
-int onomondo_init(void) 
+int onomondo_init(void)
 {
   /**
    * Init here?
@@ -100,7 +100,7 @@ int onomondo_init(void)
 int nrf_softsim_init(void) { return onomondo_init(); }
 
 // public provision api
-int nrf_softsim_provision(uint8_t *profile_r, size_t len) 
+int nrf_softsim_provision(uint8_t *profile_r, size_t len)
 {
   struct ss_profile profile = {0};
   decode_profile(len, profile_r, &profile);
@@ -123,7 +123,7 @@ int nrf_softsim_provision(uint8_t *profile_r, size_t len)
   return status;
 }
 
-int nrf_softsim_check_provisioned(void) 
+int nrf_softsim_check_provisioned(void)
 {
   /* Check first PSA key and also first NVS key. */
   return ss_utils_check_key_existence(KEY_ID_KI) && port_check_provisioned();
@@ -132,7 +132,7 @@ int nrf_softsim_check_provisioned(void)
 // still needed?
 __weak void nrf_modem_softsim_reset_handler(void) { LOG_DBG("SoftSIM RESET"); }
 
-static void softsim_req_task(struct k_work *item) 
+static void softsim_req_task(struct k_work *item)
 {
   int err;
   struct softsim_req_node *s_req;
@@ -219,7 +219,7 @@ static void softsim_req_task(struct k_work *item)
   }
 }
 
-void nrf_modem_softsim_req_handler(enum nrf_modem_softsim_cmd req, uint16_t req_id, void *data, uint16_t data_len) 
+void nrf_modem_softsim_req_handler(enum nrf_modem_softsim_cmd req, uint16_t req_id, void *data, uint16_t data_len)
 {
   struct softsim_req_node *req_node = NULL;
 
@@ -243,7 +243,7 @@ void nrf_modem_softsim_req_handler(enum nrf_modem_softsim_cmd req, uint16_t req_
 #ifdef CONFIG_SOFTSIM_AUTO_INIT
 SYS_INIT(onomondo_init, APPLICATION, 0);
 
-static void ss_on_modem_lib_init(int ret, void *ctx) 
+static void ss_on_modem_lib_init(int ret, void *ctx)
 {
   int err;
 

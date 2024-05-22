@@ -7,7 +7,7 @@
 #include <zephyr/sys/printk.h>
 
 #include "profile.h"
-#include "crypto_port.h"
+#include "ss_crypto.h"
 #include <onomondo/softsim/log.h>
 #include <onomondo/softsim/mem.h>
 
@@ -41,7 +41,7 @@ static uint8_t shared_buffer[SHARED_BUFFER_SIZE];
   } while (0)
 
 static psa_status_t cipher_operation(psa_cipher_operation_t *operation, const uint8_t *input, size_t input_size,
-                                     size_t part_size, uint8_t *output, size_t output_size, size_t *output_len) 
+                                     size_t part_size, uint8_t *output, size_t output_size, size_t *output_len)
 {
   psa_status_t status;
   size_t bytes_to_write = 0, bytes_written = 0, len = 0;
@@ -67,7 +67,7 @@ exit:
 }
 
 int ss_utils_ota_calc_cc(uint8_t *cc, size_t cc_len, uint8_t *key, size_t key_len, enum enc_algorithm alg,
-                         uint8_t *data1, size_t data1_len, uint8_t *data2, size_t data2_len) 
+                         uint8_t *data1, size_t data1_len, uint8_t *data2, size_t data2_len)
 {
   psa_mac_operation_t operation = PSA_MAC_OPERATION_INIT;
   enum key_identifier_base slot_id = key_id_to_kmu_slot(key[0]);
@@ -139,7 +139,7 @@ exit:
 void ss_utils_3des_decrypt(uint8_t *buffer, size_t buffer_len, const uint8_t *key) { return; }
 void ss_utils_3des_encrypt(uint8_t *buffer, size_t buffer_len, const uint8_t *key) { return; }
 
-void ss_utils_aes_decrypt(uint8_t *buffer, size_t buffer_len, const uint8_t *key, size_t key_len) 
+void ss_utils_aes_decrypt(uint8_t *buffer, size_t buffer_len, const uint8_t *key, size_t key_len)
 {
   enum key_identifier_base slot_id = key_id_to_kmu_slot(key[0]);
   psa_key_handle_t key_handle;
@@ -182,7 +182,7 @@ exit:
   return;
 }
 
-void ss_utils_aes_encrypt(uint8_t *buffer, size_t buffer_len, const uint8_t *key, size_t key_len) 
+void ss_utils_aes_encrypt(uint8_t *buffer, size_t buffer_len, const uint8_t *key, size_t key_len)
 {
   // Key derived from the fist byte of the KIC/KID key
   enum key_identifier_base slot_id = key_id_to_kmu_slot(key[0]);
@@ -225,7 +225,7 @@ exit:
   return;
 }
 
-int aes_128_encrypt_block(const uint8_t *key, const uint8_t *in, uint8_t *out) 
+int aes_128_encrypt_block(const uint8_t *key, const uint8_t *in, uint8_t *out)
 {
   uint8_t buffer_cpy[AES_BLOCKSIZE];
   memcpy(buffer_cpy, in, AES_BLOCKSIZE);
@@ -235,7 +235,7 @@ int aes_128_encrypt_block(const uint8_t *key, const uint8_t *in, uint8_t *out)
 }
 
 int ss_utils_setup_key_helper(size_t key_len, uint8_t key[static key_len], int key_id, psa_key_usage_t usage_flags,
-                              psa_algorithm_t alg, psa_key_type_t key_type) 
+                              psa_algorithm_t alg, psa_key_type_t key_type)
 {
   psa_status_t status;
   psa_key_attributes_t key_attributes = PSA_KEY_ATTRIBUTES_INIT;
@@ -270,7 +270,7 @@ int ss_utils_setup_key_helper(size_t key_len, uint8_t key[static key_len], int k
   return 0;
 }
 
-int ss_utils_setup_key(size_t key_len, uint8_t key[static key_len], enum key_identifier_base key_id) 
+int ss_utils_setup_key(size_t key_len, uint8_t key[static key_len], enum key_identifier_base key_id)
 {
   psa_status_t status;
 
@@ -307,7 +307,7 @@ int ss_utils_setup_key(size_t key_len, uint8_t key[static key_len], enum key_ide
   return 0;
 }
 
-int ss_utils_check_key_existence(enum key_identifier_base key_id) 
+int ss_utils_check_key_existence(enum key_identifier_base key_id)
 {
   psa_status_t status;
   status = psa_open_key((psa_key_id_t)key_id, &(psa_key_handle_t){0});
