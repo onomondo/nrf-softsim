@@ -4,7 +4,7 @@
 #include <zephyr/sys/printk.h>
 
 #include "ss_cache.h"
-#include "provision.h"
+#include "ss_provision.h"
 #include <onomondo/softsim/mem.h>
 
 char storage_path[] = "";
