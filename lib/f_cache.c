@@ -1,13 +1,13 @@
-#include "f_cache.h"
-
 #include <string.h>
 #include <zephyr/sys/printk.h>
 
-#define MAX_ENTRIES (10)
+#include "f_cache.h"
+
+#define SS_MAX_ENTRIES (10)
 
 // find a suitable cache entry with a buffer that can be re-used
-struct cache_entry *f_cache_find_buffer(struct cache_entry *entry,
-                                        struct ss_list *cache) {
+struct cache_entry *f_cache_find_buffer(struct cache_entry *entry, struct ss_list *cache)
+{
   struct cache_entry *cursor;
   size_t min_hits_1 = 100, min_hits_2 = 100, min_hits_3 = 100;
   struct cache_entry *no_hits_no_write_existing_buff =
@@ -39,8 +39,8 @@ struct cache_entry *f_cache_find_buffer(struct cache_entry *entry,
     }
   }
 
-  // let cache grow to MAX_ENTRIES
-  if (cached_entries < MAX_ENTRIES)
+  // let cache grow to SS_MAX_ENTRIES
+  if (cached_entries < SS_MAX_ENTRIES)
     return NULL;
 
   if (no_hits_no_write_existing_buff)
@@ -56,8 +56,8 @@ struct cache_entry *f_cache_find_buffer(struct cache_entry *entry,
 }
 
 // lookup cache entry by name
-struct cache_entry *f_cache_find_by_name(const char *name,
-                                         struct ss_list *cache) {
+struct cache_entry *f_cache_find_by_name(const char *name, struct ss_list *cache)
+{
   struct cache_entry *cursor;
 
   SS_LIST_FOR_EACH(cache, cursor, struct cache_entry, list) {

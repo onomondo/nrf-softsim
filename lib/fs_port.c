@@ -1,9 +1,5 @@
-#include <onomondo/softsim/fs_port.h>
-#include <onomondo/softsim/list.h>
-#include <onomondo/softsim/utils.h>
-#include <onomondo/softsim/log.h>
-#include <onomondo/softsim/mem.h>
 #include <stdlib.h>
+
 #include <zephyr/fs/nvs.h>
 #include <zephyr/kernel.h>
 #include <zephyr/logging/log.h>
@@ -12,11 +8,13 @@
 #include "f_cache.h"
 #include "provision.h"
 #include "profile.h"
+#include <onomondo/softsim/fs_port.h>
+#include <onomondo/softsim/list.h>
+#include <onomondo/softsim/utils.h>
+#include <onomondo/softsim/log.h>
+#include <onomondo/softsim/mem.h>
 
 LOG_MODULE_DECLARE(softsim, CONFIG_SOFTSIM_LOG_LEVEL);
-
-static struct nvs_fs fs;
-static struct ss_list fs_cache;
 
 #define NVS_PARTITION nvs_storage
 #define NVS_PARTITION_DEVICE FIXED_PARTITION_DEVICE(NVS_PARTITION)
@@ -24,10 +22,10 @@ static struct ss_list fs_cache;
 
 #define DIR_ID (1UL)
 
-#define IMSI_PATH "/3f00/7ff0/6f07"
-#define ICCID_PATH "/3f00/2fe2"
-#define A001_PATH "/3f00/a001"
-#define A004_PATH "/3f00/a004"
+#define IMSI_PATH   "/3f00/7ff0/6f07"
+#define ICCID_PATH  "/3f00/2fe2"
+#define A001_PATH   "/3f00/a001"
+#define A004_PATH   "/3f00/a004"
 
 #ifndef SEEK_SET
 #define SEEK_SET 0 /* set file offset to offset */
@@ -39,15 +37,19 @@ static struct ss_list fs_cache;
 #define SEEK_END 2 /* set file offset to EOF plus offset */
 #endif
 
+static struct nvs_fs fs;
+static struct ss_list fs_cache;
+
+static uint8_t fs_is_initialized = 0;
+
 // internal functions
 
-//  that the buffer is set. Either by allocating new memory or by
+// that the buffer is set. Either by allocating new memory or by
 // stealing from another entry.
-void read_nvs_to_cache(struct cache_entry *entry);
+static void ss_read_nvs_to_cache(struct cache_entry *entry);
 
-uint8_t fs_is_initialized = 0;
-
-int init_fs() {
+int ss_init_fs()
+{
   if (fs_is_initialized) return 0;  // already initialized
 
   ss_list_init(&fs_cache);
@@ -92,7 +94,8 @@ out:
   return ss_list_empty(&fs_cache);
 }
 
-int deinit_fs() {
+int ss_deinit_fs()
+{
   // TODO: check if DIR entry is still valid
   // if not recreate and write.
   // Will NVS only commit if there are changes? If so, we can just recreate
@@ -100,9 +103,7 @@ int deinit_fs() {
 
   struct cache_entry *cursor, *pre_cursor;
 
-  /* Free all memory allocated by cache and
-   * commit changes to NVS
-   */
+  // Free all memory allocated by cache and commit changes to NVS
   SS_LIST_FOR_EACH_SAVE(&fs_cache, cursor, pre_cursor, struct cache_entry, list) {
     if (cursor->_b_dirty) {
       LOG_INF("Softsim stop - committing %s to NVS", cursor->name);
@@ -125,16 +126,16 @@ int deinit_fs() {
 
 /**
  * @brief Implements a version of standard C fopen.
+ *
  * @param path Full path.
  * @param mode Currently ignorred.
- * @return Pointer to a
- * "file" represented by a struct cache_entry internally.
- */
-port_FILE port_fopen(char *path, char *mode) {
+ * @return Pointer to a "file" represented by a struct cache_entry internally. */
+port_FILE port_fopen(char *path, char *mode)
+{
   struct cache_entry *cursor = NULL;
   int rc = 0;
 
-  cursor = f_cache_find_by_name(path, &fs_cache);  //
+  cursor = f_cache_find_by_name(path, &fs_cache);
   if (!cursor) {
     return NULL;
   }
@@ -143,13 +144,10 @@ port_FILE port_fopen(char *path, char *mode) {
    * Currently not used.
    * Could potentially be used in the future to re-arrange order.
    * Initial order is ordered by frequency already so not big optimizations can
-   * be achieved.
-   */
+   * be achieved. */
   if (cursor->_cache_hits < 0xFF) cursor->_cache_hits++;
 
-  /**
-   * File opened first time.
-   */
+  // File opened first time.
   if (!cursor->_l) {
     rc = nvs_read(&fs, cursor->key, NULL, 0);
 
@@ -163,8 +161,8 @@ port_FILE port_fopen(char *path, char *mode) {
   // Reset internal read/write pointer
   cursor->_p = 0;
 
-  // Guarentee buffer contains valid data
-  read_nvs_to_cache(cursor);
+  // Guarantee buffer contains valid data
+  ss_read_nvs_to_cache(cursor);
   return (void *)cursor;
 }
 
@@ -176,9 +174,9 @@ port_FILE port_fopen(char *path, char *mode) {
  * @param size size of element
  * @param nmemb number of elements
  * @param fp file pointer
- * @return elements read
- */
-size_t port_fread(void *ptr, size_t size, size_t nmemb, port_FILE fp) {
+ * @return elements read */
+size_t port_fread(void *ptr, size_t size, size_t nmemb, port_FILE fp)
+{
   if (nmemb == 0 || size == 0) {
     return 0;
   }
@@ -196,15 +194,14 @@ size_t port_fread(void *ptr, size_t size, size_t nmemb, port_FILE fp) {
 /**
  * @brief Makes sure internal buffer points to the actual data by fetching it
  * from NVS or protected storage if needed.
+ *
  * @param entry Pointer to a cache entry.
  */
-void read_nvs_to_cache(struct cache_entry *entry) {
+void ss_read_nvs_to_cache(struct cache_entry *entry)
+{
   struct cache_entry *tmp;
 
-  /**
-   * If entry has a buffer assigned it contains valid data.
-   * Return early.
-   */
+  // If entry has a buffer assigned it contains valid data. Return early.
   if (entry->buf) return;
 
   // best bet for a buffer we can reuse
@@ -280,7 +277,8 @@ char *port_fgets(char *str, int n, port_FILE fp) {
   return str;
 }
 
-int port_fclose(port_FILE fp) {
+int port_fclose(port_FILE fp)
+{
   struct cache_entry *entry = (struct cache_entry *)fp;
 
   if (!entry) {
@@ -303,7 +301,8 @@ out:
   return 0;
 }
 
-int port_fseek(port_FILE fp, long offset, int whence) {
+int port_fseek(port_FILE fp, long offset, int whence)
+{
   struct cache_entry *entry = (struct cache_entry *)fp;
 
   if (!entry) {
@@ -320,7 +319,9 @@ int port_fseek(port_FILE fp, long offset, int whence) {
   }
   return 0;
 }
-long port_ftell(port_FILE fp) {
+
+long port_ftell(port_FILE fp)
+{
   struct cache_entry *entry = (struct cache_entry *)fp;
 
   if (!entry) {
@@ -329,7 +330,9 @@ long port_ftell(port_FILE fp) {
 
   return entry->_p;
 }
-int port_fputc(int c, port_FILE fp) {
+
+int port_fputc(int c, port_FILE fp)
+{
   struct cache_entry *entry = (struct cache_entry *)fp;
 
   if (!entry) {
@@ -357,17 +360,22 @@ int port_fputc(int c, port_FILE fp) {
 
   return c;
 }
-int port_access(const char *path, int amode) {
+
+int port_access(const char *path, int amode)
+{
   return 0;
 }  // TODO -> safe to omit for now. Internally SoftSIM will verify that a
    // directory exists after creation. Easier to guarentee since it isn't a
    // 'thing'
-int port_mkdir(const char *, int) {
+
+int port_mkdir(const char *, int)
+{
   return 0;
 }  // don't care. We don't really obey directories (creating file
    // 'test/a/b/c.def) implicitly creates the directories
 
-int port_remove(const char *path) {
+int port_remove(const char *path)
+{
   struct cache_entry *entry = f_cache_find_by_name(path, &fs_cache);
 
   if (!entry) {
@@ -392,7 +400,8 @@ int port_rmdir(const char *) { return 0; }  // todo. Remove all entries with dir
 
 static uint8_t default_imsi[] = {0x08, 0x09, 0x10, 0x10, 0x00, 0x00, 0x00, 0x00, 0x10};
 
-int port_check_provisioned() {
+int port_check_provisioned()
+{
   int ret;
   uint8_t buffer[IMSI_LEN] = {0};
   struct cache_entry *entry = (struct cache_entry *)f_cache_find_by_name(IMSI_PATH, &fs_cache);
@@ -413,12 +422,12 @@ int port_check_provisioned() {
 /**
  * @brief Provision the SoftSIM with the given profile
  *
- *
  * @param profile ptr to the profile
  * @param len Len of profile. 332 otherwise invalid.
  */
-int port_provision(struct ss_profile *profile) {
-  int rc = init_fs();
+int port_provision(struct ss_profile *profile)
+{
+  int rc = ss_init_fs();
   if (rc) {
     LOG_ERR("Failed to init FS");
   }
@@ -464,7 +473,8 @@ out_err:
   return -1;
 }
 
-size_t port_fwrite(const void *prt, size_t size, size_t count, port_FILE f) {
+size_t port_fwrite(const void *prt, size_t size, size_t count, port_FILE f)
+{
   struct cache_entry *entry = (struct cache_entry *)f;
 
   if (!entry) {
@@ -473,9 +483,7 @@ size_t port_fwrite(const void *prt, size_t size, size_t count, port_FILE f) {
 
   const size_t requiredBufferSize = entry->_p + size * count;
 
-  /**
-   * In reality this rarely occurs. Potentially when upating SIM OTA
-   */
+  // In reality this rarely occurs. Potentially when OTA updating the SIM
   if (requiredBufferSize > entry->_b_size) {
     uint8_t *oldBuffer = entry->buf;
     const size_t oldSize = entry->_b_size;

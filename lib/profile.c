@@ -2,13 +2,15 @@
 #include <string.h>
 #include <zephyr/kernel.h>
 
-uint8_t hex_to_uint8(const char *hex);
-void hex_string_to_bytes(const uint8_t *hex, size_t hex_len, uint8_t bytes[static hex_len / 2]);
+static uint8_t ss_hex_to_uint8(const char *hex);
+static void ss_hex_string_to_bytes(const uint8_t *hex, size_t hex_len, uint8_t bytes[static hex_len / 2]);
+
 /**
  *  ASSERTions might be a bit agressive but reasoning behind is that this abosoletely
  * cannot go wrong in prod.
  */
-void decode_profile(size_t len, uint8_t data[static len], struct ss_profile *profile) {
+void decode_profile(size_t len, uint8_t data[static len], struct ss_profile *profile) 
+{
   *profile = (struct ss_profile){0};
 
   // for future compatibility we use TLV encoding for the profile
@@ -17,9 +19,10 @@ void decode_profile(size_t len, uint8_t data[static len], struct ss_profile *pro
   size_t pos = 0;
   size_t data_end = 0;
   size_t data_start = 0;
+  
   while (pos < len - 2) {
-    uint8_t tag = hex_to_uint8((char *)&data[pos]);
-    uint8_t data_len = hex_to_uint8((char *)&data[pos + 2]);
+    uint8_t tag = ss_hex_to_uint8((char *)&data[pos]);
+    uint8_t data_len = ss_hex_to_uint8((char *)&data[pos + 2]);
     data_start = pos + 4;
 
     data_end = data_start + data_len;
@@ -33,32 +36,32 @@ void decode_profile(size_t len, uint8_t data[static len], struct ss_profile *pro
     switch (tag) {
       case ICCID_TAG:
         __ASSERT_NO_MSG(data_len == ICCID_LEN * 2);
-        hex_string_to_bytes(&data[data_start], data_len, profile->ICCID);
+        ss_hex_string_to_bytes(&data[data_start], data_len, profile->ICCID);
         break;
       case IMSI_TAG:
         __ASSERT_NO_MSG(data_len == IMSI_LEN * 2);
-        hex_string_to_bytes(&data[data_start], data_len, profile->IMSI);
+        ss_hex_string_to_bytes(&data[data_start], data_len, profile->IMSI);
         break;
       case OPC_TAG:
         __ASSERT_NO_MSG(data_len == KEY_SIZE * 2);
-        hex_string_to_bytes(&data[data_start], data_len, profile->OPC);
+        ss_hex_string_to_bytes(&data[data_start], data_len, profile->OPC);
         break;
         // special care here as we need to load into KMU
       case KI_TAG:
         __ASSERT_NO_MSG(data_len == KEY_SIZE * 2);
-        hex_string_to_bytes(&data[data_start], data_len, profile->K);
+        ss_hex_string_to_bytes(&data[data_start], data_len, profile->K);
         break;
       case KIC_TAG:
         __ASSERT_NO_MSG(data_len == KEY_SIZE * 2);
-        hex_string_to_bytes(&data[data_start], data_len, profile->KIC);
+        ss_hex_string_to_bytes(&data[data_start], data_len, profile->KIC);
         break;
       case KID_TAG:
         __ASSERT_NO_MSG(data_len == KEY_SIZE * 2);
-        hex_string_to_bytes(&data[data_start], data_len, profile->KID);
+        ss_hex_string_to_bytes(&data[data_start], data_len, profile->KID);
         break;
       case SMSP_TAG:
         __ASSERT_NO_MSG(data_len == SMSP_RECORD_SIZE * 2);
-        hex_string_to_bytes(&data[data_start], data_len, profile->SMSP);
+        ss_hex_string_to_bytes(&data[data_start], data_len, profile->SMSP);
         break;
       case END_TAG:
         // end of profile
@@ -69,6 +72,7 @@ void decode_profile(size_t len, uint8_t data[static len], struct ss_profile *pro
         break;
     }
   }
+  
   // for now OPC must live here
   memcpy(&profile->A001[KEY_SIZE], profile->OPC, KEY_SIZE);
   // when KMU is invoked we pick key based on the tag passed.
@@ -83,7 +87,7 @@ void decode_profile(size_t len, uint8_t data[static len], struct ss_profile *pro
   char *a004_header = "b00011060101";
   const size_t header_size = 12 / 2;
   const size_t record_size = header_size + KEY_SIZE + KEY_SIZE;
-  hex_string_to_bytes(a004_header, strlen(a004_header), profile->A004);
+  ss_hex_string_to_bytes(a004_header, strlen(a004_header), profile->A004);
 
   // memcpy(profile->A004, a004_header, header_size);
   // memset(&profile->A004[header_size], '0', KEY_SIZE * 2);
@@ -100,15 +104,17 @@ void decode_profile(size_t len, uint8_t data[static len], struct ss_profile *pro
   // profile->A004[header_size + KEY_SIZE + 1] = '6';
 }
 
-uint8_t hex_to_uint8(const char *hex) {
+uint8_t ss_hex_to_uint8(const char *hex) 
+{
   char hex_str[3] = {0};
   hex_str[0] = hex[0];
   hex_str[1] = hex[1];
   return (hex_str[0] % 32 + 9) % 25 * 16 + (hex_str[1] % 32 + 9) % 25;
 }
 
-void hex_string_to_bytes(const uint8_t *hex, size_t hex_len, uint8_t bytes[static hex_len / 2]) {
+void ss_hex_string_to_bytes(const uint8_t *hex, size_t hex_len, uint8_t bytes[static hex_len / 2]) 
+{
   for (int i = 0; i < hex_len / 2; i++) {
-    bytes[i] = hex_to_uint8((char *)&hex[i * 2]);
+    bytes[i] = ss_hex_to_uint8((char *)&hex[i * 2]);
   }
 }
