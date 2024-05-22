@@ -1,4 +1,4 @@
-#include "profile.h"
+#include "ss_profile.h"
 #include <string.h>
 #include <zephyr/kernel.h>
 
@@ -9,7 +9,7 @@ static void ss_hex_string_to_bytes(const uint8_t *hex, size_t hex_len, uint8_t b
  *  ASSERTions might be a bit agressive but reasoning behind is that this abosoletely
  * cannot go wrong in prod.
  */
-void decode_profile(size_t len, uint8_t data[static len], struct ss_profile *profile) 
+void decode_profile(size_t len, uint8_t data[static len], struct ss_profile *profile)
 {
   *profile = (struct ss_profile){0};
 
@@ -19,7 +19,7 @@ void decode_profile(size_t len, uint8_t data[static len], struct ss_profile *pro
   size_t pos = 0;
   size_t data_end = 0;
   size_t data_start = 0;
-  
+
   while (pos < len - 2) {
     uint8_t tag = ss_hex_to_uint8((char *)&data[pos]);
     uint8_t data_len = ss_hex_to_uint8((char *)&data[pos + 2]);
@@ -72,7 +72,7 @@ void decode_profile(size_t len, uint8_t data[static len], struct ss_profile *pro
         break;
     }
   }
-  
+
   // for now OPC must live here
   memcpy(&profile->A001[KEY_SIZE], profile->OPC, KEY_SIZE);
   // when KMU is invoked we pick key based on the tag passed.
@@ -104,7 +104,7 @@ void decode_profile(size_t len, uint8_t data[static len], struct ss_profile *pro
   // profile->A004[header_size + KEY_SIZE + 1] = '6';
 }
 
-uint8_t ss_hex_to_uint8(const char *hex) 
+uint8_t ss_hex_to_uint8(const char *hex)
 {
   char hex_str[3] = {0};
   hex_str[0] = hex[0];
@@ -112,7 +112,7 @@ uint8_t ss_hex_to_uint8(const char *hex)
   return (hex_str[0] % 32 + 9) % 25 * 16 + (hex_str[1] % 32 + 9) % 25;
 }
 
-void ss_hex_string_to_bytes(const uint8_t *hex, size_t hex_len, uint8_t bytes[static hex_len / 2]) 
+void ss_hex_string_to_bytes(const uint8_t *hex, size_t hex_len, uint8_t bytes[static hex_len / 2])
 {
   for (int i = 0; i < hex_len / 2; i++) {
     bytes[i] = ss_hex_to_uint8((char *)&hex[i * 2]);

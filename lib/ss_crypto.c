@@ -6,7 +6,7 @@
 #include <zephyr/logging/log.h>
 #include <zephyr/sys/printk.h>
 
-#include "profile.h"
+#include "ss_profile.h"
 #include "ss_crypto.h"
 #include <onomondo/softsim/log.h>
 #include <onomondo/softsim/mem.h>

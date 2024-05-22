@@ -4,7 +4,7 @@
 #include <zephyr/kernel.h>
 #include <zephyr/logging/log.h>
 
-#include "profile.h"
+#include "ss_profile.h"
 #include "ss_crypto.h"
 #include <nrf_softsim.h>
 #include <nrf_modem_at.h>
