@@ -3,7 +3,7 @@
 
 #include <zephyr/sys/printk.h>
 
-#include "f_cache.h"
+#include "ss_cache.h"
 #include "provision.h"
 #include <onomondo/softsim/mem.h>
 

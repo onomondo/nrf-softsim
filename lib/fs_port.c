@@ -5,7 +5,7 @@
 #include <zephyr/logging/log.h>
 #include <zephyr/storage/flash_map.h>
 
-#include "f_cache.h"
+#include "ss_cache.h"
 #include "provision.h"
 #include "profile.h"
 #include <onomondo/softsim/fs_port.h>
