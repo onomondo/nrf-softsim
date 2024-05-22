@@ -40,7 +40,7 @@ LOG_MODULE_DECLARE(softsim, CONFIG_SOFTSIM_LOG_LEVEL);
 static struct nvs_fs fs;
 static struct ss_list fs_cache;
 
-uint8_t fs_is_initialized = 0;
+static uint8_t fs_is_initialized = 0;
 
 // internal functions
 
