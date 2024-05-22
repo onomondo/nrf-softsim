@@ -3,7 +3,7 @@
 
 #include "f_cache.h"
 
-#define MAX_ENTRIES (10)
+#define SS_MAX_ENTRIES (10)
 
 // find a suitable cache entry with a buffer that can be re-used
 struct cache_entry *f_cache_find_buffer(struct cache_entry *entry, struct ss_list *cache)
@@ -39,8 +39,8 @@ struct cache_entry *f_cache_find_buffer(struct cache_entry *entry, struct ss_lis
     }
   }
 
-  // let cache grow to MAX_ENTRIES
-  if (cached_entries < MAX_ENTRIES)
+  // let cache grow to SS_MAX_ENTRIES
+  if (cached_entries < SS_MAX_ENTRIES)
     return NULL;
 
   if (no_hits_no_write_existing_buff)
