@@ -35,6 +35,14 @@ jobs:
         run: |
           west build --pristine=always --board ${{ matrix.board }}
 
+      - name: Archive SoftSIM External Profile Build
+        uses: actions/upload-artifact@v4
+        with:
+          name: softsim_external_profile
+          path: modules/lib/onomondo-softsim/samples/softsim_external_profile/build/zephyr/merged.hex
+          overwrite: true
+          retention-days: 3
+
       - name: Build RAM and ROM report for static profile sample
         working-directory: modules/lib/onomondo-softsim/samples/softsim_static_profile
         run: |
