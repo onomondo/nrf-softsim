@@ -38,7 +38,7 @@ jobs:
       - name: Archive SoftSIM External Profile Build
         uses: actions/upload-artifact@v4
         with:
-          name: softsim_external_profile
+          name: softsim_external_profile_${{ matrix.board }}
           path: modules/lib/onomondo-softsim/samples/softsim_external_profile/build/zephyr/merged.hex
           overwrite: true
           retention-days: 3
