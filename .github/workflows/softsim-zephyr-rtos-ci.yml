@@ -30,7 +30,7 @@ jobs:
         run: |
           west build --pristine=always --board ${{ matrix.board }}
 
-      - name: Build firmware of static profile sample
+      - name: Build firmware of external profile sample
         working-directory: modules/lib/onomondo-softsim/samples/softsim_external_profile
         run: |
           west build --pristine=always --board ${{ matrix.board }}
