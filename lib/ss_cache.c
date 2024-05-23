@@ -1,7 +1,7 @@
 #include <string.h>
 #include <zephyr/sys/printk.h>
 
-#include "f_cache.h"
+#include "ss_cache.h"
 
 #define SS_MAX_ENTRIES (10)
 
