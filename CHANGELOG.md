@@ -1,5 +1,12 @@
 # Changelog
 
+## [4.0.1](https://github.com/onomondo/nrf-softsim/compare/v4.0.0...v4.0.1) (2024-06-05)
+
+
+### Bug Fixes
+
+* softsim filename updates ([#44](https://github.com/onomondo/nrf-softsim/issues/44)) ([ac91364](https://github.com/onomondo/nrf-softsim/commit/ac9136409f2a1d4991685ff57bad014f24f4a472))
+
 ## [4.0.0](https://github.com/onomondo/nrf-softsim/compare/v3.0.1...v4.0.0) (2024-04-30)
 
 
