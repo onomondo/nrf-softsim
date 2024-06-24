@@ -1,12 +1,17 @@
+# Testing new method
 manifest:
   remotes:
-    - name: nrfconnect
-      url-base: https://github.com/nrfconnect/
+    - name: ncs
+      url-base: https://github.com/nrfconnect
+    - name: softsim
+      url-base: https://github.com/onomondo
   projects:
-    - name: sdk-nrf
-      path: nrf
-      revision: v2.6.1
-      remote: nrfconnect
+    - name: nrf
+      remote: ncs
+      revision: 2.6.1
       import: true
-  self:
-    path: modules/lib/onomondo-softsim
+    - name: softsim
+      remote: softsim
+      repo-path: nrf-softsim
+      revision: master
+      path: modules/lib/onomondo-softsim
