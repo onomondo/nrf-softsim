@@ -322,16 +322,16 @@ Where the first 4 bytes are recognized as `01(TAG) 12(LEN)` and indeed 18 bytes 
 
 ## kConfig options
 
-Isn't completely finalized yet. The following fields should either be `y` selected by softsim or the application developer:
+Isn't completely finalized yet. The following fields should either be `y` selected by SoftSIM or the application developer:
 - Flash access
 - TFM for `psa_crypto`
 - NVS for profile
 
-`CONFIG_SOFTSIM` includes softsim in the build system
-`CONFIG_SOFTSIM_AUTO_INIT` starts the softsim task automatically. This can be omitted and done expicitly in the user application.
+`CONFIG_SOFTSIM` includes SoftSIM in the build system
+`CONFIG_SOFTSIM_AUTO_INIT` starts the SoftSIM task automatically. This can be omitted and done expicitly in the user application.
 
 ```
-# softsim uses (a) file system as storage backend. Currently this must be enabled by the user.
+# SoftSIM uses (a) file system as storage backend. Currently this must be enabled by the user.
 CONFIG_FLASH=y
 CONFIG_FLASH_MAP=y
 CONFIG_FLASH_PAGE_LAYOUT=y
@@ -348,7 +348,7 @@ CONFIG_PSA_WANT_KEY_TYPE_AES=y
 CONFIG_NVS=y
 CONFIG_PM_PARTITION_SIZE_NVS_STORAGE=0x8000
 
-# include softsim in build
+# include SoftSIM in build
 CONFIG_SOFTSIM=y
 CONFIG_SOFTSIM_AUTO_INIT=y
 CONFIG_SOFTSIM_BUNDLE_TEMPLATE_HEX=y
