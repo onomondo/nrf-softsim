@@ -1,5 +1,3 @@
-# NCS Workflow 4: Application as the manifest repo
-# https://developer.nordicsemi.com/nRF_Connect_SDK/doc/latest/nrf/dm_adding_code.html
 manifest:
   remotes:
     - name: nrfconnect
@@ -10,7 +8,5 @@ manifest:
       revision: v2.6.1
       remote: nrfconnect
       import: true
-
   self:
     path: modules/lib/onomondo-softsim
-
