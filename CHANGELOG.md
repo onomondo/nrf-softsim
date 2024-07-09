@@ -1,5 +1,12 @@
 # Changelog
 
+## [4.0.2](https://github.com/onomondo/nrf-softsim/compare/v4.0.1...v4.0.2) (2024-07-09)
+
+
+### Bug Fixes
+
+* improve support for Thingy91 ([#50](https://github.com/onomondo/nrf-softsim/issues/50)) ([f7cc739](https://github.com/onomondo/nrf-softsim/commit/f7cc739ba261ada0df4f551d0f2af87a37897e1e))
+
 ## [4.0.1](https://github.com/onomondo/nrf-softsim/compare/v4.0.0...v4.0.1) (2024-06-05)
 
 
