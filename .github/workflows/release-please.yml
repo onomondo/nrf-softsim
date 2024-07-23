@@ -9,12 +9,25 @@ permissions:
 
 name: Run release-please
 
+
 jobs:
   release-please:
+
     runs-on: ubuntu-latest
+    timeout-minutes: 60
+
+    strategy:
+      matrix:
+        board: [nrf9160dk_nrf9160_ns, nrf9161dk_nrf9161_ns, nrf9151dk_nrf9151_ns, actinius_icarus_ns]
+
     steps:
       - uses: googleapis/release-please-action@v4
         id: release
         with:
           release-type: simple
           package-name: ${{ github.event.repository.name }}
+      - name: Upload Release Artifact
+        if: ${{ steps.release.outputs.release_created }}
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: gh release upload ${{ steps.release.outputs.tag_name }} ./artifact/softsim_external_profile_${{ matrix.board }}.zip
