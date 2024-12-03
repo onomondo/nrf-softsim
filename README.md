@@ -105,8 +105,8 @@ Which results in:
 ```
 *** Booting Zephyr OS build v3.2.99-ncs1 ***
 [00:00:00.610,198] <inf> softsim_sample: SoftSIM sample started.
-[00:00:00.610,656] <inf> softsim_sample: Waiting for profile... 0/190
-[00:00:20.610,717] <inf> softsim_sample: Waiting for profile... 190/190
+[00:00:00.610,656] <inf> softsim_sample: Transfer SoftSIM profile using serial COM port, terminate by newline character (return key)
+[00:00:20.610,717] <inf> softsim_sample: Transfer SoftSIM profile using serial COM port, terminate by newline character (return key)
 *** Booting Zephyr OS build v3.2.99-ncs1 ***
 [00:00:00.555,664] <inf> softsim_sample: SoftSIM sample started.
 [00:00:00.615,875] <inf> softsim_sample: Waiting for LTE connect event.
