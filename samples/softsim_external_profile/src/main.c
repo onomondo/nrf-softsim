@@ -156,7 +156,7 @@ error:
 
 void serial_cb(const struct device *dev, void *user_data)
 {
-  uint8_t rx_recv = 0;
+  int rx_recv = 0;
   struct rx_buf_t *rx = (struct rx_buf_t *)user_data;
   char *rx_buf = rx->buf;
   size_t *rx_buf_pos = &rx->pos;
