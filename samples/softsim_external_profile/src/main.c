@@ -19,44 +19,55 @@
 #include <zephyr/logging/log.h>
 #include <zephyr/logging/log_ctrl.h>
 #include <zephyr/sys/reboot.h>
+#include <zephyr/sys/ring_buffer.h>
+
 
 LOG_MODULE_REGISTER(softsim_sample, LOG_LEVEL_INF);
 
-#define PROFILE_SIZE 190
+#define PROFILE_MIN_SIZE 180 // minimum size of a Onomondo SoftSIM profile
+#define PROFILE_MAX_SIZE 360 // maximum size of a Onomondo SoftSIM profile
 
-static const struct device *const uart_dev = DEVICE_DT_GET(DT_NODELABEL(uart0));
+// semaphores
+K_SEM_DEFINE(lte_connected, 0, 1);	// semaphore to signal that the LTE connection is established
+K_SEM_DEFINE(profile_received, 0, 1);	// semaphore to signal that a profile has been received
 
-/**@brief Recoverable modem library error. */
-void nrf_modem_recoverable_error_handler(uint32_t err) { printk("Modem library recoverable error: %u", err); }
+struct rx_buf_t {
+  char *buf;
+  size_t len;
+  size_t pos;
+};
 
 static void lte_handler(const struct lte_lc_evt *const evt);
 static int server_connect(void);
 
-K_SEM_DEFINE(lte_connected, 0, 1);
-K_SEM_DEFINE(profile_received, 0, 1);
-
 static int client_fd;
 static struct sockaddr_storage host_addr;
 static struct k_work_delayable server_transmission_work;
+static const struct device *const uart_dev = DEVICE_DT_GET(DT_NODELABEL(uart0));
 
-static void server_transmission_work_fn(struct k_work *work) {
-  int err;
+
+static void server_transmission_work_fn(struct k_work *work)
+{
   char buffer[] = "{\"message\":\"Hello from Onomondo!\"}";
-  err = send(client_fd, buffer, sizeof(buffer) - 1, 0);
+
+  int err = send(client_fd, buffer, sizeof(buffer) - 1, 0);
+
   if (err < 0) {
     LOG_ERR("Failed to transmit UDP packet, %d", errno);
-
     k_work_schedule(&server_transmission_work, K_SECONDS(2));
-
     return;
   }
 
   k_work_schedule(&server_transmission_work, K_SECONDS(150));
 }
 
-static void work_init(void) { k_work_init_delayable(&server_transmission_work, server_transmission_work_fn); }
+static void work_init(void)
+{
+  k_work_init_delayable(&server_transmission_work, server_transmission_work_fn);
+}
 
-static void lte_handler(const struct lte_lc_evt *const evt) {
+static void lte_handler(const struct lte_lc_evt *const evt)
+{
   switch (evt->type) {
     case LTE_LC_EVT_NW_REG_STATUS:
       if ((evt->nw_reg_status != LTE_LC_NW_REG_REGISTERED_HOME) &&
@@ -93,18 +104,22 @@ static void lte_handler(const struct lte_lc_evt *const evt) {
   }
 }
 
-static void modem_connect(void) {
-  int err;
-
-  err = lte_lc_connect_async(lte_handler);
+static void modem_connect(void)
+{
+  int err = lte_lc_connect_async(lte_handler);
   if (err) {
     LOG_ERR("Connecting to LTE network failed, error: %d", err);
     return;
   }
 }
-static void server_disconnect(void) { (void)close(client_fd); }
 
-static int server_init(void) {
+static void server_disconnect(void)
+{
+  (void)close(client_fd);
+}
+
+static int server_init(void)
+{
   struct sockaddr_in *server4 = ((struct sockaddr_in *)&host_addr);
 
   server4->sin_family = AF_INET;
@@ -115,7 +130,8 @@ static int server_init(void) {
   return 0;
 }
 
-static int server_connect(void) {
+static int server_connect(void)
+{
   int err;
 
   client_fd = socket(AF_INET, SOCK_DGRAM, IPPROTO_UDP);
@@ -135,18 +151,12 @@ static int server_connect(void) {
 
 error:
   server_disconnect();
-
   return err;
 }
 
-struct rx_buf_t {
-  char *buf;
-  size_t len;
-  size_t pos;
-};
-
-// read profile from uart
-void serial_cb(const struct device *dev, void *user_data) {
+void serial_cb(const struct device *dev, void *user_data)
+{
+  int rx_recv = 0;
   struct rx_buf_t *rx = (struct rx_buf_t *)user_data;
   char *rx_buf = rx->buf;
   size_t *rx_buf_pos = &rx->pos;
@@ -157,16 +167,21 @@ void serial_cb(const struct device *dev, void *user_data) {
   }
 
   while (uart_irq_rx_ready(uart_dev)) {
-    *rx_buf_pos += uart_fifo_read(uart_dev, &rx_buf[*rx_buf_pos], rx_buf_len - *rx_buf_pos);
+    rx_recv = uart_fifo_read(uart_dev, &rx_buf[*rx_buf_pos], 1);
 
-    if (*rx_buf_pos == rx_buf_len) {
+    if ((rx_buf[*rx_buf_pos] == '\n') ||  // search for those end of line characters
+    	(rx_buf[*rx_buf_pos] == '\r')) {
+      rx_buf[*rx_buf_pos] = 0;
       k_sem_give(&profile_received);
+      return;
     }
+
+    *rx_buf_pos += rx_recv;
   }
 }
 
-int main(void) {
-  int32_t err;
+int main(void)
+{
   LOG_INF("SoftSIM sample started.");
 
   if (!nrf_softsim_check_provisioned()) {
@@ -175,12 +190,12 @@ int main(void) {
       return -1;
     }
 
-    char *profile_read_from_external_source = k_malloc(PROFILE_SIZE);
+    char *profile_read_from_external_source = k_malloc(PROFILE_MAX_SIZE);
     __ASSERT_NO_MSG(profile_read_from_external_source != NULL);
 
     struct rx_buf_t rx = {
         .buf = profile_read_from_external_source,
-        .len = PROFILE_SIZE,
+        .len = PROFILE_MAX_SIZE,
         .pos = 0,
     };
 
@@ -188,16 +203,19 @@ int main(void) {
     uart_irq_rx_enable(uart_dev);
 
     do {
-      LOG_INF("Waiting for profile... %d/%d", rx.pos, rx.len);
+      LOG_INF("Transfer SoftSIM profile using serial COM port, terminate by newline character (return key)");
     } while (k_sem_take(&profile_received, K_SECONDS(20)));
 
-    // done receiving
-    LOG_INF("Waiting for profile... %d/%d", rx.pos, rx.len);
+    LOG_INF("Profile received: %d characters in total", rx.pos);
 
     uart_irq_rx_disable(uart_dev);
 
-    nrf_softsim_provision((uint8_t *)profile_read_from_external_source, rx.pos);
+    // the profile is now in the buffer, provision it to the SoftSIM filesystem
+    if(nrf_softsim_provision((uint8_t *)profile_read_from_external_source, rx.pos) != 0) {
+      LOG_ERR("SoftSIM Profile provisioning failed");
+    }
 
+    // clean up the decrypted profile buffer, ensuring no sensitive data is left in memory
     if (profile_read_from_external_source != NULL) {
       k_free(profile_read_from_external_source);
     }
@@ -210,7 +228,7 @@ int main(void) {
     sys_reboot(0);
   }
 
-  err = nrf_modem_lib_init();
+  int32_t err = nrf_modem_lib_init();
   if (err) {
     LOG_ERR("Failed to initialize modem library, error: %d\n", err);
   }
@@ -218,9 +236,11 @@ int main(void) {
   work_init();
 
   modem_connect();
+
   LOG_INF("Waiting for LTE connect event.\n");
   do {
   } while (k_sem_take(&lte_connected, K_SECONDS(10)));
+
   LOG_INF("LTE connected!\n");
   err = server_init();
   if (err) {
