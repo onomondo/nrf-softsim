@@ -167,11 +167,11 @@ void serial_cb(const struct device *dev, void *user_data)
   }
 
   while (uart_irq_rx_ready(uart_dev)) {
-    rx_recv = uart_fifo_read(uart_dev, &rx_buf[*rx_buf_pos], rx_buf_len - *rx_buf_pos);
+    rx_recv = uart_fifo_read(uart_dev, &rx_buf[*rx_buf_pos], 1);
 
     if ((rx_buf[*rx_buf_pos] == '\n') ||  // search for those end of line characters
     	(rx_buf[*rx_buf_pos] == '\r')) {
-      rx_buf[*rx_buf_pos] == 0;
+      rx_buf[*rx_buf_pos] = 0;
       k_sem_give(&profile_received);
       return;
     }
