@@ -20,7 +20,7 @@ jobs:
 
     strategy:
       matrix:
-        board: [nrf9160dk_nrf9160_ns, nrf9161dk_nrf9161_ns, nrf9151dk_nrf9151_ns, thingy91_nrf9160_ns, actinius_icarus_ns]
+        board: [nrf9160dk/nrf9160/ns, nrf9161dk/nrf9161/ns, nrf9151dk/nrf9151/ns, thingy91/nrf9160/ns, actinius/icarus/ns]
 
     steps:
       - name: Initialize workspace
@@ -31,12 +31,12 @@ jobs:
       - name: Build firmware of static profile sample
         working-directory: modules/lib/onomondo-softsim/samples/softsim_static_profile
         run: |
-          west build --pristine=always --board ${{ matrix.board }}
+          west build --sysbuild --pristine=always --board ${{ matrix.board }}
 
       - name: Build firmware of external profile sample
         working-directory: modules/lib/onomondo-softsim/samples/softsim_external_profile
         run: |
-          west build --pristine=always --board ${{ matrix.board }}
+          west build --sysbuild --pristine=always --board ${{ matrix.board }}
 
       - name: Archive SoftSIM External Profile Build
         uses: actions/upload-artifact@v4
