@@ -1,4 +1,12 @@
-# nrf-softsim
+# Onomondo SoftSIM for Nordic nRF91 Series
+
+> [!IMPORTANT]
+> This repository is currently supporting nRF Connect SDK v2.5.1 to v2.6.2.
+>
+> The repository is not yet ported to sysbuild, introduced in nRF Connect SDK v2.7.0.
+>
+> Feel free to contribute to this repository if you have already done the migration to sysbuild.
+
 #### Table of Contents
 ##### Quickstart
 1. [Configure NCS to include SoftSIM libraries in your build system](#setup)
