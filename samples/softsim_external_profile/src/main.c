@@ -31,9 +31,6 @@ LOG_MODULE_REGISTER(softsim_sample, LOG_LEVEL_INF);
 K_SEM_DEFINE(lte_connected, 0, 1);	// semaphore to signal that the LTE connection is established
 K_SEM_DEFINE(profile_received, 0, 1);	// semaphore to signal that a profile has been received
 
-// Ring buffer for storing received data
-RING_BUF_DECLARE(uart_ringbuf, PROFILE_MAX_SIZE);
-
 struct rx_buf_t {
   char *buf;
   size_t len;
