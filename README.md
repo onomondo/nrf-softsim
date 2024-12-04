@@ -1,4 +1,12 @@
-# nrf-softsim
+# Onomondo SoftSIM for Nordic nRF91 Series
+
+> [!IMPORTANT]
+> This repository is currently supporting nRF Connect SDK v2.5.1 to v2.6.2.
+>
+> The repository is not yet ported to sysbuild, introduced in nRF Connect SDK v2.7.0.
+>
+> Feel free to contribute to this repository if you have already done the migration to sysbuild.
+
 #### Table of Contents
 ##### Quickstart
 1. [Configure NCS to include SoftSIM libraries in your build system](#setup)
@@ -97,8 +105,8 @@ Which results in:
 ```
 *** Booting Zephyr OS build v3.2.99-ncs1 ***
 [00:00:00.610,198] <inf> softsim_sample: SoftSIM sample started.
-[00:00:00.610,656] <inf> softsim_sample: Waiting for profile... 0/190
-[00:00:20.610,717] <inf> softsim_sample: Waiting for profile... 190/190
+[00:00:00.610,656] <inf> softsim_sample: Transfer SoftSIM profile using serial COM port, terminate by newline character (return key)
+[00:00:20.610,717] <inf> softsim_sample: Transfer SoftSIM profile using serial COM port, terminate by newline character (return key)
 *** Booting Zephyr OS build v3.2.99-ncs1 ***
 [00:00:00.555,664] <inf> softsim_sample: SoftSIM sample started.
 [00:00:00.615,875] <inf> softsim_sample: Waiting for LTE connect event.

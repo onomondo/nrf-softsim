@@ -22,36 +22,39 @@
 
 LOG_MODULE_REGISTER(softsim_sample, LOG_LEVEL_INF);
 
-/**@brief Recoverable modem library error. */
-void nrf_modem_recoverable_error_handler(uint32_t err) { printk("Modem library recoverable error: %u", err); }
+// semaphores
+K_SEM_DEFINE(lte_connected, 0, 1);	// semaphore to signal that the LTE connection is established
 
 static void lte_handler(const struct lte_lc_evt *const evt);
 static int server_connect(void);
-
-K_SEM_DEFINE(lte_connected, 0, 1);
 
 static int client_fd;
 static struct sockaddr_storage host_addr;
 static struct k_work_delayable server_transmission_work;
 
-static void server_transmission_work_fn(struct k_work *work) {
-  int err;
+
+static void server_transmission_work_fn(struct k_work *work)
+{
   char buffer[] = "{\"message\":\"Hello from Onomondo!\"}";
-  err = send(client_fd, buffer, sizeof(buffer) - 1, 0);
+
+  int err = send(client_fd, buffer, sizeof(buffer) - 1, 0);
+
   if (err < 0) {
     LOG_ERR("Failed to transmit UDP packet, %d", errno);
-
     k_work_schedule(&server_transmission_work, K_SECONDS(2));
-
     return;
   }
 
   k_work_schedule(&server_transmission_work, K_SECONDS(150));
 }
 
-static void work_init(void) { k_work_init_delayable(&server_transmission_work, server_transmission_work_fn); }
+static void work_init(void)
+{
+  k_work_init_delayable(&server_transmission_work, server_transmission_work_fn);
+}
 
-static void lte_handler(const struct lte_lc_evt *const evt) {
+static void lte_handler(const struct lte_lc_evt *const evt)
+{
   switch (evt->type) {
     case LTE_LC_EVT_NW_REG_STATUS:
       if ((evt->nw_reg_status != LTE_LC_NW_REG_REGISTERED_HOME) &&
@@ -88,18 +91,22 @@ static void lte_handler(const struct lte_lc_evt *const evt) {
   }
 }
 
-static void modem_connect(void) {
-  int err;
-
-  err = lte_lc_connect_async(lte_handler);
+static void modem_connect(void)
+{
+  int err = lte_lc_connect_async(lte_handler);
   if (err) {
     LOG_ERR("Connecting to LTE network failed, error: %d", err);
     return;
   }
 }
-static void server_disconnect(void) { (void)close(client_fd); }
 
-static int server_init(void) {
+static void server_disconnect(void)
+{
+  (void)close(client_fd);
+}
+
+static int server_init(void)
+{
   struct sockaddr_in *server4 = ((struct sockaddr_in *)&host_addr);
 
   server4->sin_family = AF_INET;
@@ -110,7 +117,8 @@ static int server_init(void) {
   return 0;
 }
 
-static int server_connect(void) {
+static int server_connect(void)
+{
   int err;
 
   client_fd = socket(AF_INET, SOCK_DGRAM, IPPROTO_UDP);
@@ -130,15 +138,14 @@ static int server_connect(void) {
 
 error:
   server_disconnect();
-
   return err;
 }
 
-int main(void) {
-  int32_t err;
+int main(void)
+{
   LOG_INF("SoftSIM sample started.");
 
-  err = nrf_modem_lib_init();
+  int32_t err = nrf_modem_lib_init();
   if (err) {
     LOG_ERR("Failed to initialize modem library, error: %d\n", err);
   }
