@@ -3,7 +3,9 @@
 > [!IMPORTANT]
 > This repository is currently supporting nRF Connect SDK v2.5.1 to v2.6.2.
 >
-> The repository is not yet ported to sysbuild, introduced in nRF Connect SDK v2.7.0.
+> The repository is not yet ported to default sysbuild, introduced in nRF Connect SDK v2.7.0.
+>
+> To build the samples with nRF Connect SDK v2.7.0, use the build option --no-sysbuild
 >
 > Feel free to contribute to this repository if you have already done the migration to sysbuild.
 
@@ -106,7 +108,6 @@ Which results in:
 *** Booting Zephyr OS build v3.2.99-ncs1 ***
 [00:00:00.610,198] <inf> softsim_sample: SoftSIM sample started.
 [00:00:00.610,656] <inf> softsim_sample: Transfer SoftSIM profile using serial COM port, terminate by newline character (return key)
-[00:00:20.610,717] <inf> softsim_sample: Transfer SoftSIM profile using serial COM port, terminate by newline character (return key)
 *** Booting Zephyr OS build v3.2.99-ncs1 ***
 [00:00:00.555,664] <inf> softsim_sample: SoftSIM sample started.
 [00:00:00.615,875] <inf> softsim_sample: Waiting for LTE connect event.
