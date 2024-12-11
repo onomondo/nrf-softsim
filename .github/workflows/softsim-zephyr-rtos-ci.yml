@@ -20,7 +20,8 @@ jobs:
 
     strategy:
       matrix:
-        board: [nrf9160dk/nrf9160/ns, nrf9161dk/nrf9161/ns, nrf9151dk/nrf9151/ns, thingy91/nrf9160/ns, actinius/icarus/ns]
+        board: [nrf9160dk/nrf9160/ns, nrf9161dk/nrf9161/ns, nrf9151dk/nrf9151/ns]
+        # board: [nrf9160dk/nrf9160/ns, nrf9161dk/nrf9161/ns, nrf9151dk/nrf9151/ns, thingy91/nrf9160/ns, actinius/icarus/ns]
 
     steps:
       - name: Initialize workspace
