@@ -1,3 +1,5 @@
+menu "Onomondo SoftSIM Options"
+
 config SOFTSIM
     bool "SoftSIM"
     depends on NVS
@@ -37,6 +39,7 @@ config SOFTSIM_BUNDLE_TEMPLATE_HEX
 
 endif #SOFTSIM
 
+endmenu
 
 module = SOFTSIM
 module-str = Onomondo-SoftSIM
