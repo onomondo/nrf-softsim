@@ -25,9 +25,10 @@ jobs:
 
   # Add build artifacts to the new GitHub release
   release-artifacts:
+    needs: [build-in-zyphyr-ci-container, create-release]
+    if: ${{ needs.create-release.outputs.release_created }}
     runs-on: ubuntu-latest
     timeout-minutes: 60
-    needs: [build-in-zyphyr-ci-container, create-release]
 
     strategy:
       matrix:
@@ -39,7 +40,6 @@ jobs:
         with:
           name: softsim_external_profile_${{ matrix.board }}
       - name: Upload Release Artifact
-        if: ${{ needs.create-release.outputs.release_created == 'true' }}
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: gh release upload ${{ needs.create-release.outputs.tag }} softsim_external_profile_${{ matrix.board }}.zip
