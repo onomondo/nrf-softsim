@@ -10,7 +10,7 @@ permissions:
   pull-requests: write
 
 jobs:
-  release-please:
+  create-release:
     runs-on: ubuntu-latest
     timeout-minutes: 60
     steps:
@@ -27,7 +27,7 @@ jobs:
   release-artifacts:
     runs-on: ubuntu-latest
     timeout-minutes: 60
-    needs: [build-in-zyphyr-ci-container, release-please]
+    needs: [build-in-zyphyr-ci-container, create-release]
 
     strategy:
       matrix:
@@ -39,7 +39,7 @@ jobs:
         with:
           name: softsim_external_profile_${{ matrix.board }}
       - name: Upload Release Artifact
-        if: ${{ needs.release-please.outputs.release_created == 'true' }}
+        if: ${{ needs.create-release.outputs.release_created == 'true' }}
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-        run: gh release upload ${{ needs.release-please.outputs.tag }} softsim_external_profile_${{ matrix.board }}.zip
+        run: gh release upload ${{ needs.create-release.outputs.tag }} softsim_external_profile_${{ matrix.board }}.zip
