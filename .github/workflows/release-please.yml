@@ -19,6 +19,9 @@ jobs:
         with:
           release-type: simple
           package-name: ${{ github.event.repository.name }}
+    outputs:
+      tag: ${{ steps.release.outputs.tag_name }}
+      release_created: ${{ steps.release.outputs.release_created }}
 
   # Add build artifacts to the new GitHub release
   release-artifacts:
@@ -36,6 +39,7 @@ jobs:
         with:
           name: softsim_external_profile_${{ matrix.board }}
       - name: Upload Release Artifact
+        if: ${{ needs.release-please.outputs.release_created == 'true' }}
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-        run: gh release upload ${{ steps.release.outputs.tag_name }} softsim_external_profile_${{ matrix.board }}.zip
+        run: gh release upload ${{ needs.release-please.outputs.tag }} softsim_external_profile_${{ matrix.board }}.zip
