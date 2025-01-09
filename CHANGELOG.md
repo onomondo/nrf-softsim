@@ -1,5 +1,12 @@
 # Changelog
 
+## [4.0.3](https://github.com/onomondo/nrf-softsim/compare/v4.0.2...v4.0.3) (2025-01-09)
+
+
+### Bug Fixes
+
+* remove the fixed 190 character profile size ([#61](https://github.com/onomondo/nrf-softsim/issues/61)) ([2eaa8e0](https://github.com/onomondo/nrf-softsim/commit/2eaa8e0e76c1a70ae56b79ffc1896ff70d9dce44))
+
 ## [4.0.2](https://github.com/onomondo/nrf-softsim/compare/v4.0.1...v4.0.2) (2024-07-09)
 
 
