@@ -1,3 +1,5 @@
+name: SoftSIM for nRF91 Build
+
 on:
   pull_request:
     branches:
@@ -12,9 +14,9 @@ concurrency:
 
 jobs:
   build-in-zyphyr-ci-container:
-    runs-on: ubuntu-22.04
+    runs-on: ubuntu-24.04
     timeout-minutes: 60
-    container: ghcr.io/zephyrproject-rtos/ci:v0.26.18
+    container: ghcr.io/zephyrproject-rtos/ci:v0.27.4
     env:
       CMAKE_PREFIX_PATH: /opt/toolchains
 
@@ -24,10 +26,21 @@ jobs:
         # board: [nrf9160dk/nrf9160/ns, nrf9161dk/nrf9161/ns, nrf9151dk/nrf9151/ns, thingy91/nrf9160/ns, actinius/icarus/ns]
 
     steps:
+      # Initialize a Zephyr West workspace in its default format
       - name: Initialize workspace
         run: |
           west init -m https://github.com/${GITHUB_REPOSITORY}
-          west update -o=--depth=1 -n
+
+      # Ensure that the checkout follows only this build sha and not the master branch
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          path: modules/lib/onomondo-softsim
+
+      # Update dependecies and submodules using west
+      - name: Fetch nRF and Zephyr workspaces and dependecies
+        run: |
+          west update -o=--depth=1 --narrow
 
       - name: Build firmware of static profile sample
         working-directory: modules/lib/onomondo-softsim/samples/softsim_static_profile
@@ -46,6 +59,7 @@ jobs:
           path: modules/lib/onomondo-softsim/samples/softsim_external_profile/build/zephyr/merged.hex
           overwrite: true
           retention-days: 90
+          if-no-files-found: error
 
       - name: Build RAM and ROM report for static profile sample
         working-directory: modules/lib/onomondo-softsim/samples/softsim_static_profile
