@@ -1,4 +1,5 @@
 name: softsim
+
 build:
   cmake: .
   kconfig: ./Kconfig
