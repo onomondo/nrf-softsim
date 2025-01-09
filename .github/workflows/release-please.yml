@@ -18,7 +18,7 @@ jobs:
 
     strategy:
       matrix:
-        board: [nrf9160dk_nrf9160_ns, nrf9161dk_nrf9161_ns, nrf9151dk_nrf9151_ns, actinius_icarus_ns]
+        board: [nrf9160dk_nrf9160_ns, nrf9161dk_nrf9161_ns, nrf9151dk_nrf9151_ns]
 
     steps:
       - uses: googleapis/release-please-action@v4
