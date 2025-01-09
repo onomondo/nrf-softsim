@@ -9,12 +9,11 @@ permissions:
 
 name: Run release-please
 
-
 jobs:
   release-please:
-
     runs-on: ubuntu-latest
     timeout-minutes: 60
+    needs: build-in-zyphyr-ci-container
 
     strategy:
       matrix:
