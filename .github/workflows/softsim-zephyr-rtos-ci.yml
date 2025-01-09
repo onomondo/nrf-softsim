@@ -47,6 +47,7 @@ jobs:
           path: modules/lib/onomondo-softsim/samples/softsim_external_profile/build/zephyr/merged.hex
           overwrite: true
           retention-days: 90
+          if-no-files-found: error
 
       - name: Build RAM and ROM report for static profile sample
         working-directory: modules/lib/onomondo-softsim/samples/softsim_static_profile
