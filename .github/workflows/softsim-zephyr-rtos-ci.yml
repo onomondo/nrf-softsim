@@ -25,10 +25,21 @@ jobs:
         board: [nrf9160dk_nrf9160_ns, nrf9161dk_nrf9161_ns, nrf9151dk_nrf9151_ns, thingy91_nrf9160_ns, actinius_icarus_ns]
 
     steps:
+      # Initialize a Zephyr West workspace in its default format
       - name: Initialize workspace
         run: |
           west init -m https://github.com/${GITHUB_REPOSITORY}
-          west update -o=--depth=1 -n
+
+      # Ensure that the checkout follows only this build sha and not the master branch
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          path: modules/lib/onomondo-softsim
+
+      # Update dependecies and submodules using west
+      - name: Fetch nRF and Zephyr workspaces and dependecies
+        run: |
+          west update -o=--depth=1 --narrow
 
       - name: Build firmware of static profile sample
         working-directory: modules/lib/onomondo-softsim/samples/softsim_static_profile
