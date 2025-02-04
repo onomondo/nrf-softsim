@@ -143,7 +143,7 @@ west build -b nrf9151dk/nrf9151/ns -- "-DOVERLAY_CONFIG=$PATH_TO_ONOMONDO_SOFTSI
 Where `PATH_TO_ONOMONDO_SOFTSIM` is the path of the downloaded Onomondo SoftSIM repository, for example `$HOME/ncs/nrf-softsim-dev`.
 
 #### Note
-SoftSIM is relying on some default data in the storage partition. This section of the flash can be generated and flashed manually (see steps below) or, as we recommend, automatically included by `CONFIG_SOFTSIM_BUNDLE_TEMPLATE_HEX=y`
+SoftSIM is relying on some default data in the storage partition. This section of the flash can be generated and flashed manually (see steps below) or, as we recommend, automatically included by adding `SB_CONFIG_SOFTSIM_BUNDLE_TEMPLATE_HEX=y` to `sysbuild.conf`.
 
 Manually generating SoftSIM profile template data:
 1. After building the application, generate the application-specific template profile. `west build -b nrf9151dk/nrf9151/ns -t onomondo_softsim_template`
