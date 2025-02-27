@@ -28,3 +28,15 @@ if(SB_CONFIG_SOFTSIM_BUNDLE_TEMPLATE_HEX)
     onomondo_softsim_template
   )
 endif()
+
+function(${SYSBUILD_CURRENT_MODULE_NAME}_pre_cmake)
+  # Set the default NCS static partition layout for the Thingy:91
+  if(SB_CONFIG_THINGY91_STATIC_PARTITIONS_FACTORY)
+    set(PM_STATIC_YML_FILE ${SYSBUILD_SOFTSIM_MODULE_DIR}/boards/thingy91_pm_static.yml CACHE INTERNAL "")
+  endif()
+
+  # Set the default NCS static partition layout for the Thingy:91 X
+  if(SB_CONFIG_BOARD_THINGY91X_NRF9151_NS AND SB_CONFIG_THINGY91X_STATIC_PARTITIONS_FACTORY)
+    set(PM_STATIC_YML_FILE ${SYSBUILD_SOFTSIM_MODULE_DIR}/boards/thingy91x_nrf9151_pm_static.yml CACHE INTERNAL "")
+  endif()
+endfunction(${SYSBUILD_CURRENT_MODULE_NAME}_pre_cmake)
