@@ -1,19 +1,45 @@
----
+name: Run release-please
+
 on:
   push:
-    branches: [master]
+    branches:
+      - master
 
 permissions:
   contents: write
   pull-requests: write
 
-name: Run release-please
-
 jobs:
-  release-please:
+  create-release:
     runs-on: ubuntu-latest
+    timeout-minutes: 60
     steps:
       - uses: googleapis/release-please-action@v4
+        id: release
         with:
           release-type: simple
           package-name: ${{ github.event.repository.name }}
+    outputs:
+      tag: ${{ steps.release.outputs.tag_name }}
+      release_created: ${{ steps.release.outputs.release_created }}
+
+  # Add build artifacts to the new GitHub release
+  release-artifacts:
+    needs: [build-in-zyphyr-ci-container, create-release]
+    if: ${{ needs.create-release.outputs.release_created }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 60
+
+    strategy:
+      matrix:
+        board: [nrf9160dk_nrf9160_ns, nrf9161dk_nrf9161_ns, nrf9151dk_nrf9151_ns]
+
+    steps:
+      - name: Download Build Artifacts
+        uses: actions/download-artifact@v4
+        with:
+          name: softsim_external_profile_${{ matrix.board }}
+      - name: Upload Release Artifact
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: gh release upload ${{ needs.create-release.outputs.tag }} softsim_external_profile_${{ matrix.board }}.zip
