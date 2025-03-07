@@ -13,17 +13,19 @@ concurrency:
   cancel-in-progress: true
 
 jobs:
-  build-in-zyphyr-ci-container:
-    runs-on: ubuntu-24.04
+  build-in-docker-container:
+    runs-on: ubuntu-22.04
     timeout-minutes: 60
-    container: ghcr.io/zephyrproject-rtos/ci:v0.27.4
-    env:
-      CMAKE_PREFIX_PATH: /opt/toolchains
+    container: ghcr.io/nrfconnect/sdk-nrf-toolchain:v2.9.1
+    defaults:
+      run:
+        # Bash shell is needed to set toolchain related environment variables in docker container
+        # It is a workaround for GitHub Actions limitation https://github.com/actions/runner/issues/1964
+        shell: bash
 
     strategy:
       matrix:
-        board: [nrf9160dk/nrf9160/ns, nrf9161dk/nrf9161/ns, nrf9151dk/nrf9151/ns]
-        # board: [nrf9160dk/nrf9160/ns, nrf9161dk/nrf9161/ns, nrf9151dk/nrf9151/ns, thingy91/nrf9160/ns, actinius/icarus/ns]
+        board: [nrf9160dk/nrf9160/ns, nrf9161dk/nrf9161/ns, nrf9151dk/nrf9151/ns, thingy91/nrf9160/ns]
 
     steps:
       # Initialize a Zephyr West workspace in its default format
@@ -52,23 +54,14 @@ jobs:
         run: |
           west build --sysbuild --pristine=always --board ${{ matrix.board }}
 
+      - name: Archive name generator
+        id: artifact_name
+        run: echo "artifact_name=$(echo ${{ matrix.board }} | tr "/" "_")" >> $GITHUB_OUTPUT
+
       - name: Archive SoftSIM External Profile Build
         uses: actions/upload-artifact@v4
         with:
-          name: softsim_external_profile_${{ matrix.board }}
-          path: modules/lib/onomondo-softsim/samples/softsim_external_profile/build/zephyr/merged.hex
+          name: ${{ steps.artifact_name.outputs.artifact_name }}
+          path: modules/lib/onomondo-softsim/samples/softsim_external_profile/build/merged.hex
           overwrite: true
-          retention-days: 90
-          if-no-files-found: error
-
-      - name: Build RAM and ROM report for static profile sample
-        working-directory: modules/lib/onomondo-softsim/samples/softsim_static_profile
-        run: |
-          west build -t ram_report
-          west build -t rom_report
-
-      - name: Build RAM and ROM report for external profile sample
-        working-directory: modules/lib/onomondo-softsim/samples/softsim_external_profile
-        run: |
-          west build -t ram_report
-          west build -t rom_report
+          if-no-files-found: warn
