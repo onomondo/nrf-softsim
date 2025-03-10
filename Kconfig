@@ -1,3 +1,5 @@
+menu "Onomondo SoftSIM Options"
+
 config SOFTSIM
     bool "SoftSIM"
     depends on NVS
@@ -31,12 +33,9 @@ config SOFTSIM_STATIC_PROFILE
     help
         Static profile to use for SoftSIM. If empty, the profile should be passed during runtime (just once via nrf_softsim_provision)
 
-config SOFTSIM_BUNDLE_TEMPLATE_HEX
-    bool "Automatically bundle the template profile hex into the application"
-    default n
-
 endif #SOFTSIM
 
+endmenu
 
 module = SOFTSIM
 module-str = Onomondo-SoftSIM

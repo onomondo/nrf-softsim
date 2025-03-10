@@ -1,7 +1,10 @@
 name: softsim
+
 build:
   cmake: .
   kconfig: ./Kconfig
+  sysbuild-cmake: sysbuild
+  sysbuild-kconfig: sysbuild/Kconfig
   depends:
     - trusted-firmware-m
 

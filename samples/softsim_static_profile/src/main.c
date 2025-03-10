@@ -73,8 +73,8 @@ static void lte_handler(const struct lte_lc_evt *const evt)
       char log_buf[60];
       ssize_t len;
 
-      len = snprintf(log_buf, sizeof(log_buf), "eDRX parameter update: eDRX: %f, PTW: %f", evt->edrx_cfg.edrx,
-                     evt->edrx_cfg.ptw);
+      len = snprintf(log_buf, sizeof(log_buf), "eDRX parameter update: eDRX: %f, PTW: %f",
+                     (double)evt->edrx_cfg.edrx, (double)evt->edrx_cfg.ptw);
       if (len > 0) {
         LOG_INF("%s\n", log_buf);
       }
