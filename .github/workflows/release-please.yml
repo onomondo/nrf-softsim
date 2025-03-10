@@ -25,21 +25,25 @@ jobs:
 
   # Add build artifacts to the new GitHub release
   release-artifacts:
-    needs: [build-in-zyphyr-ci-container, create-release]
+    needs: [build-in-docker-container, create-release]
     if: ${{ needs.create-release.outputs.release_created }}
     runs-on: ubuntu-latest
     timeout-minutes: 60
 
     strategy:
       matrix:
-        board: [nrf9160dk_nrf9160_ns, nrf9161dk_nrf9161_ns, nrf9151dk_nrf9151_ns]
+        board: [nrf9160dk/nrf9160/ns, nrf9161dk/nrf9161/ns, nrf9151dk/nrf9151/ns]
 
     steps:
+      - name: Archive name generator
+        id: artifact_name
+        run: echo "artifact_name=$(echo ${{ matrix.board }} | tr "/" "_")" >> $GITHUB_OUTPUT
+
       - name: Download Build Artifacts
         uses: actions/download-artifact@v4
         with:
-          name: softsim_external_profile_${{ matrix.board }}
+          name: ${{ steps.artifact_name.outputs.artifact_name }}
       - name: Upload Release Artifact
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-        run: gh release upload ${{ needs.create-release.outputs.tag }} softsim_external_profile_${{ matrix.board }}.zip
+        run: gh release upload ${{ needs.create-release.outputs.tag }} ${{ steps.artifact_name.outputs.artifact_name }}.zip
