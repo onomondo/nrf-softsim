@@ -1,0 +1,46 @@
+name: Release Artifacts
+
+on:
+  workflow_dispatch:
+    inputs:
+      release_tag:
+        description: 'Release tag'
+        required: true
+        default: v5.0.0
+      run_id:
+        description: 'Run ID'
+        required: true
+        default: '13908029974'
+
+jobs:
+  release-artifacts:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 30
+
+    strategy:
+      matrix:
+        board: [nrf9160dk/nrf9160/ns, nrf9161dk/nrf9161/ns, nrf9151dk/nrf9151/ns, thingy91/nrf9160/ns]
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Archive name generator
+        id: artifact_name
+        run: echo "artifact_name=$(echo ${{ matrix.board }} | tr "/" "_")" >> $GITHUB_OUTPUT
+
+      - name: Download Build Artifacts
+        uses: actions/download-artifact@v4
+        with:
+          name: ${{ steps.artifact_name.outputs.artifact_name }}
+          run-id: ${{ github.event.inputs.run_id }}
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Upload Release Artifact
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          zip -v ${{ steps.artifact_name.outputs.artifact_name }}.zip merged.hex
+          gh release upload ${{ github.event.inputs.release_tag }} ${{ steps.artifact_name.outputs.artifact_name }}.zip
