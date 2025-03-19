@@ -1,4 +1,4 @@
-name: Run release-please
+name: Release Please
 
 on:
   push:
@@ -11,39 +11,12 @@ permissions:
 
 jobs:
   create-release:
-    runs-on: ubuntu-latest
-    timeout-minutes: 60
+    runs-on: ubuntu-24.04
+    timeout-minutes: 30
+
     steps:
       - uses: googleapis/release-please-action@v4
         id: release
         with:
           release-type: simple
-          package-name: ${{ github.event.repository.name }}
-    outputs:
-      tag: ${{ steps.release.outputs.tag_name }}
-      release_created: ${{ steps.release.outputs.release_created }}
-
-  # Add build artifacts to the new GitHub release
-  release-artifacts:
-    needs: [build-in-docker-container, create-release]
-    if: ${{ needs.create-release.outputs.release_created }}
-    runs-on: ubuntu-latest
-    timeout-minutes: 60
-
-    strategy:
-      matrix:
-        board: [nrf9160dk/nrf9160/ns, nrf9161dk/nrf9161/ns, nrf9151dk/nrf9151/ns]
-
-    steps:
-      - name: Archive name generator
-        id: artifact_name
-        run: echo "artifact_name=$(echo ${{ matrix.board }} | tr "/" "_")" >> $GITHUB_OUTPUT
-
-      - name: Download Build Artifacts
-        uses: actions/download-artifact@v4
-        with:
-          name: ${{ steps.artifact_name.outputs.artifact_name }}
-      - name: Upload Release Artifact
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-        run: gh release upload ${{ needs.create-release.outputs.tag }} ${{ steps.artifact_name.outputs.artifact_name }}.zip
+          target-branch: master
