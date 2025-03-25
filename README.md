@@ -1,14 +1,5 @@
 # Onomondo SoftSIM for Nordic nRF91 Series
 
-> [!IMPORTANT]
-> This repository is currently supporting nRF Connect SDK v2.5.1 to v2.6.2.
->
-> The repository is not yet ported to default sysbuild, introduced in nRF Connect SDK v2.7.0.
->
-> To build the samples with nRF Connect SDK v2.7.0, use the build option --no-sysbuild
->
-> Feel free to contribute to this repository if you have already done the migration to sysbuild.
-
 The Onomondo SoftSIM is an [Open Source](https://github.com/onomondo/onomondo-uicc) C based UICC implementation, allowing new and innovative cellular device designs to see the light of day in the ever-growing landscape of IoT!
 
 In order for us to achieve an integration of this awesome new SoftSIM UICC form factor, we have partnered up with Nordic Semiconductors to develop and distribute a new SoftSIM modem interface that allows for APDU exchange between the modem and application processor. To read more about this and deep dive into the  refer to Nordic Semiconductors's [documentation](https://docs.nordicsemi.com/bundle/ncs-latest/page/nrfxlib/nrf_modem/doc/softsim_interface.html).
@@ -25,13 +16,19 @@ west init -m https://github.com/onomondo/nrf-softsim.git
 west update
 ```
 
-Getting started with the external profile sample
+Getting started with the external profile sample:
 ```
 cd modules/lib/onomondo-softsim/samples/softsim_external_profile
-west build -b nrf9151dk_nrf9151_ns
+west build --sysbuild -b nrf9151dk/nrf9151/ns
 west flash
 ```
 
+> [!IMPORTANT]
+> This repository have transitioned to Zephyr Sysbuild.
+>
+> Please ensure that West is configured accordingly or that you build the project using the --sysbuild argument.
+>
+> Feel free to raise an issue or contribute to this repository if you experience any issue with the migration to Sysbuild.
 
 ## Prerequisites
 ### Get access to your free Onomondo SoftSIM profile
@@ -140,15 +137,15 @@ Which results in:
 
 For most samples and applications, it's sufficient to build by executing the following command:
 ```_
-west build -b nrf9151dk_nrf9151_ns -- "-DOVERLAY_CONFIG=$PATH_TO_ONOMONDO_SOFTSIM/overlay-softsim.conf"
+west build -b nrf9151dk/nrf9151/ns -- "-DOVERLAY_CONFIG=$PATH_TO_ONOMONDO_SOFTSIM/overlay-softsim.conf"
 ```
 Where `PATH_TO_ONOMONDO_SOFTSIM` is the path of the downloaded Onomondo SoftSIM repository, for example `$HOME/ncs/nrf-softsim-dev`.
 
 #### Note
-SoftSIM is relying on some default data in the storage partition. This section of the flash can be generated and flashed manually (see steps below) or, as we recommend, automatically included by `CONFIG_SOFTSIM_BUNDLE_TEMPLATE_HEX=y`
+SoftSIM is relying on some default data in the storage partition. This section of the flash can be generated and flashed manually (see steps below) or, as we recommend, automatically included by adding `SB_CONFIG_SOFTSIM_BUNDLE_TEMPLATE_HEX=y` to `sysbuild.conf`.
 
 Manually generating SoftSIM profile template data:
-1. After building the application, generate the application-specific template profile. `west build -b nrf9151dk_nrf9151_ns -t onomondo_softsim_template`
+1. After building the application, generate the application-specific template profile. `west build -b nrf9151dk/nrf9151/ns -t onomondo_softsim_template`
 2. Flash the application-specific template profile. `west flash --hex-file build/onomondo-softsim/template.hex`
 
 If the partition table of the application changes, for example due to another partition changing size, the template profile must be rebuilt and flashed again.
@@ -162,7 +159,7 @@ Some applications will fail to link with error `zephyr/zephyr_pre0.elf uses VFP 
 the application directory.
 The application can then be built like this:
 ```
-west build -b nrf9151dk_nrf9151_ns -- "-DOVERLAY_CONFIG=$PATH_TO_ONOMONDO_SOFTSIM/overlay-softsim.conf;overlay-softsim.conf"
+west build -b nrf9151dk/nrf9151/ns -- "-DOVERLAY_CONFIG=$PATH_TO_ONOMONDO_SOFTSIM/overlay-softsim.conf;overlay-softsim.conf"
 ```
 
 #### Note

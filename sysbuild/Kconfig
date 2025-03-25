@@ -1,0 +1,7 @@
+menu "Onomondo SoftSIM Options"
+
+config SOFTSIM_BUNDLE_TEMPLATE_HEX
+    bool "Automatically bundle the template profile hex into the application"
+    default n
+
+endmenu
