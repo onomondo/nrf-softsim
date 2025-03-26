@@ -2,7 +2,7 @@
 
 The Onomondo SoftSIM is an [Open Source](https://github.com/onomondo/onomondo-uicc) C based UICC implementation, allowing new and innovative cellular device designs to see the light of day in the ever-growing landscape of IoT!
 
-In order for us to achieve an integration of this awesome new SoftSIM UICC form factor, we have partnered up with Nordic Semiconductors to develop and distribute a new SoftSIM modem interface that allows for APDU exchange between the modem and application processor. To read more about this and deep dive into the  refer to Nordic Semiconductors's [documentation](https://docs.nordicsemi.com/bundle/ncs-latest/page/nrfxlib/nrf_modem/doc/softsim_interface.html).
+To integrate this awesome new SoftSIM UICC form factor, we have partnered with Nordic Semiconductor to develop and distribute a new SoftSIM modem interface that supports APDU exchange between the modem and the application processor. For more details and an in-depth explenation, refer to Nordic Semiconductor's [documentation](https://docs.nordicsemi.com/bundle/ncs-latest/page/nrfxlib/nrf_modem/doc/softsim_interface.html).
 
 
 ## Quick Setup Guide
@@ -46,7 +46,7 @@ Every time you require a new profile, simply use the `./softsim next --key=<path
 #### Quickstart
 1. [Configure NCS to include SoftSIM libraries in your build system](#setup)
 2. [Set-up your API key to get access to SoftSIM profiles through our API](#get-access-to-your-free-softsim-profiles)
-3. [Configure you project to build with SoftSIM](#configure-and-build)
+3. [Configure your project to build with SoftSIM](#configure-and-build)
 4. [Configuring SoftSIM in NCS samples](#general-usage)
 
 #### General
