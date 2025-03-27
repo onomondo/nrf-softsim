@@ -38,8 +38,8 @@ jobs:
         with:
           path: modules/lib/onomondo-softsim
 
-      # Update dependecies and submodules using west
-      - name: Fetch nRF and Zephyr workspaces and dependecies
+      # Update dependencies and submodules using west
+      - name: Fetch nRF and Zephyr workspaces and dependencies
         run: |
           west update -o=--depth=1 --narrow
 
