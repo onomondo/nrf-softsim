@@ -1,12 +1,10 @@
 name: SoftSIM for nRF91 Build
 
 on:
-  pull_request:
-    branches:
-      - master
   push:
     branches:
       - master
+  pull_request:
 
 concurrency:
   group: ${{ github.workflow }}-${{ github.ref }}
@@ -24,8 +22,9 @@ jobs:
         shell: bash
 
     strategy:
+      fail-fast: false
       matrix:
-        board: [nrf9160dk/nrf9160/ns, nrf9161dk/nrf9161/ns, nrf9151dk/nrf9151/ns, thingy91/nrf9160/ns]
+        board: [nrf9160dk/nrf9160/ns, nrf9161dk/nrf9161/ns, nrf9151dk/nrf9151/ns, thingy91/nrf9160/ns, thingy91x/nrf9151/ns]
 
     steps:
       # Initialize a Zephyr West workspace in its default format
@@ -39,8 +38,8 @@ jobs:
         with:
           path: modules/lib/onomondo-softsim
 
-      # Update dependecies and submodules using west
-      - name: Fetch nRF and Zephyr workspaces and dependecies
+      # Update dependencies and submodules using west
+      - name: Fetch nRF and Zephyr workspaces and dependencies
         run: |
           west update -o=--depth=1 --narrow
 
