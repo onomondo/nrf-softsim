@@ -1,5 +1,12 @@
 # Changelog
 
+## [5.1.0](https://github.com/onomondo/nrf-softsim/compare/v5.0.0...v5.1.0) (2025-04-02)
+
+
+### Features
+
+* optimize FLASH and RAM ([#80](https://github.com/onomondo/nrf-softsim/issues/80)) ([a92db60](https://github.com/onomondo/nrf-softsim/commit/a92db60fc3be34e3ce56e6b9ed8f8555f0799afe))
+
 ## [5.0.0](https://github.com/onomondo/nrf-softsim/compare/v4.0.2...v5.0.0) (2025-03-19)
 
 
