@@ -23,13 +23,6 @@ west build --sysbuild -b nrf9151dk/nrf9151/ns
 west flash
 ```
 
-> [!IMPORTANT]
-> This repository have transitioned to Zephyr Sysbuild.
->
-> Please ensure that West is configured accordingly or that you build the project using the --sysbuild argument.
->
-> Feel free to raise an issue or contribute to this repository if you experience any issue with the migration to Sysbuild.
-
 ## Prerequisites
 ### Get access to your free Onomondo SoftSIM profile
 SoftSIM profiles are delivered through our API. As this can be a bit cumbersome, we've developed a small tool to make this process easier. The tool is available at [sofsim-cli](https://github.com/onomondo/onomondo-softsim-cli). Additional instructions can be found in the CLI repository.
