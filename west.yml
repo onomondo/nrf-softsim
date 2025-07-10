@@ -1,13 +1,22 @@
 manifest:
   remotes:
     - name: nrfconnect
-      url-base: https://github.com/nrfconnect/
+      url-base: https://github.com/nrfconnect
+    - name: memfault
+      url-base: https://github.com/memfault
+
   projects:
     - name: sdk-nrf
       path: nrf
       revision: v3.1.1
       remote: nrfconnect
       import: true
+
+    # Explicitly add the Memfault SDK, to override the version in the sdk-nrf manifest
+    - name: memfault-firmware-sdk
+      path: modules/lib/memfault-firmware-sdk
+      revision: 1.26.1
+      remote: memfault
       submodules: true
   self:
     path: modules/lib/onomondo-softsim
