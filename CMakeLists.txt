@@ -1,1 +1,3 @@
 add_subdirectory_ifdef(CONFIG_SOFTSIM lib)
+
+zephyr_include_directories(config)
