@@ -14,7 +14,7 @@ jobs:
   build-in-docker-container:
     runs-on: ubuntu-22.04
     timeout-minutes: 60
-    container: ghcr.io/nrfconnect/sdk-nrf-toolchain:v3.0.2
+    container: ghcr.io/nrfconnect/sdk-nrf-toolchain:v3.1.1
     defaults:
       run:
         # Bash shell is needed to set toolchain related environment variables in docker container
