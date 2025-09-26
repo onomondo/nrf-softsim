@@ -1,12 +1,20 @@
 manifest:
   remotes:
     - name: nrfconnect
-      url-base: https://github.com/nrfconnect/
+      url-base: https://github.com/nrfconnect
+    - name: memfault
+      url-base: https://github.com/memfault
+
   projects:
     - name: sdk-nrf
       path: nrf
       revision: v3.1.1
       remote: nrfconnect
       import: true
+
+    - name: memfault-firmware-sdk
+      path: modules/lib/memfault-firmware-sdk
+      revision: 1.26.1
+      remote: memfault
   self:
     path: modules/lib/onomondo-softsim
