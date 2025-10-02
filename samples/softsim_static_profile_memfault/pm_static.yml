@@ -1,0 +1,16 @@
+tfm_its:
+  address: 0xf8000
+  size: 0x2000
+tfm_otp_nv_counters:
+  address: 0xfa000
+  size: 0x2000
+EMPTY_tfm_ps:
+  address: 0xfc000
+  size: 0x4000
+tfm_storage:
+  address: 0xf8000
+  span:
+  - EMPTY_tfm_ps
+  - tfm_its
+  - tfm_otp_nv_counters
+  size: 0x8000
