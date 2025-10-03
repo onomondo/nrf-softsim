@@ -53,6 +53,11 @@ jobs:
         run: |
           west build --sysbuild --pristine=always --board ${{ matrix.board }}
 
+      - name: Build firmware of preprovisioned profile sample
+        working-directory: modules/lib/onomondo-softsim/samples/softsim_preprovisioned_profile
+        run: |
+          west build --sysbuild --pristine=always --board ${{ matrix.board }}
+
       - name: Archive name generator
         id: artifact_name
         run: echo "artifact_name=$(echo ${{ matrix.board }} | tr "/" "_")" >> $GITHUB_OUTPUT
