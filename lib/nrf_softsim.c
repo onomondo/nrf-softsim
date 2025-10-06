@@ -18,8 +18,8 @@
 LOG_MODULE_REGISTER(softsim, CONFIG_SOFTSIM_LOG_LEVEL);
 
 /* SoftSIM memory configuration */
-#define SOFTSIM_STACK_SIZE 	10000 	/* TODO: this is too much. Figure out some more reasonable value. */
-#define SOFTSIM_PRIORITY 	5	/* TODO: What is a good balance here? */
+#define SOFTSIM_STACK_SIZE 10000 /* TODO: Figure out some more reasonable value. */
+#define SOFTSIM_PRIORITY   5     /* TODO: What is a good balance here? */
 
 K_THREAD_STACK_DEFINE(softsim_stack_area, SOFTSIM_STACK_SIZE);
 
@@ -28,8 +28,8 @@ K_THREAD_STACK_DEFINE(softsim_stack_area, SOFTSIM_STACK_SIZE);
 /* Forward declarations */
 int port_provision(struct ss_profile *profile);
 static void softsim_req_task(struct k_work *item);
-static void nrf_modem_softsim_req_handler(enum nrf_modem_softsim_cmd req, uint16_t req_id, void *data,
-					  uint16_t data_len);
+static void nrf_modem_softsim_req_handler(enum nrf_modem_softsim_cmd req, uint16_t req_id,
+					  void *data, uint16_t data_len);
 
 static struct k_work_q softsim_work_q;
 static K_FIFO_DEFINE(softsim_req_fifo);
@@ -89,8 +89,8 @@ int onomondo_init(void)
 
 	k_work_queue_init(&softsim_work_q);
 
-	k_work_queue_start(&softsim_work_q, softsim_stack_area, K_THREAD_STACK_SIZEOF(softsim_stack_area),
-			   SOFTSIM_PRIORITY, NULL);
+	k_work_queue_start(&softsim_work_q, softsim_stack_area,
+			   K_THREAD_STACK_SIZEOF(softsim_stack_area), SOFTSIM_PRIORITY, NULL);
 
 	ctx = ss_new_ctx(); /* TODO: consider dropping this call here */
 
@@ -144,7 +144,7 @@ static void softsim_req_task(struct k_work *item)
 		switch (s_req->req) {
 		case NRF_MODEM_SOFTSIM_INIT: {
 			LOG_DBG("SoftSIM INIT REQ");
-			if (!ctx) { /* This check is needed since multiple INIT requests can be sent */
+			if (!ctx) { /* Check needed since multiple INIT requests can be sent */
 				ctx = ss_new_ctx();
 			}
 
@@ -155,7 +155,8 @@ static void softsim_req_task(struct k_work *item)
 
 			int atr_len = ss_atr(ctx, softsim_buffer_out, SIM_HAL_MAX_LE);
 
-			err = nrf_modem_softsim_res(s_req->req, s_req->req_id, softsim_buffer_out, atr_len);
+			err = nrf_modem_softsim_res(s_req->req, s_req->req_id, softsim_buffer_out,
+						    atr_len);
 			if (err) {
 				LOG_ERR("SoftSIM INIT response failed with err: %d", err);
 			}
@@ -164,13 +165,16 @@ static void softsim_req_task(struct k_work *item)
 			break;
 		}
 		case NRF_MODEM_SOFTSIM_APDU: {
-			LOG_HEXDUMP_DBG(s_req->payload.data, s_req->payload.data_len, "SoftSIM APDU request");
+			LOG_HEXDUMP_DBG(s_req->payload.data, s_req->payload.data_len,
+					"SoftSIM APDU request");
 
 			size_t req_len = s_req->payload.data_len;
-			size_t rsp_len = ss_command_apdu_transact(ctx, softsim_buffer_out, SIM_HAL_MAX_LE,
-								  s_req->payload.data, &req_len);
+			size_t rsp_len =
+				ss_command_apdu_transact(ctx, softsim_buffer_out, SIM_HAL_MAX_LE,
+							 s_req->payload.data, &req_len);
 
-			err = nrf_modem_softsim_res(s_req->req, s_req->req_id, softsim_buffer_out, rsp_len);
+			err = nrf_modem_softsim_res(s_req->req, s_req->req_id, softsim_buffer_out,
+						    rsp_len);
 			if (err) {
 				LOG_ERR("SoftSIM APDU response failed with err: %d", err);
 			}
@@ -181,7 +185,8 @@ static void softsim_req_task(struct k_work *item)
 		case NRF_MODEM_SOFTSIM_DEINIT: {
 			LOG_DBG("SoftSIM DEINIT REQ");
 
-			if (ctx && !ss_is_suspended(ctx)) { /* Ignore if suspended. Then we just keep the context around */
+			if (ctx && !ss_is_suspended(ctx)) { /* Ignore if suspended. Then we just
+							       keep the context around */
 				ss_free_ctx(ctx);
 				ctx = NULL;
 				ss_deinit_fs(); /* Commit any cached changes to flash */
@@ -222,7 +227,8 @@ static void softsim_req_task(struct k_work *item)
 	}
 }
 
-void nrf_modem_softsim_req_handler(enum nrf_modem_softsim_cmd req, uint16_t req_id, void *data, uint16_t data_len)
+void nrf_modem_softsim_req_handler(enum nrf_modem_softsim_cmd req, uint16_t req_id, void *data,
+				   uint16_t data_len)
 {
 	struct softsim_req_node *req_node = NULL;
 

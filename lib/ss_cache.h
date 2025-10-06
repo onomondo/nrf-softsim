@@ -5,20 +5,20 @@
 
 #include <onomondo/softsim/list.h>
 
-#define FS_READ_ONLY        (1UL << 8)
-#define FS_COMMIT_ON_CLOSE  (1UL << 7) /* Commit changes to NVS on close */
+#define FS_READ_ONLY       (1UL << 8)
+#define FS_COMMIT_ON_CLOSE (1UL << 7) /* Commit changes to NVS on close */
 
 struct cache_entry {
 	struct ss_list list;
-	uint16_t key;         /* NVS key */
-	uint8_t _flags;       /* Part of ID is used for flags */
-	uint16_t _p;          /* Local 'file' pointer (ftell, fseek, etc.) */
-	uint16_t _l;          /* Local 'file' length */
-	uint8_t *buf;         /* In case content is cached */
-	uint16_t _b_size;     /* Memory allocated for buf */
-	uint8_t _b_dirty;     /* Buf is divergent from NVS */
+	uint16_t key;     /* NVS key */
+	uint8_t _flags;   /* Part of ID is used for flags */
+	uint16_t _p;      /* Local 'file' pointer (ftell, fseek, etc.) */
+	uint16_t _l;      /* Local 'file' length */
+	uint8_t *buf;     /* In case content is cached */
+	uint16_t _b_size; /* Memory allocated for buf */
+	uint8_t _b_dirty; /* Buf is divergent from NVS */
 	uint8_t _cache_hits;
-	char *name;           /* Path/key for lookup */
+	char *name; /* Path/key for lookup */
 };
 
 /**

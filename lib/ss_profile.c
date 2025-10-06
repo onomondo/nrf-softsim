@@ -6,7 +6,8 @@
 
 /* Forward declarations */
 static uint8_t ss_hex_to_uint8(const char *hex);
-static void ss_hex_string_to_bytes(const uint8_t *hex, size_t hex_len, uint8_t bytes[static hex_len / 2]);
+static void ss_hex_string_to_bytes(const uint8_t *hex, size_t hex_len,
+				   uint8_t bytes[static hex_len / 2]);
 
 /* See in ss_profile.h */
 void decode_profile(size_t len, uint8_t data[static len], struct ss_profile *profile)

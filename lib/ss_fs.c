@@ -16,16 +16,16 @@
 
 LOG_MODULE_DECLARE(softsim, CONFIG_SOFTSIM_LOG_LEVEL);
 
-#define NVS_PARTITION nvs_storage
+#define NVS_PARTITION        nvs_storage
 #define NVS_PARTITION_DEVICE FIXED_PARTITION_DEVICE(NVS_PARTITION)
 #define NVS_PARTITION_OFFSET FIXED_PARTITION_OFFSET(NVS_PARTITION)
 
 #define DIR_ID (1UL)
 
-#define IMSI_PATH   "/3f00/7ff0/6f07"
-#define ICCID_PATH  "/3f00/2fe2"
-#define A001_PATH   "/3f00/a001"
-#define A004_PATH   "/3f00/a004"
+#define IMSI_PATH  "/3f00/7ff0/6f07"
+#define ICCID_PATH "/3f00/2fe2"
+#define A001_PATH  "/3f00/a001"
+#define A004_PATH  "/3f00/a004"
 
 #ifndef SEEK_SET
 #define SEEK_SET 0 /* set file offset to offset */
@@ -68,7 +68,8 @@ int ss_init_fs(void)
 	size_t len = 0;
 
 	fs.flash_device = NVS_PARTITION_DEVICE;
-	fs.sector_size = 0x1000; /* Where to read this? :DT_PROP(NVS_PARTITION, erase_block_size); */
+	fs.sector_size =
+		0x1000; /* Where to read this? :DT_PROP(NVS_PARTITION, erase_block_size); */
 	fs.sector_count = FLASH_AREA_SIZE(nvs_storage) / fs.sector_size;
 	fs.offset = NVS_PARTITION_OFFSET;
 
@@ -94,7 +95,9 @@ int ss_init_fs(void)
 	ss_list_init(&fs_cache);
 	generate_dir_table_from_blob(&fs_cache, data, len);
 
-	if (ss_list_empty(&fs_cache)) goto out;
+	if (ss_list_empty(&fs_cache)) {
+		goto out;
+	}
 
 	fs_is_initialized++;
 
@@ -114,7 +117,8 @@ int ss_deinit_fs(void)
 	struct cache_entry *cursor, *pre_cursor;
 
 	/* Free all memory allocated by cache and commit changes to NVS */
-	SS_LIST_FOR_EACH_SAVE(&fs_cache, cursor, pre_cursor, struct cache_entry, list) {
+	SS_LIST_FOR_EACH_SAVE(&fs_cache, cursor, pre_cursor, struct cache_entry, list)
+	{
 		if (cursor->_b_dirty) {
 			LOG_INF("SoftSIM stop - committing %s to NVS", cursor->name);
 			nvs_write(&fs, cursor->key, cursor->buf, cursor->_l);
@@ -153,7 +157,6 @@ port_FILE port_fopen(char *path, char *mode)
 	if (cursor->_cache_hits < 0xFF) {
 		cursor->_cache_hits++;
 	}
-
 
 	if (!cursor->_l) {
 		rc = nvs_read(&fs, cursor->key, NULL, 0);
@@ -262,7 +265,8 @@ char *port_fgets(char *str, int n, port_FILE fp)
 
 	int idx = 0; /* Destination buffer index */
 
-	while (entry->_p < entry->_l && idx < n - 1 && entry->buf[entry->_p] != '\0' && entry->buf[entry->_p] != '\n') {
+	while (entry->_p < entry->_l && idx < n - 1 && entry->buf[entry->_p] != '\0' &&
+	       entry->buf[entry->_p] != '\n') {
 		str[idx++] = entry->buf[entry->_p++];
 	}
 
@@ -434,7 +438,8 @@ size_t port_fwrite(const void *ptr, size_t size, size_t count, port_FILE fp)
 	const size_t buffer_left = entry->_b_size - entry->_p;
 	const size_t elements_to_copy = buffer_left > size * count ? count : buffer_left / size;
 
-	const uint8_t content_is_different = memcmp(entry->buf + entry->_p, ptr, size * elements_to_copy);
+	const uint8_t content_is_different =
+		memcmp(entry->buf + entry->_p, ptr, size * elements_to_copy);
 
 	if (content_is_different) {
 		memcpy(entry->buf + entry->_p, ptr, size * elements_to_copy);
@@ -454,7 +459,8 @@ int port_check_provisioned(void)
 {
 	int ret;
 	uint8_t buffer[IMSI_LEN] = {0};
-	struct cache_entry *entry = (struct cache_entry *)f_cache_find_by_name(IMSI_PATH, &fs_cache);
+	struct cache_entry *entry =
+		(struct cache_entry *)f_cache_find_by_name(IMSI_PATH, &fs_cache);
 
 	ret = nvs_read(&fs, entry->key, buffer, IMSI_LEN);
 	if (ret < 0) {
@@ -482,7 +488,8 @@ int port_provision(struct ss_profile *profile)
 		LOG_ERR("Failed to init FS");
 	}
 
-	struct cache_entry *entry = (struct cache_entry *)f_cache_find_by_name(IMSI_PATH, &fs_cache);
+	struct cache_entry *entry =
+		(struct cache_entry *)f_cache_find_by_name(IMSI_PATH, &fs_cache);
 
 	LOG_INF("Provisioning SoftSIM 1/4");
 	if (nvs_write(&fs, entry->key, profile->IMSI, IMSI_LEN) < 0) {

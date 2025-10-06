@@ -24,8 +24,8 @@ LOG_MODULE_REGISTER(softsim_sample, LOG_LEVEL_INF);
 #define PROFILE_MAX_SIZE 360 /* Maximum size of a Onomondo SoftSIM profile */
 
 /* Semaphores */
-K_SEM_DEFINE(lte_connected, 0, 1);	/* Semaphore to signal LTE connection established */
-K_SEM_DEFINE(profile_received, 0, 1);	/* Semaphore to signal profile received */
+K_SEM_DEFINE(lte_connected, 0, 1);    /* Semaphore to signal LTE connection established */
+K_SEM_DEFINE(profile_received, 0, 1); /* Semaphore to signal profile received */
 
 struct rx_buf_t {
 	char *buf;
@@ -67,26 +67,26 @@ static void lte_handler(const struct lte_lc_evt *const evt)
 	switch (evt->type) {
 	case LTE_LC_EVT_NW_REG_STATUS:
 		if ((evt->nw_reg_status != LTE_LC_NW_REG_REGISTERED_HOME) &&
-			(evt->nw_reg_status != LTE_LC_NW_REG_REGISTERED_ROAMING)) {
+		    (evt->nw_reg_status != LTE_LC_NW_REG_REGISTERED_ROAMING)) {
 			break;
 		}
 
 		LOG_INF("Network registration status: %s",
-			evt->nw_reg_status == LTE_LC_NW_REG_REGISTERED_HOME ?
-			"Connected - home network" : "Connected - roaming");
+			evt->nw_reg_status == LTE_LC_NW_REG_REGISTERED_HOME
+				? "Connected - home network"
+				: "Connected - roaming");
 		k_sem_give(&lte_connected);
 		break;
 	case LTE_LC_EVT_PSM_UPDATE:
-		LOG_INF("PSM parameter update: TAU: %d, Active time: %d",
-			evt->psm_cfg.tau, evt->psm_cfg.active_time);
+		LOG_INF("PSM parameter update: TAU: %d, Active time: %d", evt->psm_cfg.tau,
+			evt->psm_cfg.active_time);
 		break;
 	case LTE_LC_EVT_EDRX_UPDATE: {
 		char log_buf[60];
 		ssize_t len;
 
-		len = snprintf(log_buf, sizeof(log_buf),
-				   "eDRX parameter update: eDRX: %f, PTW: %f",
-				   (double)evt->edrx_cfg.edrx, (double)evt->edrx_cfg.ptw);
+		len = snprintf(log_buf, sizeof(log_buf), "eDRX parameter update: eDRX: %f, PTW: %f",
+			       (double)evt->edrx_cfg.edrx, (double)evt->edrx_cfg.ptw);
 		if (len > 0) {
 			LOG_INF("%s\n", log_buf);
 		}
@@ -97,8 +97,8 @@ static void lte_handler(const struct lte_lc_evt *const evt)
 			evt->rrc_mode == LTE_LC_RRC_MODE_CONNECTED ? "Connected" : "Idle");
 		break;
 	case LTE_LC_EVT_CELL_UPDATE:
-		LOG_INF("LTE cell changed: Cell ID: %d, Tracking area: %d",
-			evt->cell.id, evt->cell.tac);
+		LOG_INF("LTE cell changed: Cell ID: %d, Tracking area: %d", evt->cell.id,
+			evt->cell.tac);
 		break;
 	default:
 		break;
@@ -202,7 +202,8 @@ int main(void)
 		uart_irq_rx_enable(uart_dev);
 
 		do {
-			LOG_INF("Transfer SoftSIM profile using serial COM port, terminate by newline character (return key)");
+			LOG_INF("Transfer SoftSIM profile using serial COM port, terminate by "
+				"newline character (return key)");
 		} while (k_sem_take(&profile_received, K_SECONDS(20)));
 
 		LOG_INF("Profile received: %d characters in total", rx.pos);
@@ -210,7 +211,8 @@ int main(void)
 		uart_irq_rx_disable(uart_dev);
 
 		/* Provision the profile to the SoftSIM filesystem */
-		if (nrf_softsim_provision((uint8_t *)profile_read_from_external_source, rx.pos) != 0) {
+		if (nrf_softsim_provision((uint8_t *)profile_read_from_external_source, rx.pos) !=
+		    0) {
 			LOG_ERR("SoftSIM Profile provisioning failed");
 		}
 

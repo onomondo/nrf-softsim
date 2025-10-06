@@ -31,20 +31,18 @@ enum key_identifier_base key_id_to_kmu_slot(uint8_t key_id)
 #define SHARED_BUFFER_SIZE 256
 static uint8_t shared_buffer[SHARED_BUFFER_SIZE];
 
-#define ASSERT_STATUS(actual, expected)						\
-	do {									\
-		if ((actual) != (expected)) {					\
-			LOG_ERR("\tassertion failed at %s:%d - "		\
-				"actual:%d expected:%d",			\
-				__FILE__, __LINE__, (psa_status_t)actual,	\
-				(psa_status_t)expected);			\
-			goto exit;						\
-		}								\
+#define ASSERT_STATUS(actual, expected)                                                            \
+	do {                                                                                       \
+		if ((actual) != (expected)) {                                                      \
+			LOG_ERR("\tassertion failed at %s:%d - "                                   \
+				"actual:%d expected:%d",                                           \
+				__FILE__, __LINE__, (psa_status_t)actual, (psa_status_t)expected); \
+			goto exit;                                                                 \
+		}                                                                                  \
 	} while (0)
 
-static psa_status_t cipher_operation(psa_cipher_operation_t *operation,
-				     const uint8_t *input, size_t input_size,
-				     size_t part_size, uint8_t *output,
+static psa_status_t cipher_operation(psa_cipher_operation_t *operation, const uint8_t *input,
+				     size_t input_size, size_t part_size, uint8_t *output,
 				     size_t output_size, size_t *output_len)
 {
 	psa_status_t status;
@@ -52,19 +50,20 @@ static psa_status_t cipher_operation(psa_cipher_operation_t *operation,
 
 	*output_len = 0;
 	while (bytes_written != input_size) {
-		bytes_to_write = (input_size - bytes_written > part_size ?
-				  part_size : input_size - bytes_written);
+		bytes_to_write =
+			(input_size - bytes_written > part_size ? part_size
+								: input_size - bytes_written);
 
-		status = psa_cipher_update(operation, input + bytes_written,
-					   bytes_to_write, output + *output_len,
-					   output_size - *output_len, &len);
+		status = psa_cipher_update(operation, input + bytes_written, bytes_to_write,
+					   output + *output_len, output_size - *output_len, &len);
 		ASSERT_STATUS(status, PSA_SUCCESS);
 
 		bytes_written += bytes_to_write;
 		*output_len += len;
 	}
 
-	status = psa_cipher_finish(operation, output + *output_len, output_size - *output_len, &len);
+	status =
+		psa_cipher_finish(operation, output + *output_len, output_size - *output_len, &len);
 	ASSERT_STATUS(status, PSA_SUCCESS);
 	*output_len += len;
 
@@ -74,8 +73,8 @@ exit:
 
 /* See in ss_crypto.h */
 int ss_utils_ota_calc_cc(uint8_t *cc, size_t cc_len, uint8_t *key, size_t key_len,
-			 enum enc_algorithm alg, uint8_t *data1, size_t data1_len,
-			 uint8_t *data2, size_t data2_len)
+			 enum enc_algorithm alg, uint8_t *data1, size_t data1_len, uint8_t *data2,
+			 size_t data2_len)
 {
 	psa_mac_operation_t operation = PSA_MAC_OPERATION_INIT;
 	enum key_identifier_base slot_id = key_id_to_kmu_slot(key[0]);
@@ -145,7 +144,8 @@ exit:
 	return status == PSA_SUCCESS ? 0 : -EINVAL;
 }
 
-/* We have dropped 3DES support. AES is better in all aspects except support by other operators might be limited. */
+/* We have dropped 3DES support. AES is better in all aspects except support by other operators
+ * might be limited. */
 void ss_utils_3des_decrypt(uint8_t *buffer, size_t buffer_len, const uint8_t *key)
 {
 	return;
@@ -187,8 +187,8 @@ void ss_utils_aes_decrypt(uint8_t *buffer, size_t buffer_len, const uint8_t *key
 
 	psa_cipher_set_iv(&operation, iv, AES_BLOCKSIZE);
 
-	status = cipher_operation(&operation, buffer, buffer_len, AES_BLOCKSIZE,
-				  decrypted_buffer, SHARED_BUFFER_SIZE, &out_len);
+	status = cipher_operation(&operation, buffer, buffer_len, AES_BLOCKSIZE, decrypted_buffer,
+				  SHARED_BUFFER_SIZE, &out_len);
 	ASSERT_STATUS(status, PSA_SUCCESS);
 
 	memcpy(buffer, decrypted_buffer, out_len);
@@ -228,8 +228,8 @@ void ss_utils_aes_encrypt(uint8_t *buffer, size_t buffer_len, const uint8_t *key
 
 	psa_cipher_set_iv(&operation, iv, AES_BLOCKSIZE);
 
-	status = cipher_operation(&operation, buffer, buffer_len, AES_BLOCKSIZE,
-				  encrypted_buffer, SHARED_BUFFER_SIZE, &out_len);
+	status = cipher_operation(&operation, buffer, buffer_len, AES_BLOCKSIZE, encrypted_buffer,
+				  SHARED_BUFFER_SIZE, &out_len);
 	ASSERT_STATUS(status, PSA_SUCCESS);
 
 	memcpy(buffer, encrypted_buffer, out_len);
