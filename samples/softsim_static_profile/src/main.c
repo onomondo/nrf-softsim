@@ -55,33 +55,38 @@ static void lte_handler(const struct lte_lc_evt *const evt)
 	switch (evt->type) {
 	case LTE_LC_EVT_NW_REG_STATUS:
 		if ((evt->nw_reg_status != LTE_LC_NW_REG_REGISTERED_HOME) &&
-			(evt->nw_reg_status != LTE_LC_NW_REG_REGISTERED_ROAMING)) {
+		    (evt->nw_reg_status != LTE_LC_NW_REG_REGISTERED_ROAMING)) {
 			break;
 		}
 
 		LOG_INF("Network registration status: %s",
-			evt->nw_reg_status == LTE_LC_NW_REG_REGISTERED_HOME ? "Connected - home network" : "Connected - roaming");
+			evt->nw_reg_status == LTE_LC_NW_REG_REGISTERED_HOME
+				? "Connected - home network"
+				: "Connected - roaming");
 		k_sem_give(&lte_connected);
 		break;
 	case LTE_LC_EVT_PSM_UPDATE:
-		LOG_INF("PSM parameter update: TAU: %d, Active time: %d", evt->psm_cfg.tau, evt->psm_cfg.active_time);
+		LOG_INF("PSM parameter update: TAU: %d, Active time: %d", evt->psm_cfg.tau,
+			evt->psm_cfg.active_time);
 		break;
 	case LTE_LC_EVT_EDRX_UPDATE: {
 		char log_buf[60];
 		ssize_t len;
 
 		len = snprintf(log_buf, sizeof(log_buf), "eDRX parameter update: eDRX: %f, PTW: %f",
-				   (double)evt->edrx_cfg.edrx, (double)evt->edrx_cfg.ptw);
+			       (double)evt->edrx_cfg.edrx, (double)evt->edrx_cfg.ptw);
 		if (len > 0) {
 			LOG_INF("%s", log_buf);
 		}
 		break;
 	}
 	case LTE_LC_EVT_RRC_UPDATE:
-		LOG_INF("RRC mode: %s", evt->rrc_mode == LTE_LC_RRC_MODE_CONNECTED ? "Connected" : "Idle");
+		LOG_INF("RRC mode: %s",
+			evt->rrc_mode == LTE_LC_RRC_MODE_CONNECTED ? "Connected" : "Idle");
 		break;
 	case LTE_LC_EVT_CELL_UPDATE:
-		LOG_INF("LTE cell changed: Cell ID: %d, Tracking area: %d", evt->cell.id, evt->cell.tac);
+		LOG_INF("LTE cell changed: Cell ID: %d, Tracking area: %d", evt->cell.id,
+			evt->cell.tac);
 		break;
 	default:
 		break;

@@ -14,6 +14,6 @@
  * @param blob Pointer to blob of data
  * @param size Size of blob
  */
-void generate_dir_table_from_blob(struct ss_list* dirs, uint8_t* blob, size_t size);
+void generate_dir_table_from_blob(struct ss_list *dirs, uint8_t *blob, size_t size);
 
 #endif /* _PROVISION_H_ */

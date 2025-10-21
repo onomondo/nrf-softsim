@@ -46,8 +46,9 @@ enum key_identifier_base {
  *
  * @return int 0 on success, negative error code otherwise
  */
-int ss_utils_ota_calc_cc(uint8_t *cc, size_t cc_len, uint8_t *key, size_t key_len, enum enc_algorithm alg,
-			 uint8_t *data1, size_t data1_len, uint8_t *data2, size_t data2_len);
+int ss_utils_ota_calc_cc(uint8_t *cc, size_t cc_len, uint8_t *key, size_t key_len,
+			 enum enc_algorithm alg, uint8_t *data1, size_t data1_len, uint8_t *data2,
+			 size_t data2_len);
 
 /**
  * @brief Perform in-place 3DES decryption
@@ -100,7 +101,8 @@ void ss_utils_aes_encrypt(uint8_t *buffer, size_t buffer_len, const uint8_t *key
  *
  * @return int 0 on success, negative error code otherwise
  */
-int ss_utils_setup_key(size_t key_len, uint8_t key[static key_len], enum key_identifier_base key_id);
+int ss_utils_setup_key(size_t key_len, uint8_t key[static key_len],
+		       enum key_identifier_base key_id);
 
 /**
  * @brief Check if a key exists in KMU
@@ -119,7 +121,7 @@ int ss_utils_check_key_existence(enum key_identifier_base key_id);
  * @param key Pointer to AES key
  * @param in Pointer to input plaintext block
  * @param out Pointer to output ciphertext block
- * 
+ *
  * @return int 0 on success, negative error code otherwise
  */
 int aes_128_encrypt_block(const uint8_t *key, const uint8_t *in, uint8_t *out);
