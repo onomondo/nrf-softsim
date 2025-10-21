@@ -266,11 +266,11 @@ int ss_utils_setup_key_helper(size_t key_len, uint8_t key[static key_len], int k
 			LOG_ERR("Failed to destroy a persistent key, ERR: %d", status);
 			return -1;
 		}
-	} else if (status != PSA_SUCCESS) {
-		LOG_ERR("Failed to open a persistent key, ERR: %d", status);
-		return -1;
 	} else if (status == PSA_ERROR_DOES_NOT_EXIST) {
 		LOG_DBG("Key %d does not exist, proceeding to import", key_id);
+	} else {
+		LOG_ERR("Failed to open a persistent key, ERR: %d", status);
+		return -1;
 	}
 
 	psa_set_key_usage_flags(&key_attributes, usage_flags);
