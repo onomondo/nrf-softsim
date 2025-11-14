@@ -18,7 +18,7 @@
 LOG_MODULE_REGISTER(softsim, CONFIG_SOFTSIM_LOG_LEVEL);
 
 /* SoftSIM memory configuration */
-#define SOFTSIM_PRIORITY   5     /* TODO: What is a good balance here? */
+#define SOFTSIM_PRIORITY 5 /* TODO: What is a good balance here? */
 
 K_THREAD_STACK_DEFINE(softsim_stack_area, CONFIG_SOFTSIM_STACK_SIZE);
 
