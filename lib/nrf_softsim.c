@@ -18,10 +18,9 @@
 LOG_MODULE_REGISTER(softsim, CONFIG_SOFTSIM_LOG_LEVEL);
 
 /* SoftSIM memory configuration */
-#define SOFTSIM_STACK_SIZE 10000 /* TODO: Figure out some more reasonable value. */
 #define SOFTSIM_PRIORITY   5     /* TODO: What is a good balance here? */
 
-K_THREAD_STACK_DEFINE(softsim_stack_area, SOFTSIM_STACK_SIZE);
+K_THREAD_STACK_DEFINE(softsim_stack_area, CONFIG_SOFTSIM_STACK_SIZE);
 
 #define SIM_HAL_MAX_LE 260
 

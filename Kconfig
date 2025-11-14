@@ -33,6 +33,12 @@ config SOFTSIM_STATIC_PROFILE
     help
         Static profile to use for SoftSIM. If empty, the profile should be passed during runtime (just once via nrf_softsim_provision)
 
+config SOFTSIM_STACK_SIZE
+    int "Softsim stack size"
+    default 10000
+    help
+        Stack size used by the softsim module
+
 endif #SOFTSIM
 
 endmenu
