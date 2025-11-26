@@ -62,6 +62,9 @@ lib/onomondo
 !lib/libuicc.a
 !lib/libstorage.a
 
+.*project
+.settings
+.envrc
 .vscode
 *debug*
 .DS_Store

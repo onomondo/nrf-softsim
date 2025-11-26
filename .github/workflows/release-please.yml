@@ -1,19 +1,22 @@
----
+name: Release Please
+
 on:
   push:
-    branches: [master]
+    branches:
+      - master
 
 permissions:
   contents: write
   pull-requests: write
 
-name: Run release-please
-
 jobs:
-  release-please:
-    runs-on: ubuntu-latest
+  create-release:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 30
+
     steps:
       - uses: googleapis/release-please-action@v4
+        id: release
         with:
           release-type: simple
-          package-name: ${{ github.event.repository.name }}
+          target-branch: master

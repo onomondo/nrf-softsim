@@ -1,5 +1,28 @@
 # Changelog
 
+## [5.1.0](https://github.com/onomondo/nrf-softsim/compare/v5.0.0...v5.1.0) (2025-04-02)
+
+
+### Features
+
+* optimize FLASH and RAM ([#80](https://github.com/onomondo/nrf-softsim/issues/80)) ([a92db60](https://github.com/onomondo/nrf-softsim/commit/a92db60fc3be34e3ce56e6b9ed8f8555f0799afe))
+
+## [5.0.0](https://github.com/onomondo/nrf-softsim/compare/v4.0.2...v5.0.0) (2025-03-19)
+
+
+### ⚠ BREAKING CHANGES
+
+* bump nrf sdk support from v2.6.2 to v2.9.1 ([#56](https://github.com/onomondo/nrf-softsim/issues/56))
+
+### Features
+
+* bump nrf sdk support from v2.6.2 to v2.9.1 ([#56](https://github.com/onomondo/nrf-softsim/issues/56)) ([a393f70](https://github.com/onomondo/nrf-softsim/commit/a393f70a2742fa22419f11ccbd41d4ef998c6a07))
+
+
+### Bug Fixes
+
+* remove the fixed 190 character profile size ([#61](https://github.com/onomondo/nrf-softsim/issues/61)) ([2eaa8e0](https://github.com/onomondo/nrf-softsim/commit/2eaa8e0e76c1a70ae56b79ffc1896ff70d9dce44))
+
 ## [4.0.2](https://github.com/onomondo/nrf-softsim/compare/v4.0.1...v4.0.2) (2024-07-09)
 
 
