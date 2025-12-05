@@ -33,6 +33,15 @@ config SOFTSIM_STATIC_PROFILE
     help
         Static profile to use for SoftSIM. If empty, the profile should be passed during runtime (just once via nrf_softsim_provision)
 
+config USE_PREBUILT_SOFTSIM_LIBS
+    bool "Use prebuilt onomondo-uicc libraries"
+    default y
+    help
+        When set, the Zephyr build will link against the prebuilt onomondo-uicc
+        static libraries included in the repository (ss_lib_prebuilt/*.a). When unset the
+        build will compile onomondo-uicc sources in-tree and link against the
+        produced CMake targets.
+
 endif #SOFTSIM
 
 endmenu
