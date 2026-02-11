@@ -1,6 +1,10 @@
 name: Check Codebase Formatting
 
-on: pull_request
+on:
+  pull_request:
+    paths-ignore:
+      - 'modules/lib/onomondo-uicc/**'
+      - 'modules/lib/onomondo-uicc'
 
 jobs:
   clang-format:
@@ -14,5 +18,10 @@ jobs:
 
       - name: Run clang-format check
         run: |
-          FILES=$(find lib samples -name "*.c" -o -name "*.h" | grep -E "(lib/|samples/softsim_(external|static)_profile/)" | grep -v "lib/include/")
+          # find source files, then filter to project directories we care about
+          # explicitly exclude any files that are part of the onomondo-uicc submodule
+          FILES=$(find lib samples -name "*.c" -o -name "*.h" \
+            | grep -E "(lib/|samples/softsim_(external|static)_profile/)" \
+            | grep -v "lib/include/" \
+            | grep -v "lib/onomondo-uicc/")
           clang-format --dry-run -Werror $FILES
