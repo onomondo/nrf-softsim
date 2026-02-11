@@ -12,7 +12,7 @@
 #include <modem/nrf_modem_lib.h>
 #include <onomondo/softsim/softsim.h>
 #include <onomondo/softsim/utils.h>
-#include <onomondo/softsim/fs_port.h>
+#include <onomondo/softsim/fs.h>
 
 /* Logging */
 LOG_MODULE_REGISTER(softsim, CONFIG_SOFTSIM_LOG_LEVEL);
@@ -169,9 +169,9 @@ static void softsim_req_task(struct k_work *item)
 					"SoftSIM APDU request");
 
 			size_t req_len = s_req->payload.data_len;
-			size_t rsp_len =
-				ss_command_apdu_transact(ctx, softsim_buffer_out, SIM_HAL_MAX_LE,
-							 s_req->payload.data, &req_len);
+			size_t rsp_len = ss_application_apdu_transact(
+				ctx, softsim_buffer_out, SIM_HAL_MAX_LE, s_req->payload.data,
+				&req_len);
 
 			err = nrf_modem_softsim_res(s_req->req, s_req->req_id, softsim_buffer_out,
 						    rsp_len);
