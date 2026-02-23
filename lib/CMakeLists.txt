@@ -3,7 +3,6 @@ zephyr_library()
 set(_softsim_libs uicc milenage crypto storage)
 set(_softsim_install_dir ${CMAKE_CURRENT_SOURCE_DIR}/ss_lib_build)
 set(_softsim_libdir ${_softsim_install_dir})
-set(_softsim_built_in_tree OFF)
 
 function(_softsim_default_bool opt default doc)
   if(NOT DEFINED ${opt})
@@ -32,24 +31,21 @@ set(CMAKE_ARCHIVE_OUTPUT_DIRECTORY ${_softsim_install_dir})
 set(CMAKE_LIBRARY_OUTPUT_DIRECTORY ${_softsim_install_dir})
 set(CMAKE_RUNTIME_OUTPUT_DIRECTORY ${_softsim_install_dir})
 add_subdirectory(onomondo-uicc)
-set(_softsim_built_in_tree ON)
 set(_softsim_libdir ${_softsim_install_dir})
 
-if(_softsim_built_in_tree)
-  foreach(_t IN LISTS _softsim_libs utils)
-    if(TARGET ${_t})
-      # Propagate Zephyr compile flags/definitions to the subproject targets.
-      target_compile_definitions(${_t} PRIVATE
-        $<TARGET_PROPERTY:${ZEPHYR_CURRENT_LIBRARY},COMPILE_DEFINITIONS>
-        $<TARGET_PROPERTY:${ZEPHYR_CURRENT_LIBRARY},INTERFACE_COMPILE_DEFINITIONS>
-      )
-      target_compile_options(${_t} PRIVATE
-        $<TARGET_PROPERTY:${ZEPHYR_CURRENT_LIBRARY},COMPILE_OPTIONS>
-        $<TARGET_PROPERTY:${ZEPHYR_CURRENT_LIBRARY},INTERFACE_COMPILE_OPTIONS>
-      )
-    endif()
-  endforeach()
-endif()
+foreach(_t IN LISTS _softsim_libs utils)
+  if(TARGET ${_t})
+    # Propagate Zephyr compile flags/definitions to the subproject targets.
+    target_compile_definitions(${_t} PRIVATE
+      $<TARGET_PROPERTY:${ZEPHYR_CURRENT_LIBRARY},COMPILE_DEFINITIONS>
+      $<TARGET_PROPERTY:${ZEPHYR_CURRENT_LIBRARY},INTERFACE_COMPILE_DEFINITIONS>
+    )
+    target_compile_options(${_t} PRIVATE
+      $<TARGET_PROPERTY:${ZEPHYR_CURRENT_LIBRARY},COMPILE_OPTIONS>
+      $<TARGET_PROPERTY:${ZEPHYR_CURRENT_LIBRARY},INTERFACE_COMPILE_OPTIONS>
+    )
+  endif()
+endforeach()
 
 foreach(_t IN LISTS _softsim_libs)
   if(TARGET ${_t})
