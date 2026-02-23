@@ -9,11 +9,11 @@ function(_softsim_default_bool opt default doc)
   endif()
 endfunction()
 
-message(STATUS "[SoftSIM] : ----------Building Custom SoftSIM Static Libraries from onomondo-uicc----------")
-message(STATUS "[SoftSIM] : Using onomondo-uicc library install dir: ${_softsim_install_dir}")
+message(STATUS "SoftSIM: Building static libraries from onomondo-uicc")
+message(STATUS "SoftSIM: onomondo-uicc library install dir: ${_softsim_install_dir}")
 file(MAKE_DIRECTORY ${_softsim_install_dir})
 
-# Keep option defaults in one place.
+# Set default option values in one place.
 _softsim_default_bool(CONFIG_ENABLE_SANITIZE OFF "Enable -fsanitize in onomondo-uicc build")
 _softsim_default_bool(CONFIG_USE_SYSTEM_HEAP OFF "Use system malloc/free in onomondo-uicc")
 _softsim_default_bool(CONFIG_USE_LOGS ON "Enable ss_logp logging in onomondo-uicc")
@@ -25,12 +25,12 @@ _softsim_default_bool(CONFIG_NO_DEFAULT_IMPL ON "Build onomondo-uicc with no def
 _softsim_default_bool(CONFIG_COMPACT_STORAGE ON "Build with compact storage implementation")
 _softsim_default_bool(CONFIG_BUILD_LIB_ONLY ON "Only build libraries in onomondo-uicc")
 
-message(STATUS "[SoftSIM] : Initiating build from onomondo-uicc (in-tree)")
+message(STATUS "SoftSIM: Configuring onomondo-uicc (in-tree)")
 add_subdirectory(onomondo-uicc)
 
 foreach(_t IN LISTS _softsim_libs utils)
   if(TARGET ${_t})
-    # Propagate Zephyr compile flags/definitions to the subproject targets.
+    # Propagate Zephyr compile definitions and options to subproject targets.
     target_compile_definitions(${_t} PRIVATE
       $<TARGET_PROPERTY:${ZEPHYR_CURRENT_LIBRARY},COMPILE_DEFINITIONS>
       $<TARGET_PROPERTY:${ZEPHYR_CURRENT_LIBRARY},INTERFACE_COMPILE_DEFINITIONS>
@@ -44,7 +44,7 @@ endforeach()
 
 foreach(_t IN LISTS _softsim_libs)
   if(NOT TARGET ${_t})
-    message(FATAL_ERROR "[SoftSIM] : Expected in-tree target '${_t}' was not created by onomondo-uicc")
+    message(FATAL_ERROR "SoftSIM: Expected in-tree target '${_t}' was not created by onomondo-uicc")
   endif()
   target_link_libraries(${ZEPHYR_CURRENT_LIBRARY} PRIVATE ${_t})
 endforeach()
