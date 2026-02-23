@@ -8,5 +8,6 @@ manifest:
       revision: v3.1.1
       remote: nrfconnect
       import: true
+      submodules: true
   self:
     path: modules/lib/onomondo-softsim
