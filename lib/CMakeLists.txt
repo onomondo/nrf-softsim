@@ -26,9 +26,6 @@ _softsim_default_bool(CONFIG_COMPACT_STORAGE ON "Build with compact storage impl
 _softsim_default_bool(CONFIG_BUILD_LIB_ONLY ON "Only build libraries in onomondo-uicc")
 
 message(STATUS "[SoftSIM] : Initiating build from onomondo-uicc (in-tree)")
-set(CMAKE_ARCHIVE_OUTPUT_DIRECTORY ${_softsim_install_dir})
-set(CMAKE_LIBRARY_OUTPUT_DIRECTORY ${_softsim_install_dir})
-set(CMAKE_RUNTIME_OUTPUT_DIRECTORY ${_softsim_install_dir})
 add_subdirectory(onomondo-uicc)
 
 foreach(_t IN LISTS _softsim_libs utils)
@@ -53,8 +50,17 @@ foreach(_t IN LISTS _softsim_libs)
 endforeach()
 
 zephyr_include_directories(include)
-zephyr_include_directories(onomondo-uicc/include) # expose onomondo-uicc headers regardless of build mode
 
-zephyr_library_sources(nrf_softsim.c ss_fs.c ss_profile.c ss_provision.c ss_cache.c ss_heap.c ss_crypto.c ss_logp_zephyr.c build_asserts.c)
+zephyr_library_sources(
+  nrf_softsim.c
+  ss_fs.c
+  ss_profile.c
+  ss_provision.c
+  ss_cache.c
+  ss_heap.c
+  ss_crypto.c
+  ss_logp_zephyr.c
+  build_asserts.c
+)
 
-add_definitions(-DCONFIG_CUSTOM_HEAP)
+target_compile_definitions(${ZEPHYR_CURRENT_LIBRARY} PRIVATE CONFIG_CUSTOM_HEAP)
