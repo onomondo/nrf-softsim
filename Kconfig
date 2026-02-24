@@ -33,6 +33,51 @@ config SOFTSIM_STATIC_PROFILE
     help
         Static profile to use for SoftSIM. If empty, the profile should be passed during runtime (just once via nrf_softsim_provision)
 
+menu "Options for the onomondo-uicc submodule"
+
+config SOFTSIM_UICC_ENABLE_SANITIZE
+    bool "Enable sanitizers in onomondo-uicc"
+    default n
+
+config SOFTSIM_UICC_USE_SYSTEM_HEAP
+    bool "Use system malloc/free in onomondo-uicc"
+    default n
+
+config SOFTSIM_UICC_USE_LOGS
+    bool "Enable ss_logp logging in onomondo-uicc"
+    default y
+
+config SOFTSIM_UICC_USE_EXPERIMENTAL_SUSPEND_COMMAND
+    bool "Enable experimental suspend command in onomondo-uicc"
+    default y
+
+config SOFTSIM_UICC_EXTERNAL_CRYPTO_IMPL
+    bool "Use external crypto implementation in onomondo-uicc"
+    default y
+
+config SOFTSIM_UICC_EXTERNAL_KEY_LOAD
+    bool "Enable external key loader in onomondo-uicc"
+    default n
+    depends on !SOFTSIM_UICC_EXTERNAL_CRYPTO_IMPL
+
+config SOFTSIM_UICC_USE_UTILS
+    bool "Build onomondo-uicc utils target"
+    default n
+
+config SOFTSIM_UICC_NO_DEFAULT_IMPL
+    bool "Build onomondo-uicc with no default implementation"
+    default y
+
+config SOFTSIM_UICC_COMPACT_STORAGE
+    bool "Use compact storage implementation in onomondo-uicc"
+    default y
+
+config SOFTSIM_UICC_BUILD_LIB_ONLY
+    bool "Build libraries only in onomondo-uicc"
+    default y
+
+endmenu
+
 endif #SOFTSIM
 
 endmenu
