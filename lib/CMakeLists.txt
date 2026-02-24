@@ -37,6 +37,17 @@ _softsim_set_uicc_bool(CONFIG_NO_DEFAULT_IMPL CONFIG_SOFTSIM_UICC_NO_DEFAULT_IMP
 _softsim_set_uicc_bool(CONFIG_COMPACT_STORAGE CONFIG_SOFTSIM_UICC_COMPACT_STORAGE ON "Build with compact storage implementation")
 _softsim_set_uicc_bool(CONFIG_BUILD_LIB_ONLY CONFIG_SOFTSIM_UICC_BUILD_LIB_ONLY ON "Only build libraries in onomondo-uicc")
 
+# Detect uninitialized git submodule early and emit an actionable error.
+if(NOT EXISTS "${CMAKE_CURRENT_SOURCE_DIR}/onomondo-uicc/CMakeLists.txt")
+  message(FATAL_ERROR
+    "SoftSIM: onomondo-uicc submodule is not initialized.\n"
+    "Run:\n"
+    "  git -C ${CMAKE_CURRENT_SOURCE_DIR}/.. submodule update --init\n"
+    "Or, if onomondo-softsim is a west project in your application, add\n"
+    "  submodules: true\n"
+    "to its entry in your west.yml and re-run 'west update'.")
+endif()
+
 message(STATUS "SoftSIM: Configuring onomondo-uicc (in-tree)")
 add_subdirectory(onomondo-uicc)
 
