@@ -175,6 +175,28 @@ ss_FILE ss_fopen(char *path, char *mode)
 	return (void *)cursor;
 }
 
+/* The POSIX default in onomondo-uicc/src/softsim/fs.c is not
+ * compiled when CONFIG_COMPACT_STORAGE=ON, so we must provide it here. */
+int ss_file_size(const char *path)
+{
+	struct cache_entry *entry = f_cache_find_by_name(path, &fs_cache);
+
+	if (!entry) {
+		return -1;
+	}
+
+	if (!entry->_l) {
+		int rc = nvs_read(&fs, entry->key, NULL, 0);
+
+		if (rc < 0) {
+			return -1;
+		}
+		entry->_l = rc;
+	}
+
+	return (int)entry->_l;
+}
+
 /* See in fs_port.h */
 size_t ss_fread(void *ptr, size_t size, size_t nmemb, ss_FILE fp)
 {
