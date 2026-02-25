@@ -13,8 +13,8 @@ A new SDK can be initiated with the following two commands if you are already a 
 
 ```
 west init -m https://github.com/onomondo/nrf-softsim.git
-west update
 git -C modules/lib/onomondo-softsim submodule update --init
+west update
 ```
 
 Getting started with the external profile sample:
@@ -57,9 +57,9 @@ For existing toolchains and build systems it is sufficient to update the manifes
 ```
 cd <ncs_base>
 git clone https://github.com/onomondo/nrf-softsim.git modules/lib/onomondo-softsim
+git -C modules/lib/onomondo-softsim submodule update --init
 west config manifest.path modules/lib/onomondo-softsim/
 west update
-git -C modules/lib/onomondo-softsim submodule update --init
 ```
 
 > **Note — git submodule:** `onomondo-uicc` is bundled as a git submodule inside this repository. `west update` does **not** automatically initialize submodules of the manifest `self` repo, so the extra `git submodule update --init` step above is required when using this repo as the west manifest.
