@@ -1,0 +1,3 @@
+[submodule "lib/onomondo-uicc"]
+	path = lib/onomondo-uicc
+	url = https://github.com/onomondo/onomondo-uicc

@@ -239,15 +239,6 @@ exit:
 	return;
 }
 
-int aes_128_encrypt_block(const uint8_t *key, const uint8_t *in, uint8_t *out)
-{
-	uint8_t buffer_cpy[AES_BLOCKSIZE];
-	memcpy(buffer_cpy, in, AES_BLOCKSIZE);
-	ss_utils_aes_encrypt(buffer_cpy, AES_BLOCKSIZE, key, AES_BLOCKSIZE);
-	memcpy(out, buffer_cpy, AES_BLOCKSIZE);
-	return 0;
-}
-
 int ss_utils_setup_key_helper(size_t key_len, uint8_t key[static key_len], int key_id,
 			      psa_key_usage_t usage_flags, psa_algorithm_t alg,
 			      psa_key_type_t key_type)
