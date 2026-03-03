@@ -1,5 +1,21 @@
 # Changelog
 
+## [6.0.0](https://github.com/onomondo/nrf-softsim/compare/v5.1.0...v6.0.0) (2026-03-03)
+
+
+### ⚠ BREAKING CHANGES
+
+* nrf connect sdk v3.0.1 ([#84](https://github.com/onomondo/nrf-softsim/issues/84))
+
+### Features
+
+* nrf connect sdk v3.0.1 ([#84](https://github.com/onomondo/nrf-softsim/issues/84)) ([1a17c3a](https://github.com/onomondo/nrf-softsim/commit/1a17c3adb02540cac0a2a30e5043b037120afcda))
+
+
+### Bug Fixes
+
+* failed to open a persistent key, ERR: -140 ([#99](https://github.com/onomondo/nrf-softsim/issues/99)) ([bcb0676](https://github.com/onomondo/nrf-softsim/commit/bcb0676eeefcd58fbb5883d38f0eafa526ebf58e))
+
 ## [5.1.0](https://github.com/onomondo/nrf-softsim/compare/v5.0.0...v5.1.0) (2025-04-02)
 
 
