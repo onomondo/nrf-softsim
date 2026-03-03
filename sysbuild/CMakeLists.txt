@@ -1,11 +1,18 @@
-zephyr_get(ZEPHYR_SDK_INSTALL_DIR)
+if(CMAKE_OBJCOPY)
+  set(ONOMONDO_SOFTSIM_OBJCOPY ${CMAKE_OBJCOPY})
+else()
+  find_program(ONOMONDO_SOFTSIM_OBJCOPY
+    NAMES arm-zephyr-eabi-objcopy arm-none-eabi-objcopy objcopy
+    REQUIRED
+  )
+endif()
 
 set(ONOMONDO_SOFTSIM_BASE_ADDRESS $<TARGET_PROPERTY:partition_manager,PM_NVS_STORAGE_ADDRESS>)
 set(ONOMONDO_SOFTSIM_TEMPLATE_OUTPUT ${CMAKE_BINARY_DIR}/onomondo-softsim/template.hex)
 
 add_custom_command(
   OUTPUT template.hex
-  COMMAND ${ZEPHYR_SDK_INSTALL_DIR}/arm-zephyr-eabi/bin/arm-zephyr-eabi-objcopy
+  COMMAND ${ONOMONDO_SOFTSIM_OBJCOPY}
   --input-target=binary
   --output-target=ihex
   --change-address ${ONOMONDO_SOFTSIM_BASE_ADDRESS}
