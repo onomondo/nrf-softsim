@@ -71,7 +71,7 @@ tfm:
   region: flash_primary
 tfm_nonsecure:
   address: 0x50000
-  size: 0xb0000
+  size: 0xa0000
   span: [app]
   region: flash_primary
 nonsecure_storage:
