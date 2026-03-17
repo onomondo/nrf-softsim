@@ -326,6 +326,18 @@ IMSI_TLV: `0112082943051220434955`
 
 Where the first 4 bytes are recognized as `01(TAG) 12(LEN)` and indeed 18 bytes follow.
 
+#### GSMA TS.48 test profile — decoded fields
+
+The default value in `prj.conf` is the GSMA TS.48 standardtabnndard USIM test profile, TLV-encoded as `TAG | LEN | DATA` (all hex characters). Decoded:
+
+| Tag | Field | Raw hex | Decoded |
+|-----|-------|---------|----------|
+| `01` | IMSI  | `080910101032547698` | `001010123456789` (MCC=001 MNC=01) |
+| `02` | ICCID | `98001032547698103214` | `89000123456789012341` |
+| `03` | OPC   | `00000000000000000000000000000000` | all zeros (test value) |
+| `04` | KI    | `000102030405060708090A0B0C0D0E0F` | sequential bytes (test value) |
+| `05` | KIC   | `000102030405060708090A0B0C0D0E0F` | sequential bytes (test value) |
+| `06` | KID   | `000102030405060708090A0B0C0D0E0F` | sequential bytes (test value) |
 
 ## Some more details
 
