@@ -20,6 +20,10 @@ void generate_dir_table_from_blob(struct ss_list *dirs, uint8_t *blob, size_t si
 
 		cursor += 2;
 
+		if (cursor + len > size) {
+			break;
+		}
+
 		char *name = SS_ALLOC_N(len + 1);
 		memcpy(name, &blob[cursor], len);
 		name[len] = '\0';
