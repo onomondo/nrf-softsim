@@ -56,7 +56,7 @@ static uint8_t default_imsi[] = {0x08, 0x09, 0x10, 0x10, 0x00, 0x00, 0x00, 0x00,
  * */
 static void ss_read_nvs_to_cache(struct cache_entry *entry);
 
-/* See in fs_port.h */
+/* See <onomondo/softsim/fs.h> in the onomondo-uicc submodule */
 int ss_init_fs(void)
 {
 	if (fs_is_initialized) {
@@ -106,7 +106,7 @@ out:
 	return ss_list_empty(&fs_cache);
 }
 
-/* See in fs_port.h */
+/* See <onomondo/softsim/fs.h> in the onomondo-uicc submodule */
 int ss_deinit_fs(void)
 {
 	/* TODO: check if DIR entry is still valid. If not recreate and write.
@@ -138,7 +138,7 @@ int ss_deinit_fs(void)
 	return 0;
 }
 
-/* See in fs_port.h */
+/* See <onomondo/softsim/fs.h> in the onomondo-uicc submodule */
 ss_FILE ss_fopen(char *path, char *mode)
 {
 	struct cache_entry *cursor = NULL;
@@ -197,7 +197,7 @@ int ss_file_size(const char *path)
 	return (int)entry->_l;
 }
 
-/* See in fs_port.h */
+/* See <onomondo/softsim/fs.h> in the onomondo-uicc submodule */
 size_t ss_fread(void *ptr, size_t size, size_t nmemb, ss_FILE fp)
 {
 	if (nmemb == 0 || size == 0) {
