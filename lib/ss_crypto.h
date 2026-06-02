@@ -115,15 +115,4 @@ int ss_utils_setup_key(size_t key_len, uint8_t key[static key_len],
  */
 int ss_utils_check_key_existence(enum key_identifier_base key_id);
 
-/**
- * @brief Perform AES-128 block encryption
- *
- * @param key Pointer to AES key
- * @param in Pointer to input plaintext block
- * @param out Pointer to output ciphertext block
- *
- * @return int 0 on success, negative error code otherwise
- */
-int aes_128_encrypt_block(const uint8_t *key, const uint8_t *in, uint8_t *out);
-
 #endif /* SS_CRYPTO_H */
