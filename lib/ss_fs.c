@@ -175,8 +175,11 @@ ss_FILE ss_fopen(char *path, char *mode)
 	return (void *)cursor;
 }
 
-/* The POSIX default in onomondo-uicc/src/softsim/fs.c is not
- * compiled when CONFIG_COMPACT_STORAGE=ON, so we must provide it here. */
+/* Strong override of the weak ss_file_size declared in
+ * <onomondo/softsim/fs.h>. The POSIX default in
+ * onomondo-uicc/src/softsim/fs.c is not compiled when
+ * CONFIG_COMPACT_STORAGE=y, so this file provides the symbol via the
+ * nrf-softsim cache layer instead. */
 int ss_file_size(const char *path)
 {
 	struct cache_entry *entry = f_cache_find_by_name(path, &fs_cache);
