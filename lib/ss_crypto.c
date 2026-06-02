@@ -5,7 +5,6 @@
 #include <psa/crypto.h>
 #include <zephyr/kernel.h>
 #include <zephyr/logging/log.h>
-#include <zephyr/sys/printk.h>
 
 #include "ss_crypto.h"
 #include "ss_profile.h"
@@ -207,7 +206,7 @@ void ss_utils_aes_encrypt(uint8_t *buffer, size_t buffer_len, const uint8_t *key
 	LOG_DBG("AES encrypt to key id: %d", slot_id);
 
 	if (slot_id == KEY_ID_UNKNOWN) {
-		printk("Unknown key id: %d", key[0]);
+		LOG_ERR("Unknown key id: %d", key[0]);
 		return;
 	}
 

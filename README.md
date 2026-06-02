@@ -217,6 +217,16 @@ Isn't completely finalized yet. The following fields should either be `y` select
 `CONFIG_SOFTSIM` includes SoftSIM in the build system
 `CONFIG_SOFTSIM_AUTO_INIT` starts the SoftSIM task automatically. This can be omitted and done expicitly in the user application.
 
+### Enabling debug logs
+
+For verbose `SS_LOGP` traces from the onomondo-uicc core during development, set:
+
+```
+CONFIG_SOFTSIM_DEBUG_LOGS=y
+```
+
+in your `prj.conf`. That single line raises `SS_LOGP` to `DBG` and bumps the Zephyr log + UART backend buffers so high-volume traces stay readable instead of being garbled by the default 1-byte UART backend buffer. Leave it `=n` (the default) for production builds.
+
 
 ## Understanding the SIM - why SoftSIM is possible
 

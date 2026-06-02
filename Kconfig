@@ -17,9 +17,13 @@ config SOFTSIM_AUTO_INIT
     help
         Automatically initialize SoftSIM when the modem is powered on.
 
-config SOFTSIM_DEBUG
-    bool "Enable debug messages for SoftSIM"
+config SOFTSIM_DEBUG_LOGS
+    bool "Enable verbose SoftSIM debug logs (dev-only convenience)"
     default n
+    help
+        When y, SS_LOGP is logged at DBG level and the Zephyr log + UART
+        backend buffers are bumped so debug-volume traces don't cause the
+        serial output. Production builds should leave this disabled.
 
 config SOFTSIM_STATIC_PROFILE_ENABLE
     bool "Enable static profile"
@@ -82,6 +86,36 @@ endif #SOFTSIM
 
 endmenu
 
+# Our conditional default for SOFTSIM_LOG_LEVEL — placed BEFORE the template
+# source so it appears first in default order and wins over the template's
+# `default LOG_DEFAULT_LEVEL` fallback (Kconfig: first matching default wins).
+config SOFTSIM_LOG_LEVEL
+    default 4 if SOFTSIM_DEBUG_LOGS
+
 module = SOFTSIM
 module-str = Onomondo-SoftSIM
 source "${ZEPHYR_BASE}/subsys/logging/Kconfig.template.log_config"
+
+# Log / UART buffer defaults for SoftSIM-enabled builds. SOFTSIM_DEBUG_LOGS
+# bumps them when set; otherwise the production-friendly sizing applies.
+# These are `default` directives so any explicit value in a prj.conf or
+# overlay still wins.
+if SOFTSIM
+
+config LOG_DEFAULT_LEVEL
+    default 1
+
+config LOG_BUFFER_SIZE
+    default 16384 if SOFTSIM_DEBUG_LOGS
+    default 5000
+
+config LOG_BACKEND_UART_BUFFER_SIZE
+    default 1024 if SOFTSIM_DEBUG_LOGS
+
+config UART_0_NRF_TX_BUFFER_SIZE
+    default 512 if SOFTSIM_DEBUG_LOGS
+
+config LOG_PROCESS_TRIGGER_THRESHOLD
+    default 5
+
+endif # SOFTSIM
