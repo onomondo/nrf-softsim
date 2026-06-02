@@ -1,5 +1,23 @@
 zephyr_library()
 
+# onomondo-uicc submodule integration.
+#
+# This file builds the onomondo-uicc submodule (lib/onomondo-uicc) as a set of
+# in-tree static libraries (uicc, milenage, crypto, storage) and links them
+# into the Zephyr nrf-softsim library. The submodule is intentionally consumed
+# as a CMake subdirectory rather than a prebuilt artifact so downstream
+# developers can step into its source.
+#
+# Heads-up for contributors:
+#   1. The submodule is NOT auto-initialized by `west update` because nrf-softsim
+#      is a manifest-self repo. See the FATAL_ERROR guard below for the actionable
+#      message, and the "Initialize the onomondo-uicc git submodule" section in
+#      README.md for the user-facing instructions.
+#   2. `_softsim_install_dir` is created at configure time and lives in-tree
+#      under lib/ss_lib_build. It is managed by this CMakeLists; it is not
+#      cleaned by `west build -p always` (that only cleans the build directory).
+#      If you switch submodule SHAs and see stale install artifacts, delete
+#      the directory manually.
 set(_softsim_libs uicc milenage crypto storage)
 set(_softsim_install_dir ${CMAKE_CURRENT_SOURCE_DIR}/ss_lib_build)
 

@@ -25,6 +25,17 @@ west flash
 ```
 
 ## Prerequisites
+
+### Initialize the onomondo-uicc git submodule
+
+`onomondo-uicc` is bundled as a git submodule of this repository (under `lib/onomondo-uicc`). `west update` does **not** automatically initialize submodules of the manifest self repo, so you must run:
+
+```
+git -C modules/lib/onomondo-softsim submodule update --init
+```
+
+Skipping this step leaves `lib/onomondo-uicc` empty and the CMake configure step will fail. If your application uses `west.yml` to consume nrf-softsim as a dependency, set `submodules: true` on the project entry — see [Using onomondo-softsim as a dependency](#using-onomondo-softsim-as-a-dependency-in-your-own-application) below.
+
 ### Get access to your free Onomondo SoftSIM profile
 SoftSIM profiles are delivered through our API. As this can be a bit cumbersome, we've developed a small tool to make this process easier. The tool is available at [sofsim-cli](https://github.com/onomondo/onomondo-softsim-cli). Additional instructions can be found in the CLI repository.
 
@@ -62,7 +73,7 @@ west config manifest.path modules/lib/onomondo-softsim/
 west update
 ```
 
-> **Note — git submodule:** `onomondo-uicc` is bundled as a git submodule inside this repository. `west update` does **not** automatically initialize submodules of the manifest `self` repo, so the extra `git submodule update --init` step above is required when using this repo as the west manifest.
+The `git submodule update --init` line is required — see [Initialize the onomondo-uicc git submodule](#initialize-the-onomondo-uicc-git-submodule) in Prerequisites for the full rationale.
 
 #### Using onomondo-softsim as a dependency in your own application
 
