@@ -37,17 +37,52 @@ int nrf_softsim_provision(uint8_t *profile, size_t len);
 int nrf_softsim_check_provisioned(void);
 
 /**
- * @brief Initialize SoftSIM filesystem
+ * @brief Initialize the SoftSIM filesystem
+ *
+ * Sets up the in-memory cache that backs the SoftSIM filesystem and primes it
+ * from NVS-backed persistent storage.
+ *
+ * @return 0 on success, negative error code on failure
  */
 int ss_init_fs(void);
 
 /**
- * @brief Deinitialize SoftSIM filesystem
+ * @brief Deinitialize the SoftSIM filesystem and commit pending writes
+ *
+ * Flushes any dirty cache entries to NVS, releases the cache memory, and
+ * marks the filesystem as uninitialized.
+ *
+ * @return 0 on success
  */
 int ss_deinit_fs(void);
 
-// Moving stuff around
+/**
+ * @brief Provision a parsed SoftSIM profile into NVS
+ *
+ * Internal helper used by nrf_softsim_provision after the encoded profile
+ * string has been parsed. Writes the IMSI, ICCID, A001 and A004 records
+ * from @p profile into persistent storage.
+ *
+ * External callers should use nrf_softsim_provision instead, which also
+ * handles parsing and key installation in the KMU.
+ *
+ * @param profile The parsed profile containing the data to provision
+ *
+ * @return 0 on success, -1 on failure
+ */
 int port_provision(struct ss_profile *profile);
+
+/**
+ * @brief Check whether the persisted IMSI differs from the default sentinel
+ *
+ * Internal helper used by nrf_softsim_check_provisioned. Reads the IMSI
+ * record from NVS and compares it against the default-uninitialized value.
+ *
+ * External callers should use nrf_softsim_check_provisioned instead, which
+ * additionally verifies that the SoftSIM AES key is present in the KMU.
+ *
+ * @return 1 if a non-default IMSI is present, 0 otherwise
+ */
 int port_check_provisioned(void);
 
 #endif /* _NRF_SOFTSIM_H */
