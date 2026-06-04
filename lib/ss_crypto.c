@@ -11,7 +11,7 @@
 #include <onomondo/softsim/log.h>
 #include <onomondo/softsim/mem.h>
 
-LOG_MODULE_REGISTER(softsim_crypto, CONFIG_SOFTSIM_LOG_LEVEL);
+LOG_MODULE_REGISTER(softsim_crypto, CONFIG_SOFTSIM_NRF_LOG_LEVEL);
 
 enum key_identifier_base key_id_to_kmu_slot(uint8_t key_id)
 {

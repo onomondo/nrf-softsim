@@ -6,14 +6,14 @@
 /* Include the public prototype for ss_logp so signatures match. */
 #include <onomondo/softsim/log.h>
 
-/* Use Zephyr logging to print onomondo-uicc log lines. We declare the
- * Zephyr log module that other files register and use it here. The
- * implementation is weak so a stronger, package-provided logger can
- * override it if present. */
+/* Use Zephyr logging to print onomondo-uicc log lines. This file owns the
+ * softsim_uicc log module, independent of the nrf-softsim layer, so the two
+ * can be enabled at different verbosity levels. The implementation is weak so
+ * a stronger, package-provided logger can override it if present. */
 #include <zephyr/logging/log.h>
 #include <zephyr/sys/cbprintf.h>
 
-LOG_MODULE_DECLARE(softsim, CONFIG_SOFTSIM_LOG_LEVEL);
+LOG_MODULE_REGISTER(softsim_uicc, CONFIG_SOFTSIM_LIBS_LOG_LEVEL);
 
 struct ss_log_buf {
 	char *buf;

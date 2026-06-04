@@ -17,13 +17,24 @@ config SOFTSIM_AUTO_INIT
     help
         Automatically initialize SoftSIM when the modem is powered on.
 
-config SOFTSIM_DEBUG_LOGS
-    bool "Enable verbose SoftSIM debug logs (dev-only convenience)"
+config SOFTSIM_NRF_DEBUG_LOGS
+    bool "Enable verbose debug logs for the nrf-softsim layer"
     default n
     help
-        When y, SS_LOGP is logged at DBG level and the Zephyr log + UART
-        backend buffers are bumped so debug-volume traces don't cause the
-        serial output. Production builds should leave this disabled.
+        When y, the nrf-softsim layer (SIM HAL, filesystem, crypto) logs at
+        DBG level and the deferred log buffer is sized to 5000 bytes. Bumps
+        the UART backend buffers too. Production builds should leave this
+        disabled.
+
+config SOFTSIM_LIBS_DEBUG_LOGS
+    bool "Enable verbose debug logs for the onomondo-uicc library"
+    default n
+    help
+        When y, SS_LOGP messages from the onomondo-uicc library are emitted
+        at DBG level via the softsim_uicc Zephyr log module. This is the
+        higher-volume layer, so it sizes the deferred log buffer to 16384
+        bytes (winning over the nrf sizing when both are enabled). Production
+        builds should leave this disabled.
 
 config SOFTSIM_STATIC_PROFILE_ENABLE
     bool "Enable static profile"
@@ -86,34 +97,41 @@ endif #SOFTSIM
 
 endmenu
 
-# Our conditional default for SOFTSIM_LOG_LEVEL — placed BEFORE the template
-# source so it appears first in default order and wins over the template's
-# `default LOG_DEFAULT_LEVEL` fallback (Kconfig: first matching default wins).
-config SOFTSIM_LOG_LEVEL
-    default 4 if SOFTSIM_DEBUG_LOGS
+# Conditional defaults for per-layer log levels — placed BEFORE each template
+# source so they win over the template's `default LOG_DEFAULT_LEVEL` fallback
+# (Kconfig: first matching default wins).
+config SOFTSIM_NRF_LOG_LEVEL
+    default 4 if SOFTSIM_NRF_DEBUG_LOGS
 
-module = SOFTSIM
-module-str = Onomondo-SoftSIM
+module = SOFTSIM_NRF
+module-str = Onomondo-SoftSIM-NRF
 source "${ZEPHYR_BASE}/subsys/logging/Kconfig.template.log_config"
 
-# Log / UART buffer defaults for SoftSIM-enabled builds. SOFTSIM_DEBUG_LOGS
-# bumps them when set; otherwise the production-friendly sizing applies.
-# These are `default` directives so any explicit value in a prj.conf or
-# overlay still wins.
+config SOFTSIM_LIBS_LOG_LEVEL
+    default 4 if SOFTSIM_LIBS_DEBUG_LOGS
+
+module = SOFTSIM_LIBS
+module-str = Onomondo-SoftSIM-libs
+source "${ZEPHYR_BASE}/subsys/logging/Kconfig.template.log_config"
+
+# Log / UART buffer defaults for SoftSIM-enabled builds. Either debug flag
+# bumps them; otherwise the production-friendly sizing applies. These are
+# `default` directives so any explicit value in a prj.conf or overlay wins.
 if SOFTSIM
 
 config LOG_DEFAULT_LEVEL
     default 1
 
 config LOG_BUFFER_SIZE
-    default 16384 if SOFTSIM_DEBUG_LOGS
-    default 5000
+    default 16384 if SOFTSIM_LIBS_DEBUG_LOGS
+    default 5000 if SOFTSIM_NRF_DEBUG_LOGS
+    # neither → Zephyr's own default applies
 
 config LOG_BACKEND_UART_BUFFER_SIZE
-    default 1024 if SOFTSIM_DEBUG_LOGS
+    default 1024 if SOFTSIM_NRF_DEBUG_LOGS || SOFTSIM_LIBS_DEBUG_LOGS
 
 config UART_0_NRF_TX_BUFFER_SIZE
-    default 512 if SOFTSIM_DEBUG_LOGS
+    default 512 if SOFTSIM_NRF_DEBUG_LOGS || SOFTSIM_LIBS_DEBUG_LOGS
 
 config LOG_PROCESS_TRIGGER_THRESHOLD
     default 5

@@ -15,7 +15,7 @@
 #include <onomondo/softsim/fs.h>
 
 /* Logging */
-LOG_MODULE_REGISTER(softsim, CONFIG_SOFTSIM_LOG_LEVEL);
+LOG_MODULE_REGISTER(softsim, CONFIG_SOFTSIM_NRF_LOG_LEVEL);
 
 /* SoftSIM memory configuration */
 #define SOFTSIM_STACK_SIZE 10000 /* TODO: Figure out some more reasonable value. */
