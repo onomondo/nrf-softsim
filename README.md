@@ -13,6 +13,7 @@ A new SDK can be initiated with the following two commands if you are already a 
 
 ```
 west init -m https://github.com/onomondo/nrf-softsim.git
+git -C modules/lib/onomondo-softsim submodule update --init
 west update
 ```
 
@@ -24,6 +25,17 @@ west flash
 ```
 
 ## Prerequisites
+
+### Initialize the onomondo-uicc git submodule
+
+`onomondo-uicc` is bundled as a git submodule of this repository (under `lib/onomondo-uicc`). `west update` does **not** automatically initialize submodules of the manifest self repo, so you must run:
+
+```
+git -C modules/lib/onomondo-softsim submodule update --init
+```
+
+Skipping this step leaves `lib/onomondo-uicc` empty and the CMake configure step will fail. If your application uses `west.yml` to consume nrf-softsim as a dependency, set `submodules: true` on the project entry — see [Using onomondo-softsim as a dependency](#using-onomondo-softsim-as-a-dependency-in-your-own-application) below.
+
 ### Get access to your free Onomondo SoftSIM profile
 SoftSIM profiles are delivered through our API. As this can be a bit cumbersome, we've developed a small tool to make this process easier. The tool is available at [sofsim-cli](https://github.com/onomondo/onomondo-softsim-cli). Additional instructions can be found in the CLI repository.
 
@@ -56,8 +68,28 @@ For existing toolchains and build systems it is sufficient to update the manifes
 ```
 cd <ncs_base>
 git clone https://github.com/onomondo/nrf-softsim.git modules/lib/onomondo-softsim
+git -C modules/lib/onomondo-softsim submodule update --init
 west config manifest.path modules/lib/onomondo-softsim/
 west update
+```
+
+The `git submodule update --init` line is required — see [Initialize the onomondo-uicc git submodule](#initialize-the-onomondo-uicc-git-submodule) in Prerequisites for the full rationale.
+
+#### Using onomondo-softsim as a dependency in your own application
+
+If your application has its own `west.yml` that imports `sdk-nrf` and lists `onomondo-softsim` as an additional west project, you **must** add `submodules: true` to ensure `west update` also fetches `onomondo-uicc`:
+
+```yaml
+projects:
+  - name: sdk-nrf
+    remote: nrfconnect
+    revision: <tag>
+    import: true
+  - name: onomondo-softsim
+    url: https://github.com/onomondo/nrf-softsim.git
+    path: modules/lib/onomondo-softsim
+    revision: <tag>
+    submodules: true   # required: initializes the onomondo-uicc git submodule
 ```
 
 First time setting it up? We recommend using the [nRF Connect for Desktop](https://www.nordicsemi.com/Products/Development-tools/nrf-connect-for-desktop) to get the build system correctly set up. Once done, configure the manifest as described above.

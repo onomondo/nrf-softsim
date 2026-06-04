@@ -8,7 +8,7 @@
 #include "ss_cache.h"
 #include "ss_provision.h"
 #include "ss_profile.h"
-#include <onomondo/softsim/fs_port.h>
+#include <onomondo/softsim/fs.h>
 #include <onomondo/softsim/list.h>
 #include <onomondo/softsim/utils.h>
 #include <onomondo/softsim/log.h>
@@ -56,7 +56,7 @@ static uint8_t default_imsi[] = {0x08, 0x09, 0x10, 0x10, 0x00, 0x00, 0x00, 0x00,
  * */
 static void ss_read_nvs_to_cache(struct cache_entry *entry);
 
-/* See in fs_port.h */
+/* See <onomondo/softsim/fs.h> in the onomondo-uicc submodule */
 int ss_init_fs(void)
 {
 	if (fs_is_initialized) {
@@ -106,7 +106,7 @@ out:
 	return ss_list_empty(&fs_cache);
 }
 
-/* See in fs_port.h */
+/* See <onomondo/softsim/fs.h> in the onomondo-uicc submodule */
 int ss_deinit_fs(void)
 {
 	/* TODO: check if DIR entry is still valid. If not recreate and write.
@@ -138,8 +138,8 @@ int ss_deinit_fs(void)
 	return 0;
 }
 
-/* See in fs_port.h */
-port_FILE port_fopen(char *path, char *mode)
+/* See <onomondo/softsim/fs.h> in the onomondo-uicc submodule */
+ss_FILE ss_fopen(char *path, char *mode)
 {
 	struct cache_entry *cursor = NULL;
 	int rc = 0;
@@ -175,8 +175,33 @@ port_FILE port_fopen(char *path, char *mode)
 	return (void *)cursor;
 }
 
-/* See in fs_port.h */
-size_t port_fread(void *ptr, size_t size, size_t nmemb, port_FILE fp)
+/* Strong override of the weak ss_file_size declared in
+ * <onomondo/softsim/fs.h>. The POSIX default in
+ * onomondo-uicc/src/softsim/fs.c is not compiled when
+ * CONFIG_COMPACT_STORAGE=y, so this file provides the symbol via the
+ * nrf-softsim cache layer instead. */
+int ss_file_size(const char *path)
+{
+	struct cache_entry *entry = f_cache_find_by_name(path, &fs_cache);
+
+	if (!entry) {
+		return -1;
+	}
+
+	if (!entry->_l) {
+		int rc = nvs_read(&fs, entry->key, NULL, 0);
+
+		if (rc < 0) {
+			return -1;
+		}
+		entry->_l = rc;
+	}
+
+	return (int)entry->_l;
+}
+
+/* See <onomondo/softsim/fs.h> in the onomondo-uicc submodule */
+size_t ss_fread(void *ptr, size_t size, size_t nmemb, ss_FILE fp)
 {
 	if (nmemb == 0 || size == 0) {
 		return 0;
@@ -249,12 +274,12 @@ void ss_read_nvs_to_cache(struct cache_entry *entry)
 	entry->_b_dirty = 0;
 }
 
-char *port_fgets(char *str, int n, port_FILE fp)
+char *ss_fgets(char *str, int n, ss_FILE fp)
 {
 	struct cache_entry *entry = (struct cache_entry *)fp;
 
 	if (!entry) {
-		LOG_ERR("Invalid file pointer, port_fgets failed");
+		LOG_ERR("Invalid file pointer, ss_fgets failed");
 		return NULL;
 	}
 
@@ -274,12 +299,12 @@ char *port_fgets(char *str, int n, port_FILE fp)
 	return str;
 }
 
-int port_fclose(port_FILE fp)
+int ss_fclose(ss_FILE fp)
 {
 	struct cache_entry *entry = (struct cache_entry *)fp;
 
 	if (!entry) {
-		LOG_ERR("Invalid file pointer, port_fclose failed");
+		LOG_ERR("Invalid file pointer, ss_fclose failed");
 		return -1;
 	}
 
@@ -299,12 +324,12 @@ out:
 	return 0;
 }
 
-int port_fseek(port_FILE fp, long offset, int whence)
+int ss_fseek(ss_FILE fp, long offset, int whence)
 {
 	struct cache_entry *entry = (struct cache_entry *)fp;
 
 	if (!entry) {
-		LOG_ERR("Invalid file pointer, port_fseek failed");
+		LOG_ERR("Invalid file pointer, ss_fseek failed");
 		return -1;
 	}
 
@@ -322,7 +347,7 @@ int port_fseek(port_FILE fp, long offset, int whence)
 	return 0;
 }
 
-long port_ftell(port_FILE fp)
+long ss_ftell(ss_FILE fp)
 {
 	struct cache_entry *entry = (struct cache_entry *)fp;
 
@@ -333,7 +358,7 @@ long port_ftell(port_FILE fp)
 	return entry->_p;
 }
 
-int port_fputc(int c, port_FILE fp)
+int ss_fputc(int c, ss_FILE fp)
 {
 	struct cache_entry *entry = (struct cache_entry *)fp;
 
@@ -362,7 +387,7 @@ int port_fputc(int c, port_FILE fp)
 	return c;
 }
 
-int port_access(const char *path, int amode)
+int ss_access(const char *path, int amode)
 {
 	/* TODO: This is safe to omit for now. Internally SoftSIM will verify that a
 	 * directory exists after creation. Easier to guarantee since it isn't a 'thing'
@@ -371,7 +396,7 @@ int port_access(const char *path, int amode)
 	return 0;
 }
 
-int port_mkdir(const char *path, int mode)
+int ss_mkdir(const char *path, int mode)
 {
 	/* We don't care. This is a virtual filesystem, so directories
 	 * are not really a thing. We just create files and directories are
@@ -381,13 +406,13 @@ int port_mkdir(const char *path, int mode)
 	return 0;
 }
 
-int port_rmdir(const char *path)
+int ss_rmdir(const char *path)
 {
 	/* TODO: Remove all entries with directory match */
 	return 0;
 }
 
-int port_remove(const char *path)
+int ss_remove(const char *path)
 {
 	struct cache_entry *entry = f_cache_find_by_name(path, &fs_cache);
 
@@ -408,7 +433,7 @@ int port_remove(const char *path)
 	return 0;
 }
 
-size_t port_fwrite(const void *ptr, size_t size, size_t count, port_FILE fp)
+size_t ss_fwrite(const void *ptr, size_t size, size_t count, ss_FILE fp)
 {
 	struct cache_entry *entry = (struct cache_entry *)fp;
 
