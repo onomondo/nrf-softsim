@@ -219,13 +219,22 @@ Isn't completely finalized yet. The following fields should either be `y` select
 
 ### Enabling debug logs
 
-For verbose `SS_LOGP` traces from the onomondo-uicc core during development, set:
+Debug logging is split into two independent layers, each with its own Zephyr log
+module so they can be enabled at different verbosity:
 
 ```
-CONFIG_SOFTSIM_DEBUG_LOGS=y
+CONFIG_SOFTSIM_NRF_DEBUG_LOGS=y    # nrf-softsim layer (SIM HAL, filesystem, crypto)
+CONFIG_SOFTSIM_LIBS_DEBUG_LOGS=y   # onomondo-uicc library SS_LOGP traces (high volume)
 ```
 
-in your `prj.conf`. That single line raises `SS_LOGP` to `DBG` and bumps the Zephyr log + UART backend buffers so high-volume traces stay readable instead of being garbled by the default 1-byte UART backend buffer. Leave it `=n` (the default) for production builds.
+in your `prj.conf`. Either raises its layer to `DBG` and bumps the Zephyr log +
+UART backend buffers so traces stay readable instead of being garbled by the
+default 1-byte UART backend buffer. Leave both `=n` (the default) for production.
+
+The onomondo-uicc trace (`CONFIG_SOFTSIM_LIBS_DEBUG_LOGS`) is high volume, and the
+default deferred logging drops most of it during SIM init. To capture it losslessly,
+enable synchronous logging with `CONFIG_LOG_MODE_IMMEDIATE=y` — see the
+`SOFTSIM_LOG_IMMEDIATE_MODE` Kconfig help for the details and trade-offs.
 
 
 ## Understanding the SIM - why SoftSIM is possible

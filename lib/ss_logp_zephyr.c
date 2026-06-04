@@ -15,6 +15,32 @@
 
 LOG_MODULE_REGISTER(softsim_uicc, CONFIG_SOFTSIM_LIBS_LOG_LEVEL);
 
+#if defined(CONFIG_SOFTSIM_LOG_IMMEDIATE_MODE)
+#include <zephyr/init.h>
+#include <zephyr/device.h>
+#include <zephyr/drivers/uart.h>
+
+/* Synchronous (immediate) logging blocks on every UART write; at the default
+ * 115200 baud that stalls SIM init enough to prevent network registration.
+ * Raise the console (DT chosen zephyr,console) to the configured baud at early
+ * boot so the whole console stream is at the raised baud and modem/SIM timing
+ * still meets its deadlines. Target-agnostic: works on any board with a chosen
+ * console. Runs at PRE_KERNEL_2, which is strictly after the PRE_KERNEL_1
+ * serial driver init and before the boot banner. */
+static int ss_console_baud_for_immediate(void)
+{
+	const struct device *con = DEVICE_DT_GET(DT_CHOSEN(zephyr_console));
+	struct uart_config cfg;
+
+	if (!device_is_ready(con) || uart_config_get(con, &cfg)) {
+		return -ENODEV;
+	}
+	cfg.baudrate = CONFIG_SOFTSIM_LOG_IMMEDIATE_MODE_BAUD;
+	return uart_configure(con, &cfg);
+}
+SYS_INIT(ss_console_baud_for_immediate, PRE_KERNEL_2, 0);
+#endif /* CONFIG_SOFTSIM_LOG_IMMEDIATE_MODE */
+
 struct ss_log_buf {
 	char *buf;
 	size_t size;
