@@ -1,3 +1,4 @@
+#include <stdio.h>
 #include <stdlib.h>
 
 #include <zephyr/fs/nvs.h>
@@ -26,16 +27,6 @@ LOG_MODULE_DECLARE(softsim, CONFIG_SOFTSIM_NRF_LOG_LEVEL);
 #define ICCID_PATH "/3f00/2fe2"
 #define A001_PATH  "/3f00/a001"
 #define A004_PATH  "/3f00/a004"
-
-#ifndef SEEK_SET
-#define SEEK_SET 0 /* set file offset to offset */
-#endif
-#ifndef SEEK_CUR
-#define SEEK_CUR 1 /* set file offset to current plus offset */
-#endif
-#ifndef SEEK_END
-#define SEEK_END 2 /* set file offset to EOF plus offset */
-#endif
 
 static struct nvs_fs fs;
 static struct ss_list fs_cache;
@@ -274,31 +265,6 @@ void ss_read_nvs_to_cache(struct cache_entry *entry)
 	entry->_b_dirty = 0;
 }
 
-char *ss_fgets(char *str, int n, ss_FILE fp)
-{
-	struct cache_entry *entry = (struct cache_entry *)fp;
-
-	if (!entry) {
-		LOG_ERR("Invalid file pointer, ss_fgets failed");
-		return NULL;
-	}
-
-	if (entry->_p >= entry->_l) {
-		/* No more data to read */
-		return NULL;
-	}
-
-	int idx = 0; /* Destination buffer index */
-
-	while (entry->_p < entry->_l && idx < n - 1 && entry->buf[entry->_p] != '\0' &&
-	       entry->buf[entry->_p] != '\n') {
-		str[idx++] = entry->buf[entry->_p++];
-	}
-
-	str[idx] = '\0';
-	return str;
-}
-
 int ss_fclose(ss_FILE fp)
 {
 	struct cache_entry *entry = (struct cache_entry *)fp;
@@ -347,46 +313,6 @@ int ss_fseek(ss_FILE fp, long offset, int whence)
 	return 0;
 }
 
-long ss_ftell(ss_FILE fp)
-{
-	struct cache_entry *entry = (struct cache_entry *)fp;
-
-	if (!entry) {
-		return -1;
-	}
-
-	return entry->_p;
-}
-
-int ss_fputc(int c, ss_FILE fp)
-{
-	struct cache_entry *entry = (struct cache_entry *)fp;
-
-	if (!entry) {
-		return -1;
-	}
-
-	if (entry->_p >= entry->_b_size) {
-		uint8_t *old_buffer = entry->buf;
-		size_t old_size = entry->_b_size;
-		entry->buf = SS_ALLOC_N(entry->_b_size + 20);
-
-		if (!entry->buf) {
-			entry->buf = old_buffer;
-			return -1;
-		}
-
-		memcpy(entry->buf, old_buffer, old_size);
-		entry->_b_size += 20;
-	}
-
-	entry->buf[entry->_p++] = (uint8_t)c;
-	entry->_b_dirty = 1;
-	entry->_l = entry->_l >= entry->_p ? entry->_l : entry->_p;
-
-	return c;
-}
-
 int ss_access(const char *path, int amode)
 {
 	/* TODO: This is safe to omit for now. Internally SoftSIM will verify that a
@@ -396,7 +322,7 @@ int ss_access(const char *path, int amode)
 	return 0;
 }
 
-int ss_mkdir(const char *path, int mode)
+int ss_create_dir(const char *path, uint32_t mode)
 {
 	/* We don't care. This is a virtual filesystem, so directories
 	 * are not really a thing. We just create files and directories are
@@ -406,13 +332,13 @@ int ss_mkdir(const char *path, int mode)
 	return 0;
 }
 
-int ss_rmdir(const char *path)
+int ss_delete_dir(const char *path)
 {
 	/* TODO: Remove all entries with directory match */
 	return 0;
 }
 
-int ss_remove(const char *path)
+int ss_delete_file(const char *path)
 {
 	struct cache_entry *entry = f_cache_find_by_name(path, &fs_cache);
 
