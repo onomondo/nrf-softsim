@@ -3,10 +3,10 @@
 
 #include <stdint.h>
 #include <stddef.h>
+#include <errno.h>
 
 #include <onomondo/softsim/log.h>
 
-#define EINVAL        22
 #define AES_BLOCKSIZE 16
 
 /**
