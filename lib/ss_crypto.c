@@ -5,14 +5,13 @@
 #include <psa/crypto.h>
 #include <zephyr/kernel.h>
 #include <zephyr/logging/log.h>
-#include <zephyr/sys/printk.h>
 
 #include "ss_crypto.h"
 #include "ss_profile.h"
 #include <onomondo/softsim/log.h>
 #include <onomondo/softsim/mem.h>
 
-LOG_MODULE_REGISTER(softsim_crypto, CONFIG_SOFTSIM_LOG_LEVEL);
+LOG_MODULE_REGISTER(softsim_crypto, CONFIG_SOFTSIM_NRF_LOG_LEVEL);
 
 enum key_identifier_base key_id_to_kmu_slot(uint8_t key_id)
 {
@@ -207,7 +206,7 @@ void ss_utils_aes_encrypt(uint8_t *buffer, size_t buffer_len, const uint8_t *key
 	LOG_DBG("AES encrypt to key id: %d", slot_id);
 
 	if (slot_id == KEY_ID_UNKNOWN) {
-		printk("Unknown key id: %d", key[0]);
+		LOG_ERR("Unknown key id: %d", key[0]);
 		return;
 	}
 

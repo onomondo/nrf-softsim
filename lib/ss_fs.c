@@ -14,7 +14,7 @@
 #include <onomondo/softsim/log.h>
 #include <onomondo/softsim/mem.h>
 
-LOG_MODULE_DECLARE(softsim, CONFIG_SOFTSIM_LOG_LEVEL);
+LOG_MODULE_DECLARE(softsim, CONFIG_SOFTSIM_NRF_LOG_LEVEL);
 
 #define NVS_PARTITION        nvs_storage
 #define NVS_PARTITION_DEVICE FIXED_PARTITION_DEVICE(NVS_PARTITION)

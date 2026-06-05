@@ -17,9 +17,24 @@ config SOFTSIM_AUTO_INIT
     help
         Automatically initialize SoftSIM when the modem is powered on.
 
-config SOFTSIM_DEBUG
-    bool "Enable debug messages for SoftSIM"
+config SOFTSIM_NRF_DEBUG_LOGS
+    bool "Enable verbose debug logs for the nrf-softsim layer"
     default n
+    help
+        When y, the nrf-softsim layer (SIM HAL, filesystem, crypto) logs at
+        DBG level and the deferred log buffer is sized to 5000 bytes. Bumps
+        the UART backend buffers too. Production builds should leave this
+        disabled.
+
+config SOFTSIM_LIBS_DEBUG_LOGS
+    bool "Enable verbose debug logs for the onomondo-uicc library"
+    default n
+    help
+        When y, SS_LOGP messages from the onomondo-uicc library are emitted
+        at DBG level via the softsim_uicc Zephyr log module. This is the
+        higher-volume layer, so it sizes the deferred log buffer to 16384
+        bytes (winning over the nrf sizing when both are enabled). Production
+        builds should leave this disabled.
 
 config SOFTSIM_STATIC_PROFILE_ENABLE
     bool "Enable static profile"
@@ -82,6 +97,78 @@ endif #SOFTSIM
 
 endmenu
 
-module = SOFTSIM
-module-str = Onomondo-SoftSIM
+# Conditional defaults for per-layer log levels — placed BEFORE each template
+# source so they win over the template's `default LOG_DEFAULT_LEVEL` fallback
+# (Kconfig: first matching default wins).
+config SOFTSIM_NRF_LOG_LEVEL
+    default 4 if SOFTSIM_NRF_DEBUG_LOGS
+
+module = SOFTSIM_NRF
+module-str = Onomondo-SoftSIM-NRF
 source "${ZEPHYR_BASE}/subsys/logging/Kconfig.template.log_config"
+
+config SOFTSIM_LIBS_LOG_LEVEL
+    default 4 if SOFTSIM_LIBS_DEBUG_LOGS
+
+module = SOFTSIM_LIBS
+module-str = Onomondo-SoftSIM-libs
+source "${ZEPHYR_BASE}/subsys/logging/Kconfig.template.log_config"
+
+# Log / UART buffer defaults for SoftSIM-enabled builds. Either debug flag
+# bumps them; otherwise the production-friendly sizing applies. These are
+# `default` directives so any explicit value in a prj.conf or overlay wins.
+if SOFTSIM
+
+config LOG_DEFAULT_LEVEL
+    default 1
+
+config LOG_BUFFER_SIZE
+    default 16384 if SOFTSIM_LIBS_DEBUG_LOGS
+    default 5000 if SOFTSIM_NRF_DEBUG_LOGS
+    # neither → Zephyr's own default applies
+
+config LOG_BACKEND_UART_BUFFER_SIZE
+    default 1024 if SOFTSIM_NRF_DEBUG_LOGS || SOFTSIM_LIBS_DEBUG_LOGS
+
+config UART_0_NRF_TX_BUFFER_SIZE
+    default 512 if SOFTSIM_NRF_DEBUG_LOGS || SOFTSIM_LIBS_DEBUG_LOGS
+
+config LOG_PROCESS_TRIGGER_THRESHOLD
+    default 5
+
+endif # SOFTSIM
+
+# Can't force immediate mode from here (Kconfig ignores select/default on choice
+# symbols like LOG_MODE_IMMEDIATE); the user sets CONFIG_LOG_MODE_IMMEDIATE=y and
+# this auto-couples the console baud to it.
+config SOFTSIM_LOG_IMMEDIATE_MODE
+    bool "Raise console baud for synchronous (immediate) SoftSIM logging"
+    depends on SOFTSIM && LOG_MODE_IMMEDIATE && SERIAL
+    default y
+    select UART_USE_RUNTIME_CONFIGURE
+    help
+        Auto-enabled whenever synchronous logging (CONFIG_LOG_MODE_IMMEDIATE) is
+        on. CONFIG_SOFTSIM_LIBS_DEBUG_LOGS is very high volume: with the default
+        deferred logging the buffer overruns during SIM init and the majority of
+        the trace is dropped (the log shows "--- N messages dropped ---"). Raising
+        CONFIG_LOG_BUFFER_SIZE only trades RAM for a linear, partial improvement
+        and never reaches lossless. Synchronous (immediate) logging instead emits
+        every line in the context of the log call (no buffer, no drops), but it
+        blocks on each write — at 115200 baud that stalls SIM init enough to
+        prevent network registration. This option therefore raises the console
+        (the DT chosen zephyr,console, so any nRF91 target) to
+        SOFTSIM_LOG_IMMEDIATE_MODE_BAUD at early boot so modem/SIM timing still
+        meets its deadlines. Connect your serial terminal at that baud. Set =n to
+        keep immediate mode without changing the baud. Debug only; never in
+        production. (SEGGER RTT, e.g. -S rtt-tracing, is an alternative
+        high-throughput backend that avoids the UART bottleneck entirely.)
+
+config SOFTSIM_LOG_IMMEDIATE_MODE_BAUD
+    int "Console baud rate applied for immediate-mode SoftSIM logging"
+    depends on SOFTSIM_LOG_IMMEDIATE_MODE
+    default 1000000
+    help
+        Baud rate the console is switched to at boot while
+        SOFTSIM_LOG_IMMEDIATE_MODE is active; connect your serial terminal at this
+        rate. The default (1 Mbaud) is high enough that synchronous logging keeps
+        up without stalling SIM init.
