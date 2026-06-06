@@ -13,7 +13,6 @@
 
 LOG_MODULE_REGISTER(softsim_sample, LOG_LEVEL_INF);
 
-#define PROFILE_MIN_SIZE 180 /* Minimum size of a Onomondo SoftSIM profile */
 #define PROFILE_MAX_SIZE 360 /* Maximum size of a Onomondo SoftSIM profile */
 
 /* Semaphores */
@@ -30,10 +29,6 @@ static int client_fd;
 static struct sockaddr_storage host_addr;
 static struct k_work_delayable server_transmission_work;
 static const struct device *const uart_dev = DEVICE_DT_GET(DT_NODELABEL(uart0));
-
-/* Forward declarations */
-static void lte_handler(const struct lte_lc_evt *const evt);
-static int server_connect(void);
 
 static void server_transmission_work_fn(struct k_work *work)
 {
@@ -199,7 +194,7 @@ int main(void)
 				"newline character (return key)");
 		} while (k_sem_take(&profile_received, K_SECONDS(20)));
 
-		LOG_INF("Profile received: %d characters in total", rx.pos);
+		LOG_INF("Profile received: %zu characters in total", rx.pos);
 
 		uart_irq_rx_disable(uart_dev);
 
@@ -210,9 +205,7 @@ int main(void)
 		}
 
 		/* Clean up the decrypted profile buffer */
-		if (profile_read_from_external_source != NULL) {
-			k_free(profile_read_from_external_source);
-		}
+		k_free(profile_read_from_external_source);
 
 		/* Soft reset to free UART for AT host/monitor */
 		while (log_data_pending()) {
