@@ -171,6 +171,14 @@ void serial_cb(const struct device *dev, void *user_data)
 	}
 
 	while (uart_irq_rx_ready(uart_dev)) {
+		/* Keep room for the NUL terminator; if the buffer is full, stop
+		 * and signal what we have rather than overflowing it. */
+		if (*rx_buf_pos >= rx->len - 1) {
+			rx_buf[rx->len - 1] = 0;
+			k_sem_give(&profile_received);
+			return;
+		}
+
 		rx_recv = uart_fifo_read(uart_dev, &rx_buf[*rx_buf_pos], 1);
 
 		if ((rx_buf[*rx_buf_pos] == '\n') || (rx_buf[*rx_buf_pos] == '\r')) {
