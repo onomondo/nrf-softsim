@@ -114,36 +114,25 @@ ncs
 
 ### Configure and Build
 
-There are currently two samples included in this project to showcase how a SoftSIM profile can be provisioned. It is recommended to start with the *static profile* sample.
+The `samples/softsim_external_profile` sample showcases how a SoftSIM profile can be provisioned, in two modes selected by configuration.
 
-#### Static profile sample
-`samples/softsim_static_profile` will provision a profile during the first system initialization. The profile is configured in the `prj.conf`
-
-In the `prj.conf` you'll find the following options related to the SoftSIM statically provisioned profile. This setup is useful for development, as the profile doesn't have to be re-provisioned every time the device is flashed.
+#### External profile (default)
+Build and flash, then supply a profile over the serial port. It is provisioned and the device reboots to free up the UART for AT commands, then attaches.
 
 ```
-CONFIG_SOFTSIM_STATIC_PROFILE_ENABLE=y
-CONFIG_SOFTSIM_STATIC_PROFILE="011208091..."
-```
-
-Run `./softsim next --key=~/myPrivateKey` (with path to your private key) and grab the output. By default it formats the profile to be accepted by any nRF91 series devices. The profile will look similar to `01120...`. Replace the `CONFIG_SOFTSIM_STATIC_PROFILE` value with your SoftSIM profile.
-
-
-Build and flash the sample and the device will attach and send data right away.
-
-```
-west build
+west build --sysbuild -b nrf9151dk/nrf9151/ns
 west flash
-```
-
-#### External profile sample
-`samples/softsim_external_profile` will wait for a profile supplied via UART. After receiving it will be provisioned and the device will reboot to free up the UART port for AT commands.
-
-```
 echo "<my_profile>" > /dev/tty.usbmodem<id>
 ```
 
-Which results in:
+#### Static profile
+Provisions a compiled-in profile during the first system initialization, so the serial step is skipped. Handy for development, as the profile doesn't have to be re-provisioned on every flash. Enable it either by uncommenting the static lines in `prj.conf`, or by building with the overlay:
+
+```
+west build --sysbuild -b nrf9151dk/nrf9151/ns -- -DEXTRA_CONF_FILE=overlay-static.conf
+```
+
+The external (default) flow results in:
 ```
 *** Booting Zephyr OS build v3.2.99-ncs1 ***
 [00:00:00.610,198] <inf> softsim_sample: SoftSIM sample started.
