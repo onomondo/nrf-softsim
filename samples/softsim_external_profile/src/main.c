@@ -13,7 +13,8 @@
 
 LOG_MODULE_REGISTER(softsim_sample, LOG_LEVEL_INF);
 
-#define PROFILE_MAX_SIZE 360 /* Maximum size of a Onomondo SoftSIM profile */
+/* Headroom over the full SoftSIM profile (~410 chars incl. SMSP/PIN/SMSC) */
+#define PROFILE_MAX_SIZE 512
 
 /* Semaphores */
 K_SEM_DEFINE(lte_connected, 0, 1);    /* Semaphore to signal LTE connection established */
