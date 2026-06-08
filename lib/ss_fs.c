@@ -4,6 +4,7 @@
 #include <zephyr/kernel.h>
 #include <zephyr/logging/log.h>
 #include <zephyr/storage/flash_map.h>
+#include <zephyr/sys/util.h>
 
 #include "ss_cache.h"
 #include "ss_provision.h"
@@ -485,23 +486,6 @@ size_t ss_fwrite(const void *ptr, size_t size, size_t count, ss_FILE fp)
 	return elements_to_copy;
 }
 
-/* Convert two hex-ASCII characters into a single byte. */
-static uint8_t ss_hex_to_uint8(const char *hex)
-{
-	char hex_str[3] = {0};
-	hex_str[0] = hex[0];
-	hex_str[1] = hex[1];
-	return (hex_str[0] % 32 + 9) % 25 * 16 + (hex_str[1] % 32 + 9) % 25;
-}
-
-/* Decode a hex-ASCII string of hex_len characters into hex_len/2 bytes. */
-static void ss_hex_string_to_bytes(const uint8_t *hex, size_t hex_len, uint8_t *bytes)
-{
-	for (size_t i = 0; i < hex_len / 2; i++) {
-		bytes[i] = ss_hex_to_uint8((char *)&hex[i * 2]);
-	}
-}
-
 /**
  * @brief Checks if the SoftSIM is provisioned
  *
@@ -551,19 +535,20 @@ int port_provision(struct ss_profile *profile)
 	uint8_t a001[A001_BIN_LEN] = {0};
 	uint8_t a004[A004_BIN_LEN] = {0};
 
-	ss_hex_string_to_bytes(profile->_3F00_2FE2, ICCID_LEN, iccid);
-	ss_hex_string_to_bytes(profile->_3F00_7ff0_6f07, IMSI_LEN, imsi);
+	hex2bin((char *)profile->_3F00_2FE2, ICCID_LEN, iccid, sizeof(iccid));
+	hex2bin((char *)profile->_3F00_7ff0_6f07, IMSI_LEN, imsi, sizeof(imsi));
 
 	/* A001: [KI_TAG | 15x 0x00 | OPC[16] | flag 0x00]. The KI slot holds only
 	 * the KMU tag; OPC sits at hex offset KEY_SIZE in the parsed profile. */
 	a001[0] = KI_TAG;
-	ss_hex_string_to_bytes(&profile->_3F00_A001[KEY_SIZE], KEY_SIZE, &a001[KEY_BIN_LEN]);
+	hex2bin((char *)&profile->_3F00_A001[KEY_SIZE], KEY_SIZE, &a001[KEY_BIN_LEN],
+		sizeof(a001) - KEY_BIN_LEN);
 
 	/* A004: [header(6) | KIC_TAG ...(16) | KID_TAG ...(16) | 0xFF padding]. */
 	static const char a004_header[] = "b00011060101";
 	const size_t header_size = (sizeof(a004_header) - 1) / 2;           /* 6 */
 	const size_t record_size = header_size + KEY_BIN_LEN + KEY_BIN_LEN; /* 38 */
-	ss_hex_string_to_bytes((const uint8_t *)a004_header, sizeof(a004_header) - 1, a004);
+	hex2bin((char *)a004_header, sizeof(a004_header) - 1, a004, sizeof(a004));
 	memset(&a004[record_size], 0xFF, sizeof(a004) - record_size);
 	a004[header_size] = KIC_TAG;
 	a004[header_size + KEY_BIN_LEN] = KID_TAG;
