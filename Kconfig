@@ -17,6 +17,17 @@ config SOFTSIM_AUTO_INIT
     help
         Automatically initialize SoftSIM when the modem is powered on.
 
+config SOFTSIM_FACTORY_RESET_ON_PROVISION
+    bool "Perform modem factory reset after provisioning"
+    default n
+    help
+        Compile the nrf_softsim_modem_factory_reset() helper and have the sample
+        call it right after provisioning a new SoftSIM profile. It issues
+        AT%XFACTORYRESET=0 to wipe modem NVM (carrier config, registration state,
+        preferred networks, etc.), then the sample reboots so the device comes up
+        clean with the new SIM identity. Enable only during initial device
+        provisioning flows.
+
 config SOFTSIM_NRF_DEBUG_LOGS
     bool "Enable verbose debug logs for the nrf-softsim layer"
     default n

@@ -36,6 +36,10 @@ static K_FIFO_DEFINE(softsim_req_fifo);
 static K_WORK_DEFINE(softsim_req_work, softsim_req_task);
 static uint8_t softsim_buffer_out[SIM_HAL_MAX_LE];
 
+#ifdef CONFIG_SOFTSIM_FACTORY_RESET_ON_PROVISION
+static bool just_provisioned;
+#endif /* CONFIG_SOFTSIM_FACTORY_RESET_ON_PROVISION */
+
 /* SoftSIM handle */
 struct ss_context *ctx = NULL;
 
@@ -122,6 +126,9 @@ int nrf_softsim_provision(uint8_t *profile_r, size_t len)
 		LOG_ERR("SoftSIM failed to update profile");
 	} else {
 		LOG_INF("SoftSIM fully provisioned");
+#ifdef CONFIG_SOFTSIM_FACTORY_RESET_ON_PROVISION
+		just_provisioned = true;
+#endif /* CONFIG_SOFTSIM_FACTORY_RESET_ON_PROVISION */
 	}
 
 	return status;
@@ -133,6 +140,33 @@ int nrf_softsim_check_provisioned(void)
 	/* Check first PSA key and also first NVS key. */
 	return ss_utils_check_key_existence(KEY_ID_KI) && port_check_provisioned();
 }
+
+#ifdef CONFIG_SOFTSIM_FACTORY_RESET_ON_PROVISION
+/* See in nrf_softsim.h */
+void nrf_softsim_modem_factory_reset(void)
+{
+	LOG_DBG("Performing modem factory reset...");
+	/* Wipe modem NVM (carrier config, registration state, preferred networks)
+	 * so it comes up clean with the new SIM identity. The modem library must be
+	 * initialised first; the caller must reboot afterwards for it to take effect.
+	 * XFACTORYRESET requires the modem to be offline, hence CFUN=4 first. */
+	int err = nrf_modem_at_printf("AT+CFUN=4");
+	if (err) {
+		LOG_ERR("SoftSIM: failed to set modem offline (err %d)", err);
+	}
+
+	err = nrf_modem_at_printf("AT%%XFACTORYRESET=0");
+	if (err) {
+		LOG_ERR("SoftSIM: modem factory reset failed (err %d)", err);
+	}
+}
+
+/* See in nrf_softsim.h */
+int nrf_softsim_just_provisioned(void)
+{
+	return just_provisioned;
+}
+#endif /* CONFIG_SOFTSIM_FACTORY_RESET_ON_PROVISION */
 
 /* TODO: Evaluate if this is still needed */
 __weak void nrf_modem_softsim_reset_handler(void)
