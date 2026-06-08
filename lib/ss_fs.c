@@ -27,6 +27,12 @@ LOG_MODULE_DECLARE(softsim, CONFIG_SOFTSIM_NRF_LOG_LEVEL);
 #define ICCID_PATH "/3f00/2fe2"
 #define A001_PATH  "/3f00/a001"
 #define A004_PATH  "/3f00/a004"
+#define SMSP_PATH  "/3f00/7ff0/6f42"
+
+/* Byte offset of the TP-Service-Centre-Address (SMSC) inside an EF.SMSP record.
+ * Per 3GPP the record is [alpha-id(24) | param-indicators(1) | TP-DA(12) |
+ * TP-SCA(12) | ...], so the SMSC sits at 24 + 1 + 12 = 37. */
+#define SMSC_REC_OFFSET 37
 
 /* The onomondo-uicc profile parser keeps EF contents as hex-ASCII (the *_LEN
  * macros in <onomondo/utils/ss_profile.h> are char counts). The nrf port stores
@@ -582,6 +588,51 @@ int port_provision(struct ss_profile *profile)
 		goto out_err;
 	}
 	entry->_flags = 0;
+
+	/* Optionally provision EF.SMSP. The profile may carry the SMS-parameter
+	 * record (profile->SMSP) and/or just the service-centre address
+	 * (profile->SMSC); both are hex-ASCII and target record 1 of EF.SMSP.
+	 * EF.SMSP is a fixed-size record EF, so read-modify-write to preserve
+	 * its length (and any further records). */
+	uint8_t zeros_smsp[SMSP_RECORD_SIZE * 2] = {0};
+	uint8_t zeros_smsc[SMSC_LEN] = {0};
+	int have_smsp = memcmp(profile->SMSP, zeros_smsp, sizeof(zeros_smsp)) != 0;
+	int have_smsc = memcmp(profile->SMSC, zeros_smsc, sizeof(zeros_smsc)) != 0;
+
+	if (have_smsp || have_smsc) {
+		LOG_INF("Provisioning SoftSIM EF.SMSP");
+		entry = (struct cache_entry *)f_cache_find_by_name(SMSP_PATH, &fs_cache);
+		if (!entry) {
+			LOG_ERR("EF.SMSP not in filesystem cache");
+			goto out_err;
+		}
+
+		uint8_t smsp[SMSP_RECORD_SIZE * 2]; /* 104: holds a 2-record EF.SMSP */
+		int ef_len = nvs_read(&fs, entry->key, NULL, 0);
+		if (ef_len < SMSC_REC_OFFSET + (int)(SMSC_LEN / 2) || ef_len > (int)sizeof(smsp)) {
+			LOG_ERR("Unexpected EF.SMSP length: %d", ef_len);
+			goto out_err;
+		}
+		if (nvs_read(&fs, entry->key, smsp, ef_len) != ef_len) {
+			LOG_ERR("Failed to read EF.SMSP");
+			goto out_err;
+		}
+
+		/* Overlay record 1 with the SMSP, then the SMSC (so an explicit SMSC
+		 * wins), each only when the profile provides it. */
+		if (have_smsp) {
+			hex2bin((char *)profile->SMSP, SMSP_RECORD_SIZE * 2, smsp, sizeof(smsp));
+		}
+		if (have_smsc) {
+			hex2bin((char *)profile->SMSC, SMSC_LEN, &smsp[SMSC_REC_OFFSET],
+				sizeof(smsp) - SMSC_REC_OFFSET);
+		}
+
+		if (nvs_write(&fs, entry->key, smsp, ef_len) < 0) {
+			goto out_err;
+		}
+		entry->_flags = 0;
+	}
 
 	LOG_INF("SoftSIM provisioned");
 	return 0;
