@@ -4,7 +4,6 @@
 #include <zephyr/kernel.h>
 #include <zephyr/logging/log.h>
 
-#include "ss_profile.h"
 #include "ss_crypto.h"
 #include <nrf_softsim.h>
 #include <nrf_modem_at.h>
@@ -13,6 +12,7 @@
 #include <onomondo/softsim/softsim.h>
 #include <onomondo/softsim/utils.h>
 #include <onomondo/softsim/fs.h>
+#include <onomondo/utils/ss_profile.h>
 
 /* Logging */
 LOG_MODULE_REGISTER(softsim, CONFIG_SOFTSIM_NRF_LOG_LEVEL);
@@ -102,12 +102,17 @@ int onomondo_init(void)
 int nrf_softsim_provision(uint8_t *profile_r, size_t len)
 {
 	struct ss_profile profile = {0};
-	decode_profile(len, profile_r, &profile);
+	uint8_t decode_err =
+		ss_profile_from_string((uint16_t)len, (const char *)profile_r, &profile);
+	if (decode_err != 0) {
+		LOG_ERR("SoftSIM profile decode failed (err %u)", decode_err);
+		return -1;
+	}
 
 	/* Import to psa_crypto */
-	ss_utils_setup_key(KMU_KEY_SIZE, profile.K, KEY_ID_KI);
-	ss_utils_setup_key(KMU_KEY_SIZE, profile.KIC, KEY_ID_KIC);
-	ss_utils_setup_key(KMU_KEY_SIZE, profile.KID, KEY_ID_KID);
+	ss_utils_setup_key(KMU_KEY_SIZE, profile.k, KEY_ID_KI);
+	ss_utils_setup_key(KMU_KEY_SIZE, profile.kic, KEY_ID_KIC);
+	ss_utils_setup_key(KMU_KEY_SIZE, profile.kid, KEY_ID_KID);
 
 	LOG_INF("SoftSIM keys written to KMU");
 

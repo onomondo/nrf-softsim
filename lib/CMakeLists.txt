@@ -96,7 +96,7 @@ zephyr_include_directories(onomondo-uicc/include)
 zephyr_library_sources(
   nrf_softsim.c
   ss_fs.c
-  ss_profile.c
+  onomondo-uicc/utils/ss_profile.c
   ss_provision.c
   ss_cache.c
   ss_heap.c
