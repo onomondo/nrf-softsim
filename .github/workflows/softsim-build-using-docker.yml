@@ -47,12 +47,7 @@ jobs:
         run: |
           west update -o=--depth=1 --narrow
 
-      - name: Build firmware of static profile sample
-        working-directory: modules/lib/onomondo-softsim/samples/softsim_static_profile
-        run: |
-          west build --sysbuild --pristine=always --board ${{ matrix.board }}
-
-      - name: Build firmware of external profile sample
+      - name: Build firmware of SoftSIM sample
         working-directory: modules/lib/onomondo-softsim/samples/softsim_external_profile
         run: |
           west build --sysbuild --pristine=always --board ${{ matrix.board }}
@@ -68,3 +63,13 @@ jobs:
           path: modules/lib/onomondo-softsim/samples/softsim_external_profile/build/merged.hex
           overwrite: true
           if-no-files-found: warn
+
+      # Compile-check the static-profile mode too. The static vs external delta is
+      # board-independent, so one board is enough. Runs after the archive so its
+      # pristine rebuild doesn't clobber the archived (external) merged.hex.
+      - name: Build firmware (static profile mode, compile check)
+        if: matrix.board == 'nrf9151dk/nrf9151/ns'
+        working-directory: modules/lib/onomondo-softsim/samples/softsim_external_profile
+        run: |
+          west build --sysbuild --pristine=always --board ${{ matrix.board }} \
+            -- -DEXTRA_CONF_FILE=overlay-static.conf
