@@ -528,6 +528,7 @@ int port_provision(struct ss_profile *profile)
 	int rc = ss_init_fs();
 	if (rc) {
 		LOG_ERR("Failed to init FS");
+		return -1;
 	}
 
 	/* The onomondo-uicc parser hands EF contents back as hex-ASCII and stores
