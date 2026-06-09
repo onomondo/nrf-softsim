@@ -1,6 +1,7 @@
 #ifndef _F_CACHE_H_
 #define _F_CACHE_H_
 
+#include <stddef.h>
 #include <stdint.h>
 
 #include <onomondo/softsim/list.h>
@@ -40,5 +41,17 @@ struct cache_entry *f_cache_find_buffer(struct cache_entry *entry, struct ss_lis
  * @return Pointer to the cache entry with the given name, or NULL if not found
  */
 struct cache_entry *f_cache_find_by_name(const char *name, struct ss_list *cache);
+
+/**
+ * @brief Generate the directory structure based on the content in the "DIR" file.
+ *
+ * The DIR file encodes ID (used to locate the actual file in flash) and the name
+ * of the file.
+ *
+ * @param dirs Linked list to populate
+ * @param blob Pointer to blob of data
+ * @param size Size of blob
+ */
+void generate_dir_table_from_blob(struct ss_list *dirs, uint8_t *blob, size_t size);
 
 #endif /* _F_CACHE_H_ */

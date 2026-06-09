@@ -7,9 +7,9 @@
 #include <zephyr/sys/util.h>
 
 #include "ss_cache.h"
-#include "ss_provision.h"
 #include <onomondo/softsim/fs.h>
 #include <onomondo/softsim/list.h>
+#include <onomondo/softsim/storage.h>
 #include <onomondo/softsim/utils.h>
 #include <onomondo/softsim/log.h>
 #include <onomondo/softsim/mem.h>
@@ -59,6 +59,13 @@ static struct ss_list fs_cache;
 
 static uint8_t fs_is_initialized = 0;
 static uint8_t default_imsi[] = {0x08, 0x09, 0x10, 0x10, 0x00, 0x00, 0x00, 0x00, 0x10};
+
+/* Path prefix the onomondo-uicc compact-storage backend (storage_compact.c)
+ * prepends to every host path. The nrf port uses bare file IDs as NVS keys, so
+ * the prefix is empty. Defined here because the file that normally provides it
+ * (onomondo-uicc/src/softsim/fs.c) is not compiled under CONFIG_COMPACT_STORAGE;
+ * it is declared extern in <onomondo/softsim/storage.h>. */
+char storage_path[SS_STORAGE_PATH_MAX] = "";
 
 /**
  * @brief Internal function to read NVS data into cache
