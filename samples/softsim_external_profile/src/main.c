@@ -1,22 +1,15 @@
 #include <stdio.h>
-#include <string.h>
 
-#include <nrf_modem.h>
-#include <nrf_modem_at.h>
 #include <nrf_softsim.h>
 #include <modem/lte_lc.h>
 #include <modem/nrf_modem_lib.h>
-#include <pm_config.h>
 #include <zephyr/kernel.h>
 #include <zephyr/net/socket.h>
-#include <zephyr/drivers/clock_control.h>
-#include <zephyr/drivers/clock_control/nrf_clock_control.h>
 #include <zephyr/device.h>
 #include <zephyr/drivers/uart.h>
 #include <zephyr/logging/log.h>
 #include <zephyr/logging/log_ctrl.h>
 #include <zephyr/sys/reboot.h>
-#include <zephyr/sys/ring_buffer.h>
 
 LOG_MODULE_REGISTER(softsim_sample, LOG_LEVEL_INF);
 
