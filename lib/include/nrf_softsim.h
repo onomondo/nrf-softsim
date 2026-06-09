@@ -1,6 +1,7 @@
 #ifndef _NRF_SOFTSIM_H
 #define _NRF_SOFTSIM_H
 
+#include <stdbool.h>
 #include <stddef.h>
 #include <stdint.h>
 
@@ -46,9 +47,9 @@ int nrf_softsim_check_provisioned(void);
  *
  * Compiled only when CONFIG_SOFTSIM_FACTORY_RESET_ON_PROVISION=y.
  *
- * @return nonzero if provisioned this boot, 0 otherwise
+ * @return true if provisioned this boot, false otherwise
  */
-int nrf_softsim_just_provisioned(void);
+bool nrf_softsim_just_provisioned(void);
 
 /**
  * @brief Factory-reset the modem (wipe its NVM)

@@ -162,7 +162,7 @@ void nrf_softsim_modem_factory_reset(void)
 }
 
 /* See in nrf_softsim.h */
-int nrf_softsim_just_provisioned(void)
+bool nrf_softsim_just_provisioned(void)
 {
 	return just_provisioned;
 }
