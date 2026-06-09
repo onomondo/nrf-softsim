@@ -76,12 +76,12 @@ static void lte_handler(const struct lte_lc_evt *const evt)
 		len = snprintf(log_buf, sizeof(log_buf), "eDRX parameter update: eDRX: %f, PTW: %f",
 			       (double)evt->edrx_cfg.edrx, (double)evt->edrx_cfg.ptw);
 		if (len > 0) {
-			LOG_INF("%s\n", log_buf);
+			LOG_INF("%s", log_buf);
 		}
 		break;
 	}
 	case LTE_LC_EVT_RRC_UPDATE:
-		LOG_INF("RRC mode: %s\n",
+		LOG_INF("RRC mode: %s",
 			evt->rrc_mode == LTE_LC_RRC_MODE_CONNECTED ? "Connected" : "Idle");
 		break;
 	case LTE_LC_EVT_CELL_UPDATE:
@@ -125,14 +125,14 @@ static int server_connect(void)
 
 	client_fd = socket(AF_INET, SOCK_DGRAM, IPPROTO_UDP);
 	if (client_fd < 0) {
-		LOG_ERR("Failed to create UDP socket: %d\n", errno);
+		LOG_ERR("Failed to create UDP socket: %d", errno);
 		err = -errno;
 		goto error;
 	}
 
 	err = connect(client_fd, (struct sockaddr *)&host_addr, sizeof(struct sockaddr_in));
 	if (err < 0) {
-		LOG_ERR("Connect failed : %d\n", errno);
+		LOG_ERR("Connect failed : %d", errno);
 		goto error;
 	}
 
@@ -217,27 +217,27 @@ int main(void)
 
 	int32_t err = nrf_modem_lib_init();
 	if (err) {
-		LOG_ERR("Failed to initialize modem library, error: %d\n", err);
+		LOG_ERR("Failed to initialize modem library, error: %d", err);
 	}
 
 	work_init();
 
 	modem_connect();
 
-	LOG_INF("Waiting for LTE connect event.\n");
+	LOG_INF("Waiting for LTE connect event.");
 	do {
 	} while (k_sem_take(&lte_connected, K_SECONDS(10)));
 
-	LOG_INF("LTE connected!\n");
+	LOG_INF("LTE connected!");
 	err = server_init();
 	if (err) {
-		LOG_ERR("Not able to initialize UDP server connection\n");
+		LOG_ERR("Not able to initialize UDP server connection");
 		return -1;
 	}
 
 	err = server_connect();
 	if (err) {
-		LOG_ERR("Not able to connect to UDP server\n");
+		LOG_ERR("Not able to connect to UDP server");
 		return -1;
 	}
 

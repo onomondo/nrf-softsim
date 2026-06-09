@@ -78,7 +78,7 @@ int onomondo_init(void)
 #endif
 
 	if (rc) {
-		LOG_ERR("FS failed to init..\n");
+		LOG_ERR("FS failed to init..");
 		return -1;
 	}
 
