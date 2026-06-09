@@ -168,52 +168,59 @@ void serial_cb(const struct device *dev, void *user_data)
 	}
 }
 
+static int provision_softsim_from_serial(void)
+{
+	if (!device_is_ready(uart_dev)) {
+		LOG_ERR("UART device not found!");
+		return -1;
+	}
+
+	char *profile = k_malloc(PROFILE_MAX_SIZE);
+	__ASSERT_NO_MSG(profile != NULL);
+
+	struct rx_buf_t rx = {
+		.buf = profile,
+		.len = PROFILE_MAX_SIZE,
+		.pos = 0,
+	};
+
+	uart_irq_callback_user_data_set(uart_dev, serial_cb, &rx);
+	uart_irq_rx_enable(uart_dev);
+
+	do {
+		LOG_INF("Transfer SoftSIM profile using serial COM port, terminate by "
+			"newline character (return key)");
+	} while (k_sem_take(&profile_received, K_SECONDS(20)));
+
+	LOG_INF("Profile received: %zu characters in total", rx.pos);
+
+	uart_irq_rx_disable(uart_dev);
+
+	/* Provision the profile to the SoftSIM filesystem */
+	if (nrf_softsim_provision((uint8_t *)profile, rx.pos) != 0) {
+		LOG_ERR("SoftSIM Profile provisioning failed");
+	}
+
+	k_free(profile);
+
+	/* Soft reset to free UART for AT host/monitor */
+	while (log_data_pending()) {
+		log_process();
+		k_yield();
+	}
+	sys_reboot(0);
+
+	return 0; /* unreachable - sys_reboot does not return */
+}
+
 int main(void)
 {
 	LOG_INF("SoftSIM sample started.");
 
 	if (!nrf_softsim_check_provisioned()) {
-		if (!device_is_ready(uart_dev)) {
-			LOG_ERR("UART device not found!");
+		if (provision_softsim_from_serial() != 0) {
 			return -1;
 		}
-
-		char *profile_read_from_external_source = k_malloc(PROFILE_MAX_SIZE);
-		__ASSERT_NO_MSG(profile_read_from_external_source != NULL);
-
-		struct rx_buf_t rx = {
-			.buf = profile_read_from_external_source,
-			.len = PROFILE_MAX_SIZE,
-			.pos = 0,
-		};
-
-		uart_irq_callback_user_data_set(uart_dev, serial_cb, &rx);
-		uart_irq_rx_enable(uart_dev);
-
-		do {
-			LOG_INF("Transfer SoftSIM profile using serial COM port, terminate by "
-				"newline character (return key)");
-		} while (k_sem_take(&profile_received, K_SECONDS(20)));
-
-		LOG_INF("Profile received: %zu characters in total", rx.pos);
-
-		uart_irq_rx_disable(uart_dev);
-
-		/* Provision the profile to the SoftSIM filesystem */
-		if (nrf_softsim_provision((uint8_t *)profile_read_from_external_source, rx.pos) !=
-		    0) {
-			LOG_ERR("SoftSIM Profile provisioning failed");
-		}
-
-		/* Clean up the decrypted profile buffer */
-		k_free(profile_read_from_external_source);
-
-		/* Soft reset to free UART for AT host/monitor */
-		while (log_data_pending()) {
-			log_process();
-			k_yield();
-		}
-		sys_reboot(0);
 	}
 
 	int32_t err = nrf_modem_lib_init();
