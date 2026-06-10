@@ -1,11 +1,18 @@
 #include <string.h>
 
+#include <zephyr/logging/log.h>
 #include <zephyr/sys/printk.h>
 
 #include "ss_cache.h"
 #include <onomondo/softsim/mem.h>
 
+LOG_MODULE_DECLARE(softsim, CONFIG_SOFTSIM_NRF_LOG_LEVEL);
+
 #define SS_MAX_ENTRIES 10
+
+/* Fixed header preceding the variable-length name in each DIR record:
+ * a 1-byte name length followed by a 2-byte (big-endian) NVS key. */
+#define DIR_RECORD_HEADER_LEN 3
 
 /* See in ss_cache.h */
 struct cache_entry *f_cache_find_buffer(struct cache_entry *entry, struct ss_list *cache)
@@ -82,7 +89,15 @@ void generate_dir_table_from_blob(struct ss_list *dirs, uint8_t *blob, size_t si
 	size_t cursor = 0;
 
 	while (cursor < size) {
-		uint8_t len = blob[cursor++];
+		uint8_t len = blob[cursor]; /* peak the name length */
+		/* Check if the record header and name fit in the remaining blob */
+		if (cursor + DIR_RECORD_HEADER_LEN + len > size) {
+			LOG_WRN("DIR blob truncated; ignoring trailing %u byte(s)",
+				(unsigned)(size - cursor));
+			break;
+		}
+		cursor++;
+
 		uint16_t id = (blob[cursor] << 8) | blob[cursor + 1];
 
 		cursor += 2;
