@@ -401,6 +401,7 @@ int ss_fputc(int c, ss_FILE fp)
 		}
 
 		memcpy(entry->buf, old_buffer, old_size);
+		SS_FREE(old_buffer);
 		entry->_b_size += 20;
 	}
 
