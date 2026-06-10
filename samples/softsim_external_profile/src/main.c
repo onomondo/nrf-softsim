@@ -144,6 +144,16 @@ error:
 	return err;
 }
 
+static void drain_logs_and_reboot(void)
+{
+	/* Flush the deferred log buffer over UART before the reboot discards it. */
+	while (log_data_pending()) {
+		log_process();
+		k_yield();
+	}
+	sys_reboot(0);
+}
+
 void serial_cb(const struct device *dev, void *user_data)
 {
 	int rx_recv = 0;
@@ -203,14 +213,16 @@ static int provision_softsim_from_serial(void)
 
 	k_free(profile);
 
-	/* Soft reset to free UART for AT host/monitor */
-	while (log_data_pending()) {
-		log_process();
-		k_yield();
-	}
-	sys_reboot(0);
+#ifndef CONFIG_SOFTSIM_FACTORY_RESET_ON_PROVISION
+	/* Reboot to free the UART for the AT host/monitor and bring the modem up
+	 * cleanly with the new SIM. With factory reset enabled we must NOT reboot
+	 * here: the modem is still uninitialised (AT commands return -NRF_EPERM, i.e.
+	 * -1), so the reset waits until main() has called nrf_modem_lib_init() — see
+	 * nrf_softsim_just_provisioned(). */
+	drain_logs_and_reboot();
+#endif /* !CONFIG_SOFTSIM_FACTORY_RESET_ON_PROVISION */
 
-	return 0; /* unreachable - sys_reboot does not return */
+	return 0;
 }
 
 int main(void)
@@ -227,6 +239,15 @@ int main(void)
 	if (err) {
 		LOG_ERR("Failed to initialize modem library, error: %d", err);
 	}
+
+#ifdef CONFIG_SOFTSIM_FACTORY_RESET_ON_PROVISION
+	/* Modem is now initialised; if a profile was just provisioned (static or
+	 * serial), wipe modem NVM and reboot so it comes up clean with the new SIM. */
+	if (!err && nrf_softsim_just_provisioned()) {
+		nrf_softsim_modem_factory_reset();
+		drain_logs_and_reboot();
+	}
+#endif /* CONFIG_SOFTSIM_FACTORY_RESET_ON_PROVISION */
 
 	work_init();
 

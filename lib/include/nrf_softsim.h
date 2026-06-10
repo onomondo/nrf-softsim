@@ -1,6 +1,7 @@
 #ifndef _NRF_SOFTSIM_H
 #define _NRF_SOFTSIM_H
 
+#include <stdbool.h>
 #include <stddef.h>
 #include <stdint.h>
 
@@ -35,6 +36,32 @@ int nrf_softsim_provision(uint8_t *profile, size_t len);
  * @return 1 if provisioned, 0 if not
  */
 int nrf_softsim_check_provisioned(void);
+
+#ifdef CONFIG_SOFTSIM_FACTORY_RESET_ON_PROVISION
+/**
+ * @brief Whether a profile was provisioned during this boot
+ *
+ * Returns nonzero only on the boot where nrf_softsim_provision() succeeded —
+ * the static profile (via SYS_INIT) or a serial profile from the sample. Lets
+ * the application run a one-shot modem factory reset right after provisioning.
+ *
+ * Compiled only when CONFIG_SOFTSIM_FACTORY_RESET_ON_PROVISION=y.
+ *
+ * @return true if provisioned this boot, false otherwise
+ */
+bool nrf_softsim_just_provisioned(void);
+
+/**
+ * @brief Factory-reset the modem (wipe its NVM)
+ *
+ * Issues AT+CFUN=4 and AT%XFACTORYRESET=0 so the modem boots clean with a new
+ * SIM identity. Call after a fresh nrf_softsim_provision() and once the modem
+ * library is initialised; reboot afterwards for the reset to take effect.
+ *
+ * Compiled only when CONFIG_SOFTSIM_FACTORY_RESET_ON_PROVISION=y.
+ */
+void nrf_softsim_modem_factory_reset(void);
+#endif /* CONFIG_SOFTSIM_FACTORY_RESET_ON_PROVISION */
 
 /**
  * @brief Initialize the SoftSIM filesystem
