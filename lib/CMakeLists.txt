@@ -97,7 +97,6 @@ zephyr_library_sources(
   nrf_softsim.c
   ss_fs.c
   onomondo-uicc/utils/ss_profile.c
-  ss_provision.c
   ss_cache.c
   ss_heap.c
   ss_crypto.c

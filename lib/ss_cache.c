@@ -3,6 +3,7 @@
 #include <zephyr/sys/printk.h>
 
 #include "ss_cache.h"
+#include <onomondo/softsim/mem.h>
 
 #define SS_MAX_ENTRIES 10
 
@@ -73,4 +74,32 @@ struct cache_entry *f_cache_find_by_name(const char *name, struct ss_list *cache
 	}
 
 	return NULL;
+}
+
+/* See in ss_cache.h */
+void generate_dir_table_from_blob(struct ss_list *dirs, uint8_t *blob, size_t size)
+{
+	size_t cursor = 0;
+
+	while (cursor < size) {
+		uint8_t len = blob[cursor++];
+		uint16_t id = (blob[cursor] << 8) | blob[cursor + 1];
+
+		cursor += 2;
+
+		char *name = SS_ALLOC_N(len + 1);
+		memcpy(name, &blob[cursor], len);
+		name[len] = '\0';
+		cursor += len;
+
+		struct cache_entry *entry = SS_ALLOC(struct cache_entry);
+		memset(entry, 0, sizeof(struct cache_entry));
+
+		entry->key = id;
+		entry->name = name;
+		entry->_flags = (id & 0xFF00) >> 8;
+		entry->buf = NULL;
+
+		ss_list_put(dirs, &entry->list);
+	}
 }
