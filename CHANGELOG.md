@@ -1,5 +1,28 @@
 # Changelog
 
+## [6.0.0](https://github.com/onomondo/nrf-softsim/compare/v5.1.0...v6.0.0) (2026-06-10)
+
+
+### ⚠ BREAKING CHANGES
+
+* introduce onomondo-uicc as a submodule ([#106](https://github.com/onomondo/nrf-softsim/issues/106))
+* nrf connect sdk v3.0.1 ([#84](https://github.com/onomondo/nrf-softsim/issues/84))
+
+### Features
+
+* introduce an optional modem factory reset upon provisioning ([#141](https://github.com/onomondo/nrf-softsim/issues/141)) ([69925f0](https://github.com/onomondo/nrf-softsim/commit/69925f02ec8a7530a84da705442d5058ae7fe6bd))
+* introduce onomondo-uicc as a submodule ([#106](https://github.com/onomondo/nrf-softsim/issues/106)) ([f1fb69b](https://github.com/onomondo/nrf-softsim/commit/f1fb69b6685f883ceb794f6fb669b31fa01ba2db))
+* nrf connect sdk v3.0.1 ([#84](https://github.com/onomondo/nrf-softsim/issues/84)) ([1a17c3a](https://github.com/onomondo/nrf-softsim/commit/1a17c3adb02540cac0a2a30e5043b037120afcda))
+* provision SMSP/SMSC from the profile ([#140](https://github.com/onomondo/nrf-softsim/issues/140)) ([e7b3362](https://github.com/onomondo/nrf-softsim/commit/e7b33623734bfccf8c8d41e9bd640a9ee5e76b1a))
+
+
+### Bug Fixes
+
+* failed to open a persistent key, ERR: -140 ([#99](https://github.com/onomondo/nrf-softsim/issues/99)) ([bcb0676](https://github.com/onomondo/nrf-softsim/commit/bcb0676eeefcd58fbb5883d38f0eafa526ebf58e))
+* free the old buffer when ss_fputc grows it ([#143](https://github.com/onomondo/nrf-softsim/issues/143)) ([8cd8168](https://github.com/onomondo/nrf-softsim/commit/8cd8168bf2aa72c6630b2b502a3aed4dbbbc37a1))
+* merge static and external SoftSIM samples into one ([#132](https://github.com/onomondo/nrf-softsim/issues/132)) ([d3ee618](https://github.com/onomondo/nrf-softsim/commit/d3ee618a143a4620f851fd468ca2929d83509839))
+* size profile RX buffer for a full onomondo-uicc profile ([#137](https://github.com/onomondo/nrf-softsim/issues/137)) ([9807e74](https://github.com/onomondo/nrf-softsim/commit/9807e74ddd41b2e0577c444d9b740b39405c8c01))
+
 ## [5.1.0](https://github.com/onomondo/nrf-softsim/compare/v5.0.0...v5.1.0) (2025-04-02)
 
 
