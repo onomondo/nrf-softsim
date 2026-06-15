@@ -9,6 +9,10 @@
 
 #define AES_BLOCKSIZE 16
 
+/* Binary width of a key as imported into the KMU. The onomondo-uicc
+ * profile parser hands back KI/KIC/KID as 16 raw bytes. */
+#define KMU_KEY_SIZE 16
+
 /**
  * @brief Encryption algorithms supported by calc_cc
  */

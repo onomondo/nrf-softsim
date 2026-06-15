@@ -4,7 +4,6 @@
 #include <zephyr/kernel.h>
 #include <zephyr/logging/log.h>
 
-#include "ss_profile.h"
 #include "ss_crypto.h"
 #include <nrf_softsim.h>
 #include <nrf_modem_at.h>
@@ -13,6 +12,7 @@
 #include <onomondo/softsim/softsim.h>
 #include <onomondo/softsim/utils.h>
 #include <onomondo/softsim/fs.h>
+#include <onomondo/utils/ss_profile.h>
 
 /* Logging */
 LOG_MODULE_REGISTER(softsim, CONFIG_SOFTSIM_NRF_LOG_LEVEL);
@@ -35,6 +35,10 @@ static struct k_work_q softsim_work_q;
 static K_FIFO_DEFINE(softsim_req_fifo);
 static K_WORK_DEFINE(softsim_req_work, softsim_req_task);
 static uint8_t softsim_buffer_out[SIM_HAL_MAX_LE];
+
+#ifdef CONFIG_SOFTSIM_FACTORY_RESET_ON_PROVISION
+static bool just_provisioned;
+#endif /* CONFIG_SOFTSIM_FACTORY_RESET_ON_PROVISION */
 
 /* SoftSIM handle */
 struct ss_context *ctx = NULL;
@@ -78,7 +82,7 @@ int onomondo_init(void)
 #endif
 
 	if (rc) {
-		LOG_ERR("FS failed to init..\n");
+		LOG_ERR("FS failed to init..");
 		return -1;
 	}
 
@@ -102,12 +106,17 @@ int onomondo_init(void)
 int nrf_softsim_provision(uint8_t *profile_r, size_t len)
 {
 	struct ss_profile profile = {0};
-	decode_profile(len, profile_r, &profile);
+	uint8_t decode_err =
+		ss_profile_from_string((uint16_t)len, (const char *)profile_r, &profile);
+	if (decode_err != 0) {
+		LOG_ERR("SoftSIM profile decode failed (err %u)", decode_err);
+		return -1;
+	}
 
 	/* Import to psa_crypto */
-	ss_utils_setup_key(KMU_KEY_SIZE, profile.K, KEY_ID_KI);
-	ss_utils_setup_key(KMU_KEY_SIZE, profile.KIC, KEY_ID_KIC);
-	ss_utils_setup_key(KMU_KEY_SIZE, profile.KID, KEY_ID_KID);
+	ss_utils_setup_key(KMU_KEY_SIZE, profile.k, KEY_ID_KI);
+	ss_utils_setup_key(KMU_KEY_SIZE, profile.kic, KEY_ID_KIC);
+	ss_utils_setup_key(KMU_KEY_SIZE, profile.kid, KEY_ID_KID);
 
 	LOG_INF("SoftSIM keys written to KMU");
 
@@ -117,6 +126,9 @@ int nrf_softsim_provision(uint8_t *profile_r, size_t len)
 		LOG_ERR("SoftSIM failed to update profile");
 	} else {
 		LOG_INF("SoftSIM fully provisioned");
+#ifdef CONFIG_SOFTSIM_FACTORY_RESET_ON_PROVISION
+		just_provisioned = true;
+#endif /* CONFIG_SOFTSIM_FACTORY_RESET_ON_PROVISION */
 	}
 
 	return status;
@@ -128,6 +140,33 @@ int nrf_softsim_check_provisioned(void)
 	/* Check first PSA key and also first NVS key. */
 	return ss_utils_check_key_existence(KEY_ID_KI) && port_check_provisioned();
 }
+
+#ifdef CONFIG_SOFTSIM_FACTORY_RESET_ON_PROVISION
+/* See in nrf_softsim.h */
+void nrf_softsim_modem_factory_reset(void)
+{
+	LOG_DBG("Performing modem factory reset...");
+	/* Wipe modem NVM (carrier config, registration state, preferred networks)
+	 * so it comes up clean with the new SIM identity. The modem library must be
+	 * initialised first; the caller must reboot afterwards for it to take effect.
+	 * XFACTORYRESET requires the modem to be offline, hence CFUN=4 first. */
+	int err = nrf_modem_at_printf("AT+CFUN=4");
+	if (err) {
+		LOG_ERR("SoftSIM: failed to set modem offline (err %d)", err);
+	}
+
+	err = nrf_modem_at_printf("AT%%XFACTORYRESET=0");
+	if (err) {
+		LOG_ERR("SoftSIM: modem factory reset failed (err %d)", err);
+	}
+}
+
+/* See in nrf_softsim.h */
+bool nrf_softsim_just_provisioned(void)
+{
+	return just_provisioned;
+}
+#endif /* CONFIG_SOFTSIM_FACTORY_RESET_ON_PROVISION */
 
 /* TODO: Evaluate if this is still needed */
 __weak void nrf_modem_softsim_reset_handler(void)

@@ -7,9 +7,9 @@
 #include <zephyr/logging/log.h>
 
 #include "ss_crypto.h"
-#include "ss_profile.h"
 #include <onomondo/softsim/log.h>
 #include <onomondo/softsim/mem.h>
+#include <onomondo/utils/ss_profile.h>
 
 LOG_MODULE_REGISTER(softsim_crypto, CONFIG_SOFTSIM_NRF_LOG_LEVEL);
 

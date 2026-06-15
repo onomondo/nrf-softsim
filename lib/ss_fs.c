@@ -4,15 +4,16 @@
 #include <zephyr/kernel.h>
 #include <zephyr/logging/log.h>
 #include <zephyr/storage/flash_map.h>
+#include <zephyr/sys/util.h>
 
 #include "ss_cache.h"
-#include "ss_provision.h"
-#include "ss_profile.h"
 #include <onomondo/softsim/fs.h>
 #include <onomondo/softsim/list.h>
+#include <onomondo/softsim/storage.h>
 #include <onomondo/softsim/utils.h>
 #include <onomondo/softsim/log.h>
 #include <onomondo/softsim/mem.h>
+#include <onomondo/utils/ss_profile.h>
 
 LOG_MODULE_DECLARE(softsim, CONFIG_SOFTSIM_NRF_LOG_LEVEL);
 
@@ -26,6 +27,22 @@ LOG_MODULE_DECLARE(softsim, CONFIG_SOFTSIM_NRF_LOG_LEVEL);
 #define ICCID_PATH "/3f00/2fe2"
 #define A001_PATH  "/3f00/a001"
 #define A004_PATH  "/3f00/a004"
+#define SMSP_PATH  "/3f00/7ff0/6f42"
+
+/* Byte offset of the TP-Service-Centre-Address (SMSC) inside an EF.SMSP record.
+ * Per 3GPP the record is [alpha-id(24) | param-indicators(1) | TP-DA(12) |
+ * TP-SCA(12) | ...], so the SMSC sits at 24 + 1 + 12 = 37. */
+#define SMSC_REC_OFFSET 37
+
+/* The onomondo-uicc profile parser keeps EF contents as hex-ASCII (the *_LEN
+ * macros in <onomondo/utils/ss_profile.h> are char counts). The nrf port stores
+ * the compact binary form (CONFIG_COMPACT_STORAGE), so derive the on-flash byte
+ * widths here. */
+#define ICCID_BIN_LEN (ICCID_LEN / 2)
+#define IMSI_BIN_LEN  (IMSI_LEN / 2)
+#define A001_BIN_LEN  (A001_LEN / 2)
+#define A004_BIN_LEN  (A004_LEN / 2)
+#define KEY_BIN_LEN   (KEY_SIZE / 2)
 
 #ifndef SEEK_SET
 #define SEEK_SET 0 /* set file offset to offset */
@@ -42,6 +59,13 @@ static struct ss_list fs_cache;
 
 static uint8_t fs_is_initialized = 0;
 static uint8_t default_imsi[] = {0x08, 0x09, 0x10, 0x10, 0x00, 0x00, 0x00, 0x00, 0x10};
+
+/* Path prefix the onomondo-uicc compact-storage backend (storage_compact.c)
+ * prepends to every host path. The nrf port uses bare file IDs as NVS keys, so
+ * the prefix is empty. Defined here because the file that normally provides it
+ * (onomondo-uicc/src/softsim/fs.c) is not compiled under CONFIG_COMPACT_STORAGE;
+ * it is declared extern in <onomondo/softsim/storage.h>. */
+char storage_path[SS_STORAGE_PATH_MAX] = "";
 
 /**
  * @brief Internal function to read NVS data into cache
@@ -377,6 +401,7 @@ int ss_fputc(int c, ss_FILE fp)
 		}
 
 		memcpy(entry->buf, old_buffer, old_size);
+		SS_FREE(old_buffer);
 		entry->_b_size += 20;
 	}
 
@@ -483,16 +508,16 @@ size_t ss_fwrite(const void *ptr, size_t size, size_t count, ss_FILE fp)
 int port_check_provisioned(void)
 {
 	int ret;
-	uint8_t buffer[IMSI_LEN] = {0};
+	uint8_t buffer[IMSI_BIN_LEN] = {0};
 	struct cache_entry *entry =
 		(struct cache_entry *)f_cache_find_by_name(IMSI_PATH, &fs_cache);
 
-	ret = nvs_read(&fs, entry->key, buffer, IMSI_LEN);
+	ret = nvs_read(&fs, entry->key, buffer, IMSI_BIN_LEN);
 	if (ret < 0) {
 		return 0;
 	}
 
-	if (memcmp(buffer, default_imsi, IMSI_LEN) == 0) {
+	if (memcmp(buffer, default_imsi, IMSI_BIN_LEN) == 0) {
 		return 0;
 	}
 
@@ -511,37 +536,112 @@ int port_provision(struct ss_profile *profile)
 	int rc = ss_init_fs();
 	if (rc) {
 		LOG_ERR("Failed to init FS");
+		return -1;
 	}
+
+	/* The onomondo-uicc parser hands EF contents back as hex-ASCII and stores
+	 * the real key material in A001/A004. The nrf port instead stores the
+	 * compact binary form and keeps KI/KIC/KID in the KMU, so the on-flash
+	 * A001/A004 carry only a one-byte KMU slot tag in place of each key (the
+	 * AES/CMAC impl in ss_crypto.c resolves the tag to the hardware key). Build
+	 * those binary EFs here. */
+	uint8_t iccid[ICCID_BIN_LEN];
+	uint8_t imsi[IMSI_BIN_LEN];
+	uint8_t a001[A001_BIN_LEN] = {0};
+	uint8_t a004[A004_BIN_LEN] = {0};
+
+	hex2bin((char *)profile->_3F00_2FE2, ICCID_LEN, iccid, sizeof(iccid));
+	hex2bin((char *)profile->_3F00_7ff0_6f07, IMSI_LEN, imsi, sizeof(imsi));
+
+	/* A001: [KI_TAG | 15x 0x00 | OPC[16] | flag 0x00]. The KI slot holds only
+	 * the KMU tag; OPC sits at hex offset KEY_SIZE in the parsed profile. */
+	a001[0] = KI_TAG;
+	hex2bin((char *)&profile->_3F00_A001[KEY_SIZE], KEY_SIZE, &a001[KEY_BIN_LEN],
+		sizeof(a001) - KEY_BIN_LEN);
+
+	/* A004: [header(6) | KIC_TAG ...(16) | KID_TAG ...(16) | 0xFF padding]. */
+	static const char a004_header[] = "b00011060101";
+	const size_t header_size = (sizeof(a004_header) - 1) / 2;           /* 6 */
+	const size_t record_size = header_size + KEY_BIN_LEN + KEY_BIN_LEN; /* 38 */
+	hex2bin((char *)a004_header, sizeof(a004_header) - 1, a004, sizeof(a004));
+	memset(&a004[record_size], 0xFF, sizeof(a004) - record_size);
+	a004[header_size] = KIC_TAG;
+	a004[header_size + KEY_BIN_LEN] = KID_TAG;
 
 	struct cache_entry *entry =
 		(struct cache_entry *)f_cache_find_by_name(IMSI_PATH, &fs_cache);
 
 	LOG_INF("Provisioning SoftSIM 1/4");
-	if (nvs_write(&fs, entry->key, profile->IMSI, IMSI_LEN) < 0) {
+	if (nvs_write(&fs, entry->key, imsi, IMSI_BIN_LEN) < 0) {
 		goto out_err;
 	}
 	entry->_flags = 0;
 
 	LOG_INF("Provisioning SoftSIM 2/4");
 	entry = (struct cache_entry *)f_cache_find_by_name(ICCID_PATH, &fs_cache);
-	if (nvs_write(&fs, entry->key, profile->ICCID, ICCID_LEN) < 0) {
+	if (nvs_write(&fs, entry->key, iccid, ICCID_BIN_LEN) < 0) {
 		goto out_err;
 	}
 	entry->_flags = 0;
 
 	LOG_INF("Provisioning SoftSIM 3/4");
 	entry = (struct cache_entry *)f_cache_find_by_name(A001_PATH, &fs_cache);
-	if (nvs_write(&fs, entry->key, profile->A001, sizeof(profile->A001)) < 0) {
+	if (nvs_write(&fs, entry->key, a001, sizeof(a001)) < 0) {
 		goto out_err;
 	}
 	entry->_flags = 0;
 
 	LOG_INF("Provisioning SoftSIM 4/4");
 	entry = (struct cache_entry *)f_cache_find_by_name(A004_PATH, &fs_cache);
-	if (nvs_write(&fs, entry->key, profile->A004, sizeof(profile->A004)) < 0) {
+	if (nvs_write(&fs, entry->key, a004, sizeof(a004)) < 0) {
 		goto out_err;
 	}
 	entry->_flags = 0;
+
+	/* Optionally provision EF.SMSP. The profile may carry the SMS-parameter
+	 * record (profile->SMSP) and/or just the service-centre address
+	 * (profile->SMSC); both are hex-ASCII and target record 1 of EF.SMSP.
+	 * EF.SMSP is a fixed-size record EF, so read-modify-write to preserve
+	 * its length (and any further records). */
+	uint8_t zeros_smsp[SMSP_RECORD_SIZE * 2] = {0};
+	uint8_t zeros_smsc[SMSC_LEN] = {0};
+	int have_smsp = memcmp(profile->SMSP, zeros_smsp, sizeof(zeros_smsp)) != 0;
+	int have_smsc = memcmp(profile->SMSC, zeros_smsc, sizeof(zeros_smsc)) != 0;
+
+	if (have_smsp || have_smsc) {
+		LOG_INF("Provisioning SoftSIM EF.SMSP");
+		entry = (struct cache_entry *)f_cache_find_by_name(SMSP_PATH, &fs_cache);
+		if (!entry) {
+			LOG_ERR("EF.SMSP not in filesystem cache");
+			goto out_err;
+		}
+
+		uint8_t smsp[SMSP_RECORD_SIZE * 2]; /* 104: holds a 2-record EF.SMSP */
+		int ef_len = nvs_read(&fs, entry->key, NULL, 0);
+		if (ef_len < SMSC_REC_OFFSET + (int)(SMSC_LEN / 2) || ef_len > (int)sizeof(smsp)) {
+			LOG_ERR("Unexpected EF.SMSP length: %d", ef_len);
+			goto out_err;
+		}
+		if (nvs_read(&fs, entry->key, smsp, ef_len) != ef_len) {
+			LOG_ERR("Failed to read EF.SMSP");
+			goto out_err;
+		}
+
+		/* Overlay record 1 with the SMSP, then the SMSC (so an explicit SMSC
+		 * wins), each only when the profile provides it. */
+		if (have_smsp) {
+			hex2bin((char *)profile->SMSP, SMSP_RECORD_SIZE * 2, smsp, sizeof(smsp));
+		}
+		if (have_smsc) {
+			hex2bin((char *)profile->SMSC, SMSC_LEN, &smsp[SMSC_REC_OFFSET],
+				sizeof(smsp) - SMSC_REC_OFFSET);
+		}
+
+		if (nvs_write(&fs, entry->key, smsp, ef_len) < 0) {
+			goto out_err;
+		}
+		entry->_flags = 0;
+	}
 
 	LOG_INF("SoftSIM provisioned");
 	return 0;
