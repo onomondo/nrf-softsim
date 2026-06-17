@@ -1,3 +1,6 @@
+# SPDX-FileCopyrightText: Copyright (c) 2023 Onomondo ApS
+# SPDX-License-Identifier: GPL-3.0-only
+
 if(CMAKE_OBJCOPY)
   set(ONOMONDO_SOFTSIM_OBJCOPY ${CMAKE_OBJCOPY})
 else()

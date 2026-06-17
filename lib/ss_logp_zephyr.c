@@ -1,3 +1,8 @@
+/*
+ * SPDX-FileCopyrightText: Copyright (c) 2026 Onomondo ApS
+ * SPDX-License-Identifier: GPL-3.0-only
+ */
+
 #include <stdarg.h>
 #include <stdint.h>
 #include <stdio.h>
