@@ -107,14 +107,44 @@ int onomondo_init(void)
 	return 0;
 }
 
+/* True if the first len bytes of p are all zero. Used to detect profile fields
+ * the parser left unset because their TLV tag was absent from the input. */
+static bool is_all_zero(const uint8_t *p, size_t len)
+{
+	for (size_t i = 0; i < len; i++) {
+		if (p[i] != 0) {
+			return false;
+		}
+	}
+	return true;
+}
+
 /* See in nrf_softsim.h */
 int nrf_softsim_provision(uint8_t *profile_r, size_t len)
 {
+	/* Reject anything that would truncate */
+	if (len > UINT16_MAX) {
+		LOG_ERR("SoftSIM profile too large: %zu bytes", len);
+		return -1;
+	}
+
 	struct ss_profile profile = {0};
 	uint8_t decode_err =
 		ss_profile_from_string((uint16_t)len, (const char *)profile_r, &profile);
 	if (decode_err != 0) {
 		LOG_ERR("SoftSIM profile decode failed (err %u)", decode_err);
+		return -1;
+	}
+
+	/* Reject a profile missing any field provisioning consumes:
+	 * IMSI, ICCID, OPC, KI, KIC, KID */
+	if (is_all_zero(profile._3F00_7ff0_6f07, sizeof(profile._3F00_7ff0_6f07)) ||
+	    is_all_zero(profile._3F00_2FE2, sizeof(profile._3F00_2FE2)) ||
+	    is_all_zero(&profile._3F00_A001[KEY_SIZE], KEY_SIZE) ||
+	    is_all_zero(profile.k, sizeof(profile.k)) ||
+	    is_all_zero(profile.kic, sizeof(profile.kic)) ||
+	    is_all_zero(profile.kid, sizeof(profile.kid))) {
+		LOG_ERR("SoftSIM profile missing required field(s)");
 		return -1;
 	}
 
