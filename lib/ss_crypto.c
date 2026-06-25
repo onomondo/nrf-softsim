@@ -82,7 +82,6 @@ int ss_utils_ota_calc_cc(uint8_t *cc, size_t cc_len, uint8_t *key, size_t key_le
 {
 	enum key_identifier_base slot_id = key_id_to_kmu_slot(key[0]);
 
-	psa_key_handle_t key_handle;
 	psa_status_t status;
 
 	/* Only supports AES_CMAC on nRF91 Series as KMU doesn't support 3DES CMAC */
@@ -99,18 +98,11 @@ int ss_utils_ota_calc_cc(uint8_t *cc, size_t cc_len, uint8_t *key, size_t key_le
 		return -EINVAL;
 	}
 
-	status = psa_open_key((psa_key_id_t)slot_id, &key_handle);
-
-	if (status != PSA_SUCCESS) {
-		LOG_ERR("psa_open_key failed! (Error: %d)", status);
-		return -EINVAL;
-	}
-
 	__ASSERT_NO_MSG(data1_len % AES_BLOCKSIZE == 0);
 
 	psa_mac_operation_t mac_op;
 	mac_op = psa_mac_operation_init();
-	status = psa_mac_sign_setup(&mac_op, key_handle, PSA_ALG_CMAC);
+	status = psa_mac_sign_setup(&mac_op, slot_id, PSA_ALG_CMAC);
 	ASSERT_STATUS(status, PSA_SUCCESS);
 
 	uint8_t mac_buf[16];
@@ -163,20 +155,12 @@ void ss_utils_3des_encrypt(uint8_t *buffer, size_t buffer_len, const uint8_t *ke
 void ss_utils_aes_decrypt(uint8_t *buffer, size_t buffer_len, const uint8_t *key, size_t key_len)
 {
 	enum key_identifier_base slot_id = key_id_to_kmu_slot(key[0]);
-	psa_key_handle_t key_handle;
 	psa_status_t status;
 
 	LOG_DBG("AES decrypt: resolved to key id: %d", slot_id);
 
 	if (slot_id == KEY_ID_UNKNOWN) {
 		LOG_ERR("Unknown key id: %d", key[0]);
-		return;
-	}
-
-	status = psa_open_key((psa_key_id_t)slot_id, &key_handle);
-
-	if (status != PSA_SUCCESS) {
-		LOG_ERR("ss_utils_aes_decrypt: psa_open_key failed! (Error: %d)", status);
 		return;
 	}
 
@@ -205,7 +189,6 @@ exit:
 void ss_utils_aes_encrypt(uint8_t *buffer, size_t buffer_len, const uint8_t *key, size_t key_len)
 {
 	enum key_identifier_base slot_id = key_id_to_kmu_slot(key[0]);
-	psa_key_handle_t key_handle;
 	psa_status_t status;
 
 	LOG_DBG("AES encrypt to key id: %d", slot_id);
@@ -215,19 +198,12 @@ void ss_utils_aes_encrypt(uint8_t *buffer, size_t buffer_len, const uint8_t *key
 		return;
 	}
 
-	status = psa_open_key((psa_key_id_t)slot_id, &key_handle);
-
-	if (status != PSA_SUCCESS) {
-		LOG_ERR("ss_utils_aes_decrypt: psa_open_key failed! (Error: %d)", status);
-		return;
-	}
-
 	psa_cipher_operation_t operation = PSA_CIPHER_OPERATION_INIT;
 	uint8_t iv[AES_BLOCKSIZE] = {0}; /* per standards in telco... */
 	uint8_t *encrypted_buffer = shared_buffer;
 	uint32_t out_len = 0;
 
-	status = psa_cipher_encrypt_setup(&operation, key_handle, PSA_ALG_CBC_NO_PADDING);
+	status = psa_cipher_encrypt_setup(&operation, slot_id, PSA_ALG_CBC_NO_PADDING);
 	ASSERT_STATUS(status, PSA_SUCCESS);
 
 	psa_cipher_set_iv(&operation, iv, AES_BLOCKSIZE);
