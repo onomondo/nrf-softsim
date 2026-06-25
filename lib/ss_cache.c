@@ -94,7 +94,7 @@ void generate_dir_table_from_blob(struct ss_list *dirs, uint8_t *blob, size_t si
 	size_t cursor = 0;
 
 	while (cursor < size) {
-		uint8_t len = blob[cursor]; /* peak the name length */
+		uint8_t len = blob[cursor]; /* peek the name length */
 		/* Check if the record header and name fit in the remaining blob */
 		if (cursor + DIR_RECORD_HEADER_LEN + len > size) {
 			LOG_WRN("DIR blob truncated; ignoring trailing %u byte(s)",
