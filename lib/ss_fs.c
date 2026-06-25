@@ -109,6 +109,13 @@ int ss_init_fs(void)
 	}
 
 	rc = nvs_read(&fs, DIR_ID, NULL, 0);
+	if (rc < 0) {
+		/* No DIR entry yet (e.g. -ENOENT before provisioning) or an NVS
+		 * error. Don't assign a negative rc to the size_t len. Treat it
+		 * like an empty DIR blob (the existing rc == 0 path). */
+		LOG_WRN("No DIR entry in NVS (%d); starting with empty filesystem cache", rc);
+		rc = 0;
+	}
 	len = rc;
 
 	/* Read DIR_ENTRY from NVS
