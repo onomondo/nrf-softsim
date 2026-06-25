@@ -340,17 +340,21 @@ int ss_utils_setup_key(size_t key_len, uint8_t key[static key_len], enum key_ide
 
 int ss_utils_check_key_existence(enum key_identifier_base key_id)
 {
-	psa_status_t status;
-	status = psa_open_key((psa_key_id_t)key_id, &(psa_key_handle_t){0});
-	if (status == PSA_ERROR_DOES_NOT_EXIST) {
+	/* Query the key by id -- no handle to leak (psa_open_key is the legacy,
+	 * removed-in-PSA-1.0 handle API). A missing key reports as
+	 * PSA_ERROR_INVALID_HANDLE here, not PSA_ERROR_DOES_NOT_EXIST. */
+	psa_key_attributes_t attr = PSA_KEY_ATTRIBUTES_INIT;
+	psa_status_t status = psa_get_key_attributes((psa_key_id_t)key_id, &attr);
+	psa_reset_key_attributes(&attr); /* free any resources the query allocated */
+
+	if (status == PSA_ERROR_INVALID_HANDLE) {
 		LOG_DBG("Key %d does not exist", key_id);
 		return 0; /* Key does not exist */
 	} else if (status != PSA_SUCCESS) {
-		LOG_ERR("Failed to open key %d, error: %d", key_id, status);
+		LOG_ERR("Failed to query key %d, error: %d", key_id, status);
 		return -1; /* Error occurred */
-	} else if (status == PSA_SUCCESS) {
-		LOG_DBG("Key %d exists", key_id);
 	}
 
-	return status == PSA_SUCCESS;
+	LOG_DBG("Key %d exists", key_id);
+	return 1;
 }
