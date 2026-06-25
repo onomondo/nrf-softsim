@@ -17,7 +17,7 @@ jobs:
   build-in-docker-container:
     runs-on: ubuntu-22.04
     timeout-minutes: 60
-    container: ghcr.io/nrfconnect/sdk-nrf-toolchain:v3.1.1
+    container: ghcr.io/nrfconnect/sdk-nrf-toolchain:v3.3.1@sha256:f24d8932ff081ebcd8da9c248f4449bdabe461c0620a7a4ac9e95eb577ba2276
     defaults:
       run:
         # Bash shell is needed to set toolchain related environment variables in docker container
@@ -37,7 +37,7 @@ jobs:
 
       # Ensure that the checkout follows only this build sha and not the master branch
       - name: Checkout
-        uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+        uses: actions/checkout@df4cb1c069e1874edd31b4311f1884172cec0e10 # v6.0.3
         with:
           path: modules/lib/onomondo-softsim
           submodules: true
