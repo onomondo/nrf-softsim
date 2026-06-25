@@ -1,5 +1,13 @@
 # Changelog
 
+## [6.0.1](https://github.com/onomondo/nrf-softsim/compare/v6.0.0...v6.0.1) (2026-06-25)
+
+
+### Bug Fixes
+
+* bounds-check the DIR blob in generate_dir_table_from_blob ([#145](https://github.com/onomondo/nrf-softsim/issues/145)) ([6c23ba7](https://github.com/onomondo/nrf-softsim/commit/6c23ba7055950209b47a4be37f05ecafbb45d07e))
+* guard against negative nvs_read return in ss_init_fs ([#148](https://github.com/onomondo/nrf-softsim/issues/148)) ([ee339cf](https://github.com/onomondo/nrf-softsim/commit/ee339cf1b8d3a8f5df0de24c970fa94a5572023a))
+
 ## [6.0.0](https://github.com/onomondo/nrf-softsim/compare/v5.1.0...v6.0.0) (2026-06-10)
 
 
