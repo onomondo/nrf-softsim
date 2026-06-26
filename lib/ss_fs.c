@@ -523,6 +523,10 @@ int port_check_provisioned(void)
 	uint8_t buffer[IMSI_BIN_LEN] = {0};
 	struct cache_entry *entry =
 		(struct cache_entry *)f_cache_find_by_name(IMSI_PATH, &fs_cache);
+	if (!entry) {
+		LOG_DBG("IMSI EF not in filesystem cache => not provisioned");
+		return 0;
+	}
 
 	ret = nvs_read(&fs, entry->key, buffer, IMSI_BIN_LEN);
 	if (ret < 0) {
@@ -582,6 +586,10 @@ int port_provision(struct ss_profile *profile)
 
 	struct cache_entry *entry =
 		(struct cache_entry *)f_cache_find_by_name(IMSI_PATH, &fs_cache);
+	if (!entry) {
+		LOG_ERR("EF IMSI not in filesystem cache");
+		goto out_err;
+	}
 
 	LOG_INF("Provisioning SoftSIM 1/4");
 	if (nvs_write(&fs, entry->key, imsi, IMSI_BIN_LEN) < 0) {
@@ -591,6 +599,10 @@ int port_provision(struct ss_profile *profile)
 
 	LOG_INF("Provisioning SoftSIM 2/4");
 	entry = (struct cache_entry *)f_cache_find_by_name(ICCID_PATH, &fs_cache);
+	if (!entry) {
+		LOG_ERR("EF ICCID not in filesystem cache");
+		goto out_err;
+	}
 	if (nvs_write(&fs, entry->key, iccid, ICCID_BIN_LEN) < 0) {
 		goto out_err;
 	}
@@ -598,6 +610,10 @@ int port_provision(struct ss_profile *profile)
 
 	LOG_INF("Provisioning SoftSIM 3/4");
 	entry = (struct cache_entry *)f_cache_find_by_name(A001_PATH, &fs_cache);
+	if (!entry) {
+		LOG_ERR("EF A001 not in filesystem cache");
+		goto out_err;
+	}
 	if (nvs_write(&fs, entry->key, a001, sizeof(a001)) < 0) {
 		goto out_err;
 	}
@@ -605,6 +621,10 @@ int port_provision(struct ss_profile *profile)
 
 	LOG_INF("Provisioning SoftSIM 4/4");
 	entry = (struct cache_entry *)f_cache_find_by_name(A004_PATH, &fs_cache);
+	if (!entry) {
+		LOG_ERR("EF A004 not in filesystem cache");
+		goto out_err;
+	}
 	if (nvs_write(&fs, entry->key, a004, sizeof(a004)) < 0) {
 		goto out_err;
 	}
