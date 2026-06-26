@@ -80,7 +80,6 @@ int ss_utils_ota_calc_cc(uint8_t *cc, size_t cc_len, uint8_t *key, size_t key_le
 			 enum enc_algorithm alg, uint8_t *data1, size_t data1_len, uint8_t *data2,
 			 size_t data2_len)
 {
-	psa_mac_operation_t operation = PSA_MAC_OPERATION_INIT;
 	enum key_identifier_base slot_id = key_id_to_kmu_slot(key[0]);
 
 	psa_key_handle_t key_handle;
@@ -112,6 +111,7 @@ int ss_utils_ota_calc_cc(uint8_t *cc, size_t cc_len, uint8_t *key, size_t key_le
 	psa_mac_operation_t mac_op;
 	mac_op = psa_mac_operation_init();
 	status = psa_mac_sign_setup(&mac_op, key_handle, PSA_ALG_CMAC);
+	ASSERT_STATUS(status, PSA_SUCCESS);
 
 	uint8_t mac_buf[16];
 	size_t mac_len, stream_block_size = 16, bytes_processed = 0;
@@ -144,7 +144,7 @@ int ss_utils_ota_calc_cc(uint8_t *cc, size_t cc_len, uint8_t *key, size_t key_le
 	LOG_HEXDUMP_DBG(cc, cc_len, "CMAC result OTA SMS");
 
 exit:
-	psa_mac_abort(&operation);
+	psa_mac_abort(&mac_op);
 	return status == PSA_SUCCESS ? 0 : -EINVAL;
 }
 
