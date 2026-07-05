@@ -1,8 +1,5 @@
-#
-# Copyright (c) 2020 Nordic Semiconductor
-#
-# SPDX-License-Identifier: LicenseRef-BSD-5-Clause-Nordic
-#
+# SPDX-FileCopyrightText: Copyright (c) 2023-2024 Onomondo ApS
+# SPDX-License-Identifier: GPL-3.0-only
 
 cmake_minimum_required(VERSION 3.20.0)
 
