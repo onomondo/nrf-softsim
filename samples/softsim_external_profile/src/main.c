@@ -4,6 +4,9 @@
  */
 
 #include <stdio.h>
+#include <unistd.h>
+#include <sys/socket.h>
+#include <arpa/inet.h>
 
 #include <nrf_softsim.h>
 #include <modem/lte_lc.h>
