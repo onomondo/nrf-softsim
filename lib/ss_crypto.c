@@ -249,22 +249,26 @@ int ss_utils_setup_key_helper(size_t key_len, uint8_t key[static key_len], int k
 {
 	psa_status_t status;
 	psa_key_attributes_t key_attributes = PSA_KEY_ATTRIBUTES_INIT;
-	psa_key_handle_t key_handle;
 
-	/* Check if it exists already, if it does, destroy it so the new one can be imported */
-	status = psa_open_key(key_id, &key_handle);
+	/* Check if it exists already, if it does, destroy it so the new one can be imported.
+	 * psa_open_key/psa_key_handle_t are the legacy, removed-in-PSA-1.0 handle API;
+	 * query and destroy the key by its id instead. A missing persistent key reports
+	 * as PSA_ERROR_INVALID_HANDLE here, not PSA_ERROR_DOES_NOT_EXIST. */
+	psa_key_attributes_t existing = PSA_KEY_ATTRIBUTES_INIT;
+	status = psa_get_key_attributes((psa_key_id_t)key_id, &existing);
+	psa_reset_key_attributes(&existing); /* free any resources the query allocated */
 
 	if (status == PSA_SUCCESS) {
 		LOG_DBG("Key %d already exists, destroying it before import", key_id);
-		status = psa_destroy_key(key_handle);
+		status = psa_destroy_key((psa_key_id_t)key_id);
 		if (status != PSA_SUCCESS) {
 			LOG_ERR("Failed to destroy a persistent key, ERR: %d", status);
 			return -1;
 		}
-	} else if (status == PSA_ERROR_DOES_NOT_EXIST) {
+	} else if (status == PSA_ERROR_INVALID_HANDLE) {
 		LOG_DBG("Key %d does not exist, proceeding to import", key_id);
 	} else {
-		LOG_ERR("Failed to open a persistent key, ERR: %d", status);
+		LOG_ERR("Failed to query a persistent key, ERR: %d", status);
 		return -1;
 	}
 
@@ -275,7 +279,8 @@ int ss_utils_setup_key_helper(size_t key_len, uint8_t key[static key_len], int k
 	psa_set_key_lifetime(&key_attributes, PSA_KEY_LIFETIME_PERSISTENT);
 	psa_set_key_id(&key_attributes, (psa_key_id_t)key_id);
 
-	status = psa_import_key(&key_attributes, key, key_len, &key_handle);
+	psa_key_id_t imported_id;
+	status = psa_import_key(&key_attributes, key, key_len, &imported_id);
 	if (status != PSA_SUCCESS) {
 		LOG_ERR("Failed to import key, ERR: %d", status);
 		psa_reset_key_attributes(&key_attributes);
