@@ -4,11 +4,6 @@ on:
   pull_request:
     paths:
       - '**.md'
-  push:
-    branches:
-      - master
-    paths:
-      - '**.md'
 
 permissions:
   contents: read
@@ -27,6 +22,6 @@ jobs:
         with:
           fail: true
           # Accept 403 (Forbidden) and 429 (rate limit) to avoid false positives
-          args: --accept "403,429" --verbose --no-progress './**/*.md'
+          args: --accept "200,403,429" --verbose --no-progress './**/*.md'
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
