@@ -33,6 +33,9 @@ if(CONFIG_SOFTSIM AND NOT CONFIG_PARTITION_MANAGER_ENABLED)
     # template) instead of TF-M's tfm_merged.hex, which lacks the template --
     # a fresh device flashed without the template fails SoftSIM FS init.
     # The Partition Manager flow did the equivalent via its own merged.hex.
+    # The ../ hop is coupled to sysbuild/CMakeLists.txt writing the artifact
+    # to its ${CMAKE_BINARY_DIR}/merged.hex: sysbuild nests each image's
+    # build directory one level below its own.
     set_property(TARGET runners_yaml_props_target PROPERTY hex_file ${CMAKE_BINARY_DIR}/../merged.hex)
   endif()
 endif()

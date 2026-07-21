@@ -151,7 +151,16 @@ The external (default) flow results in:
 
 SoftSIM stores profiles in a dedicated `nvs_storage` flash partition. From NCS v3.4.0 the partitioning comes from the devicetree — Nordic's Partition Manager is deprecated and no longer enabled by default.
 
-The module ships ready-made layouts in `dts/softsim/` (on the devicetree include path automatically), and the sample applies them through `samples/softsim_external_profile/boards/<board>.overlay`. The addresses are identical to the Partition Manager layouts previously used, so upgrading the firmware on an already-provisioned device keeps the SoftSIM profile intact.
+The module ships ready-made layouts in `dts/softsim/` (on the devicetree include path automatically), and the sample applies them through `samples/softsim_external_profile/boards/<board>.overlay`. The addresses are identical to the Partition Manager layouts previously used, so a firmware upgrade flashed onto an already-provisioned device keeps the SoftSIM profile intact — provided the upgrade is flashed as described below.
+
+#### Upgrading provisioned devices
+
+The default build bundles the SoftSIM filesystem template into `build/merged.hex` and points `west flash` at it. That is the right artifact for a **fresh or fully erased** device — but on a provisioned device `west flash` reprograms the template over the start of `nvs_storage`, destroying the profile. Worse than a clean wipe: the template covers only the first sectors of the partition, so the remaining sectors keep stale filesystem records and the resulting mixed state is undefined (an old profile may even resurrect). To deliberately reset provisioning, erase the whole partition (`west flash --erase`, or `nrfutil device recover`).
+
+To upgrade the firmware while keeping the provisioned profile, either:
+
+- build with `-DSB_CONFIG_SOFTSIM_BUNDLE_TEMPLATE_HEX=n` — no template is merged and `west flash` programs the application-only hex, which never touches `nvs_storage`; or
+- flash the application-only artifact explicitly (`build/<app>/zephyr/tfm_merged.hex`, or `build/<app>/zephyr/zephyr.signed.hex` under MCUboot) with an erase mode limited to the pages the file touches, e.g. `nrfutil device program --firmware <hex> --options chip_erase_mode=ERASE_RANGES_TOUCHED_BY_FIRMWARE`.
 
 For your own application, include the layout for your board from a board overlay:
 
@@ -162,7 +171,7 @@ For your own application, include the layout for your board from a board overlay
 
 Any custom layout works too, as long as it declares a `nvs_storage` partition (node label spelled exactly like that) of 32 kB — a build assert enforces this.
 
-For DFU with MCUboot on the DKs, add the validated MCUboot layout on top (see `samples/softsim_external_profile/mcuboot-partitions.overlay`):
+For DFU with MCUboot on the DKs, add the MCUboot layout on top (it matches the stock boot/slot0/slot1 geometry, so the MCUboot image builds with the unmodified board devicetree; see `samples/softsim_external_profile/mcuboot-partitions.overlay`):
 
 ```
 west build --sysbuild -b nrf9151dk/nrf9151/ns -- \
