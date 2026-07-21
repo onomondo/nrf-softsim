@@ -54,8 +54,9 @@ BUILD_ASSERT(DT_NODE_EXISTS(DT_NODELABEL(boot_partition)),
  * node (TF-M derives its non-secure SPU flash region from that label), so a
  * settings backend defaulting to storage_partition would write into the
  * SoftSIM filesystem. */
-#if (defined(CONFIG_SETTINGS_FCB) || defined(CONFIG_SETTINGS_ZMS)) && \
-	DT_NODE_EXISTS(DT_NODELABEL(storage_partition)) && DT_NODE_EXISTS(DT_NODELABEL(nvs_storage))
+#if (defined(CONFIG_SETTINGS_FCB) || defined(CONFIG_SETTINGS_ZMS)) &&                              \
+	DT_NODE_EXISTS(DT_NODELABEL(storage_partition)) &&                                         \
+	DT_NODE_EXISTS(DT_NODELABEL(nvs_storage))
 BUILD_ASSERT(!DT_SAME_NODE(DT_NODELABEL(storage_partition), DT_NODELABEL(nvs_storage)),
 	     "SoftSIM: "
 	     "The settings storage_partition is the SoftSIM nvs_storage partition. "
