@@ -147,6 +147,33 @@ The external (default) flow results in:
 [00:00:07.096,221] <inf> softsim_sample: Network registration status: Connected - roaming
 [00:00:07.096,405] <inf> softsim_sample: LTE connected!
 ```
+### Flash partitioning
+
+SoftSIM stores profiles in a dedicated `nvs_storage` flash partition. From NCS v3.4.0 the partitioning comes from the devicetree — Nordic's Partition Manager is deprecated and no longer enabled by default.
+
+The module ships ready-made layouts in `dts/softsim/` (on the devicetree include path automatically), and the sample applies them through `samples/softsim_external_profile/boards/<board>.overlay`. The addresses are identical to the Partition Manager layouts previously used, so upgrading the firmware on an already-provisioned device keeps the SoftSIM profile intact.
+
+For your own application, include the layout for your board from a board overlay:
+
+```c
+#include <softsim/nrf91_softsim_partitions.dtsi>   /* nRF91 DKs; thingy91/thingy91x variants also available */
+#include <softsim/nrf91_softsim_sram.dtsi>
+```
+
+Any custom layout works too, as long as it declares a `nvs_storage` partition (node label spelled exactly like that) of 32 kB — a build assert enforces this.
+
+For DFU with MCUboot on the DKs, add the validated MCUboot layout on top (see `samples/softsim_external_profile/mcuboot-partitions.overlay`):
+
+```
+west build --sysbuild -b nrf9151dk/nrf9151/ns -- \
+  -DSB_CONFIG_BOOTLOADER_MCUBOOT=y \
+  -DEXTRA_DTC_OVERLAY_FILE=mcuboot-partitions.overlay
+```
+
+On the Thingy:91 and Thingy:91 X the bootloader chain (MCUboot, and B0 on the Thingy:91 X) is enabled by the board defaults; the module automatically gives those images the matching partition view where the factory layout differs from the stock board devicetree.
+
+The deprecated Partition Manager flow still works during the transition window: build with `-DSB_CONFIG_PARTITION_MANAGER=y` (the `pm_static.yml` files are still in the sample).
+
 ### General usage
 
 For most samples and applications, it's sufficient to build by executing the following command:
@@ -158,15 +185,10 @@ Where `PATH_TO_ONOMONDO_SOFTSIM` is the path of the downloaded Onomondo SoftSIM 
 #### Note
 SoftSIM is relying on some default data in the storage partition. This section of the flash can be generated and flashed manually (see steps below) or, as we recommend, automatically included by adding `SB_CONFIG_SOFTSIM_BUNDLE_TEMPLATE_HEX=y` to `sysbuild.conf`.
 
-Manually generating SoftSIM profile template data:
-1. After building the application, generate the application-specific template profile. `west build -b nrf9151dk/nrf9151/ns -t onomondo_softsim_template`
-2. Flash the application-specific template profile. `west flash --hex-file build/onomondo-softsim/template.hex`
+Manually flashing the SoftSIM profile template data: every build generates it at the `nvs_storage` address as `build/<app>/onomondo-softsim/template.hex` (with the deprecated Partition Manager: `west build -t onomondo_softsim_template`, output in `build/onomondo-softsim/template.hex`). Flash it with `west flash --hex-file <path-to-template.hex>`.
 
 If the partition table of the application changes, for example due to another partition changing size, the template profile must be rebuilt and flashed again.
-The partition table can be checked at any time with:
-```
-west build -t partition_manager_report
-```
+The resolved partition table can be checked at any time in `build/<app>/zephyr/zephyr.dts` (or with `west build -t partition_manager_report` when building with the Partition Manager).
 
 #### Note
 Some applications will fail to link with error `zephyr/zephyr_pre0.elf uses VFP register arguments` (for example `modem_shell`). In this case it is required to also enable `CONFIG_FP_SOFTABI=y`. It is suggested to create an additional Kconfig overlay for application specific SoftSIM configurations and add them to `overlay-softsim.conf` inside
@@ -420,7 +442,7 @@ SoftSIM entrypoint starts its own work queue and returns immediately after. The 
 
 ![softsim_nrf_flow](https://github.com/onomondo/nrf-softsim/assets/46489969/7513bb06-99b3-4de4-95bb-34884a9726ed)
 
-Please note that SoftSIM internally need access to a storage partition. This should be pre-populated with the `template.hex` provided in the samples. The adress in the `template.hex` is hardcoded but can be moved around freely as pleased with an appropriate tool. The location is derived from the devicetree at compile time (` FIXED_PARTITION_DEVICE(NVS_PARTITION)`)
+Please note that SoftSIM internally need access to a storage partition. This should be pre-populated with the `template.hex` provided in the samples. The adress in the `template.hex` is hardcoded but can be moved around freely as pleased with an appropriate tool. The location is derived from the devicetree at compile time (`PARTITION_DEVICE(nvs_storage)`)
 
 ## Contributing
 
