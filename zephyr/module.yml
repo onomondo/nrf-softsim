@@ -5,6 +5,8 @@ build:
   kconfig: ./Kconfig
   sysbuild-cmake: sysbuild
   sysbuild-kconfig: sysbuild/Kconfig
+  settings:
+    dts_root: .
   depends:
     - trusted-firmware-m
 

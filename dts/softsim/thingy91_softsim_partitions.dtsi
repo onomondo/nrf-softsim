@@ -1,0 +1,139 @@
+/*
+ * SPDX-FileCopyrightText: Copyright (c) 2026 Onomondo ApS
+ * SPDX-License-Identifier: GPL-3.0-only
+ *
+ * SoftSIM flash layout for the Thingy:91 (nrf9160/ns). Byte-identical to
+ * the factory Partition Manager layout (boards/thingy91_pm_static.yml) so
+ * devices upgrading in place keep the provisioned profile in nvs_storage
+ * and stay compatible with the factory MCUboot.
+ *
+ * 0x0000_0000  MCUboot                         ( 48 kB)
+ * 0x0000_c000  Image 0 (pad + TF-M + app)      (420 kB)
+ *   0x0000_c000  Secure image (pad + TF-M)     ( 80 kB)
+ *   0x0002_0000  Non-secure image (SPU span 332 kB, app link bound 256 kB)
+ * 0x0006_0000  SoftSIM NVS storage             ( 32 kB)
+ * 0x0006_8000  TF-M storage (ITS + gap + OTP)  ( 40 kB)
+ * 0x0007_5000  Image 1 (MCUboot secondary)     (420 kB)
+ * 0x000d_e000  MCUboot scratch                 (120 kB)
+ * 0x000f_e000  Settings storage                (  8 kB)
+ *
+ * The application links into app_partition (0x2_0000..0x6_0000, the factory
+ * layout's app region) rather than the full slot0_ns_partition span: TF-M
+ * reads the slot0_ns_partition label for the SPU non-secure range (which must
+ * keep covering nvs_storage at 0x6_0000), while the chosen
+ * zephyr,code-partition below restores the link-time bound so an application
+ * outgrowing 0x6_0000 fails to link instead of a DFU swap overwriting the
+ * provisioned profile.
+ *
+ * Inherited SPU caveat (factory-layout parity): the SPU attributes flash in
+ * 32 kB regions, so the non-secure span 0x2_0000..0x7_2fff rounds out to
+ * 0x2_0000..0x7_7fff and covers tfm_its (0x6_8000) and tfm_otp (0x7_0000) --
+ * the non-secure application can access TF-M's internal storage. The factory
+ * Partition Manager layout (tfm_nonsecure 0x2_0000..0x7_3000) attributes the
+ * exact same regions; this is preserved deliberately for byte-compatibility
+ * with provisioned devices.
+ */
+
+/delete-node/ &boot_partition;
+/delete-node/ &slot0_partition;
+/delete-node/ &slot1_partition;
+/delete-node/ &scratch_partition;
+/delete-node/ &storage_partition;
+
+&flash0 {
+	partitions {
+		ranges;
+		#address-cells = <1>;
+		#size-cells = <1>;
+
+		boot_partition: partition@0 {
+			compatible = "zephyr,mapped-partition";
+			label = "mcuboot";
+			reg = <0x00000000 0xc000>;
+		};
+
+		slot0_partition: partition@c000 {
+			compatible = "zephyr,mapped-partition";
+			label = "image-0";
+			reg = <0x0000c000 0x69000>;
+			ranges = <0x0 0xc000 0x69000>;
+			#address-cells = <1>;
+			#size-cells = <1>;
+
+			slot0_s_partition: partition@0 {
+				compatible = "zephyr,mapped-partition";
+				label = "image-0-secure";
+				reg = <0x00000000 0x14000>;
+			};
+
+			slot0_ns_partition: partition@14000 {
+				compatible = "zephyr,mapped-partition";
+				label = "image-0-nonsecure";
+				reg = <0x00014000 0x53000>;
+			};
+
+			/* Link-time bound for the application image (see header).
+			 * Distinct node name: a sibling also called partition@14000
+			 * would be merged with slot0_ns_partition by the DT compiler.
+			 */
+			app_partition: app@14000 {
+				compatible = "zephyr,mapped-partition";
+				label = "app";
+				reg = <0x00014000 0x40000>;
+			};
+		};
+
+		nvs_storage: partition@60000 {
+			compatible = "zephyr,mapped-partition";
+			label = "nvs-storage";
+			reg = <0x00060000 0x8000>;
+		};
+
+		tfm_storage_partition: partition@68000 {
+			compatible = "zephyr,mapped-partition";
+			label = "tfm-storage";
+			reg = <0x00068000 0xa000>;
+			ranges = <0x0 0x68000 0xa000>;
+			#address-cells = <1>;
+			#size-cells = <1>;
+
+			tfm_its_partition: partition@0 {
+				compatible = "zephyr,mapped-partition";
+				label = "tfm-its";
+				reg = <0x00000000 0x2000>;
+			};
+
+			tfm_otp_partition: partition@8000 {
+				compatible = "zephyr,mapped-partition";
+				label = "tfm-otp";
+				reg = <0x00008000 0x2000>;
+			};
+		};
+
+		slot1_partition: partition@75000 {
+			compatible = "zephyr,mapped-partition";
+			label = "image-1";
+			reg = <0x00075000 0x69000>;
+		};
+
+		scratch_partition: partition@de000 {
+			compatible = "zephyr,mapped-partition";
+			label = "image-scratch";
+			reg = <0x000de000 0x1e000>;
+		};
+
+		storage_partition: partition@fe000 {
+			compatible = "zephyr,mapped-partition";
+			label = "storage";
+			reg = <0x000fe000 0x2000>;
+		};
+	};
+};
+
+/ {
+	chosen {
+		/* Bound the application link region at nvs_storage (see header);
+		 * the stock board devicetree points this at slot0_ns_partition. */
+		zephyr,code-partition = &app_partition;
+	};
+};

@@ -1,0 +1,88 @@
+/*
+ * SPDX-FileCopyrightText: Copyright (c) 2026 Onomondo ApS
+ * SPDX-License-Identifier: GPL-3.0-only
+ *
+ * SoftSIM flash layout for the nRF91 DKs (/ns) with MCUboot (DFU).
+ * New layout (there was no supported MCUboot configuration before, see
+ * issue #107): the non-secure image starts at 0x28000, satisfying the
+ * nRF91 SPU flash granularity of 32 kB, and nvs_storage stays at the
+ * same address as the no-bootloader layout so a device can adopt DFU
+ * later without losing its provisioned SoftSIM profile.
+ *
+ * 0x0000_0000  MCUboot                         ( 64 kB)
+ * 0x0001_0000  Image 0 (pad + TF-M + app)      (448 kB)
+ *   0x0001_0000  Secure image (pad + TF-M)     ( 96 kB)
+ *   0x0002_8000  Non-secure image (app)        (352 kB)
+ * 0x0008_0000  Image 1 (MCUboot secondary)     (448 kB)
+ * 0x000f_0000  SoftSIM NVS storage             ( 32 kB)
+ * 0x000f_8000  TF-M Internal Trusted Storage   (  8 kB)
+ * 0x000f_a000  TF-M OTP / NV counters          (  8 kB)
+ * 0x000f_c000  unused (TF-M PS disabled)       ( 16 kB)
+ */
+
+&flash0 {
+	/* Replace the whole partition table. Deleting the container (not the
+	 * individual labels) lets this fragment apply both on the stock board
+	 * devicetree and on top of the no-bootloader SoftSIM layout. */
+	/delete-node/ partitions;
+
+	partitions {
+		ranges;
+		#address-cells = <1>;
+		#size-cells = <1>;
+
+		boot_partition: partition@0 {
+			compatible = "zephyr,mapped-partition";
+			label = "mcuboot";
+			reg = <0x00000000 0x10000>;
+		};
+
+		slot0_partition: partition@10000 {
+			compatible = "zephyr,mapped-partition";
+			label = "image-0";
+			reg = <0x00010000 0x70000>;
+			ranges = <0x0 0x10000 0x70000>;
+			#address-cells = <1>;
+			#size-cells = <1>;
+
+			slot0_s_partition: partition@0 {
+				compatible = "zephyr,mapped-partition";
+				label = "image-0-secure";
+				reg = <0x00000000 0x18000>;
+			};
+
+			slot0_ns_partition: partition@18000 {
+				compatible = "zephyr,mapped-partition";
+				label = "image-0-nonsecure";
+				reg = <0x00018000 0x58000>;
+			};
+		};
+
+		slot1_partition: partition@80000 {
+			compatible = "zephyr,mapped-partition";
+			label = "image-1";
+			reg = <0x00080000 0x70000>;
+		};
+
+		/* The storage_partition label makes TF-M configure this range as
+		 * non-secure in the SPU; without it the application faults on the
+		 * first NVS write. */
+		storage_partition: nvs_storage: partition@f0000 {
+			compatible = "zephyr,mapped-partition";
+			label = "nvs-storage";
+			reg = <0x000f0000 0x8000>;
+		};
+
+		tfm_its_partition: partition@f8000 {
+			compatible = "zephyr,mapped-partition";
+			label = "tfm-its";
+			reg = <0x000f8000 0x2000>;
+		};
+
+		tfm_otp_partition: partition@fa000 {
+			compatible = "zephyr,mapped-partition";
+			label = "tfm-otp";
+			reg = <0x000fa000 0x2000>;
+		};
+	};
+};

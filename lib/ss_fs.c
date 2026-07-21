@@ -22,9 +22,12 @@
 
 LOG_MODULE_DECLARE(softsim, CONFIG_SOFTSIM_NRF_LOG_LEVEL);
 
+/* PARTITION_* resolves from the Partition Manager shim (flash_map_pm.h) when
+ * PM is enabled, and from the devicetree nvs_storage node label otherwise. */
 #define NVS_PARTITION        nvs_storage
-#define NVS_PARTITION_DEVICE FIXED_PARTITION_DEVICE(NVS_PARTITION)
-#define NVS_PARTITION_OFFSET FIXED_PARTITION_OFFSET(NVS_PARTITION)
+#define NVS_PARTITION_DEVICE PARTITION_DEVICE(NVS_PARTITION)
+#define NVS_PARTITION_OFFSET PARTITION_OFFSET(NVS_PARTITION)
+#define NVS_PARTITION_SIZE   PARTITION_SIZE(NVS_PARTITION)
 
 #define DIR_ID (1UL)
 
@@ -99,7 +102,7 @@ int ss_init_fs(void)
 	fs.flash_device = NVS_PARTITION_DEVICE;
 	fs.sector_size =
 		0x1000; /* Where to read this? :DT_PROP(NVS_PARTITION, erase_block_size); */
-	fs.sector_count = FLASH_AREA_SIZE(nvs_storage) / fs.sector_size;
+	fs.sector_count = NVS_PARTITION_SIZE / fs.sector_size;
 	fs.offset = NVS_PARTITION_OFFSET;
 
 	int rc = nvs_mount(&fs);

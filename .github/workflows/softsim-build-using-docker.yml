@@ -51,6 +51,7 @@ jobs:
         working-directory: modules/lib/onomondo-softsim/samples/softsim_external_profile
         run: |
           west build --sysbuild --pristine=always --board ${{ matrix.board }}
+          test -f build/merged.hex
 
       - name: Archive name generator
         id: artifact_name
@@ -73,3 +74,13 @@ jobs:
         run: |
           west build --sysbuild --pristine=always --board ${{ matrix.board }} \
             -- -DEXTRA_CONF_FILE=overlay-static.conf
+
+      # Canary for the deprecated Partition Manager flow, which stays supported
+      # during the devicetree transition window. One board is enough.
+      - name: Build firmware (Partition Manager mode, canary)
+        if: matrix.board == 'nrf9151dk/nrf9151/ns'
+        working-directory: modules/lib/onomondo-softsim/samples/softsim_external_profile
+        run: |
+          west build --sysbuild --pristine=always --board ${{ matrix.board }} \
+            -- -DSB_CONFIG_PARTITION_MANAGER=y
+          test -f build/merged.hex
