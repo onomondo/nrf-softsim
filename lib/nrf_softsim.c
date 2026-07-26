@@ -63,7 +63,7 @@ struct softsim_req_node {
 /**
  * @brief Initialize the Onomondo SoftSIM.
  */
-int onomondo_init(void)
+int nrf_softsim_init(void)
 {
 	/* Init the filesystem here?
 	 * Pro: pretty smooth :) -> no need to init and deinit more than needed..
@@ -327,7 +327,7 @@ void nrf_modem_softsim_req_handler(enum nrf_modem_softsim_cmd req, uint16_t req_
 }
 
 #ifdef CONFIG_SOFTSIM_AUTO_INIT
-SYS_INIT(onomondo_init, APPLICATION, 0);
+SYS_INIT(nrf_softsim_init, APPLICATION, 0);
 
 static void ss_on_modem_lib_init(int ret, void *ctx)
 {
