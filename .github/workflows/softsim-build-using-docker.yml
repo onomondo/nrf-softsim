@@ -73,3 +73,32 @@ jobs:
         run: |
           west build --sysbuild --pristine=always --board ${{ matrix.board }} \
             -- -DEXTRA_CONF_FILE=overlay-static.conf
+
+      # This module's sysbuild hook runs for every sysbuild build in the workspace,
+      # so it must not require the (deprecated, default-off) Partition Manager.
+      # hello_world is the cheapest application that exercises the hook.
+      - name: Build an unrelated sample without Partition Manager
+        if: matrix.board == 'nrf9151dk/nrf9151/ns'
+        run: |
+          west build --sysbuild --pristine=always --board ${{ matrix.board }} \
+            -d build-hello zephyr/samples/hello_world
+
+      # Manual init: proves nrf_softsim_init() is defined and linkable, and that
+      # the sample's manual bring-up path compiles.
+      #
+      # The grep guards the other half. overlay-softsim.conf must not set
+      # CONFIG_SOFTSIM_AUTO_INIT: it is applied after the application's prj.conf,
+      # so setting it there silently overrides an application that opts out --
+      # while changing nothing otherwise, since Kconfig already defaults it to y.
+      # A build cannot catch that regression from here: EXTRA_CONF_FILE is applied
+      # after the module overlay and would win, and only a prj.conf opt-out
+      # reproduces it -- which is not the sample's default mode.
+      - name: Build firmware (manual init mode)
+        if: matrix.board == 'nrf9151dk/nrf9151/ns'
+        working-directory: modules/lib/onomondo-softsim/samples/softsim_external_profile
+        run: |
+          west build --sysbuild --pristine=always --board ${{ matrix.board }} \
+            -- -DEXTRA_CONF_FILE=overlay-manual-init.conf
+          grep -qx '# CONFIG_SOFTSIM_AUTO_INIT is not set' \
+            build/softsim_external_profile/zephyr/.config
+          ! grep -q '^CONFIG_SOFTSIM_AUTO_INIT' ../../overlay-softsim.conf
