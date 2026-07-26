@@ -171,6 +171,14 @@ For your own application, include the layout for your board from a board overlay
 
 Any custom layout works too, as long as it declares a `nvs_storage` partition (node label spelled exactly like that) of 32 kB — a build assert enforces this.
 
+If your application already brings its own partition layout — as the NCS cellular samples do, through `#include <samples/cellular/nrf91_no_bootloader_partitions.dtsi>` in `boards/<board>.overlay` — the SoftSIM layout **replaces** it rather than stacking on top; two complete layouts cannot both apply, and the second one fails with `undefined node label 'boot_partition'`. Either edit that overlay, or override the application's overlay list with `DTC_OVERLAY_FILE` (which replaces, unlike `EXTRA_DTC_OVERLAY_FILE`, which appends):
+
+```
+west build --sysbuild -b nrf9151dk/nrf9151/ns nrf/samples/cellular/at_client -- \
+  -DOVERLAY_CONFIG=$PATH_TO_ONOMONDO_SOFTSIM/overlay-softsim.conf \
+  -DDTC_OVERLAY_FILE="$PATH_TO_ONOMONDO_SOFTSIM/dts/softsim/nrf91_softsim_partitions.dtsi;$PATH_TO_ONOMONDO_SOFTSIM/dts/softsim/nrf91_softsim_sram.dtsi"
+```
+
 For DFU with MCUboot on the DKs, add the MCUboot layout on top (it matches the stock boot/slot0/slot1 geometry, so the MCUboot image builds with the unmodified board devicetree; see `samples/softsim_external_profile/mcuboot-partitions.overlay`):
 
 ```

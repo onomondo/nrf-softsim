@@ -17,7 +17,7 @@
  * 0x000f_0000  SoftSIM NVS storage             ( 32 kB)
  * 0x000f_8000  TF-M Internal Trusted Storage   (  8 kB)
  * 0x000f_a000  TF-M OTP / NV counters          (  8 kB)
- * 0x000f_c000  unused (TF-M PS disabled)       ( 16 kB)
+ * 0x000f_c000  TF-M Protected Storage          ( 16 kB)
  */
 
 &flash0 {
@@ -83,6 +83,12 @@
 			compatible = "zephyr,mapped-partition";
 			label = "tfm-otp";
 			reg = <0x000fa000 0x2000>;
+		};
+
+		tfm_ps_partition: partition@fc000 {
+			compatible = "zephyr,mapped-partition";
+			label = "tfm-ps";
+			reg = <0x000fc000 0x4000>;
 		};
 	};
 };
