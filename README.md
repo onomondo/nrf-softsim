@@ -149,7 +149,7 @@ The external (default) flow results in:
 ```
 ### Flash partitioning
 
-SoftSIM stores profiles in a dedicated `nvs_storage` flash partition. From NCS v3.4.0 the partitioning comes from the devicetree — Nordic's Partition Manager is deprecated and no longer enabled by default.
+SoftSIM stores profiles in a dedicated `nvs_storage` flash partition. From NCS v3.4.0 the partitioning comes from the devicetree — Nordic's Partition Manager is deprecated and no longer enabled by default. NCS **v3.4.0 is the minimum**: the layouts use the `zephyr,mapped-partition` binding and the module resolves the partition through the `PARTITION_*` flash map macros, neither of which exists in earlier releases.
 
 The module ships ready-made layouts in `dts/softsim/` (on the devicetree include path automatically), and the sample applies them through `samples/softsim_external_profile/boards/<board>.overlay`. The addresses are identical to the Partition Manager layouts previously used, so a firmware upgrade flashed onto an already-provisioned device keeps the SoftSIM profile intact — provided the upgrade is flashed as described below.
 

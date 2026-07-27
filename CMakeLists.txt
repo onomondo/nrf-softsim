@@ -36,6 +36,7 @@ if(CONFIG_SOFTSIM AND NOT CONFIG_PARTITION_MANAGER_ENABLED)
     # The ../ hop is coupled to sysbuild/CMakeLists.txt writing the artifact
     # to its ${CMAKE_BINARY_DIR}/merged.hex: sysbuild nests each image's
     # build directory one level below its own.
-    set_property(TARGET runners_yaml_props_target PROPERTY hex_file ${CMAKE_BINARY_DIR}/../merged.hex)
+    cmake_path(SET _softsim_merged_hex NORMALIZE ${CMAKE_BINARY_DIR}/../merged.hex)
+    set_property(TARGET runners_yaml_props_target PROPERTY hex_file ${_softsim_merged_hex})
   endif()
 endif()
