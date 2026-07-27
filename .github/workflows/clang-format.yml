@@ -21,10 +21,12 @@ jobs:
 
       - name: Run clang-format check
         run: |
-          # find source files, then filter to project directories we care about
-          # explicitly exclude any files that are part of the onomondo-uicc submodule
-          FILES=$(find lib samples -name "*.c" -o -name "*.h" \
-            | grep -E "(lib/|samples/softsim_(external|static)_profile/)" \
+          # List tracked sources only, then filter to the directories we own.
+          # git ls-files (rather than find) keeps local build artifacts and the
+          # vendored sample modules out, so this behaves the same on a developer
+          # machine as it does on a fresh CI checkout.
+          FILES=$(git ls-files '*.c' '*.h' \
+            | grep -E "^(lib/|samples/softsim_(external|static)_profile/|tests/)" \
             | grep -v "lib/include/" \
             | grep -v "lib/onomondo-uicc/")
           clang-format --dry-run -Werror $FILES

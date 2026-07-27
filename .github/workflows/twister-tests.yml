@@ -1,0 +1,69 @@
+name: SoftSIM Unit Tests
+
+on:
+  push:
+    branches:
+      - master
+  pull_request:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  twister:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 30
+    container: ghcr.io/nrfconnect/sdk-nrf-toolchain:v3.4.0@sha256:f1dca44678dae83e37404e33f369786f5b2ffe2ed497eec1815f66c3a868bace
+    defaults:
+      run:
+        # Bash is needed to set the toolchain environment variables in the
+        # container -- same workaround as the firmware build workflow.
+        shell: bash
+
+    steps:
+      # The toolchain image ships ninja but not make, and Zephyr's native_sim
+      # build needs make to build the native simulator runner.
+      - name: Install make
+        run: |
+          apt-get update -qq
+          apt-get install -y -qq --no-install-recommends make
+
+      - name: Initialize workspace
+        run: |
+          west init -m https://github.com/${GITHUB_REPOSITORY}
+
+      - name: Checkout
+        uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0
+        with:
+          path: modules/lib/onomondo-softsim
+          submodules: true
+
+      - name: Fetch nRF and Zephyr workspaces and dependencies
+        run: |
+          west update -o=--depth=1 --narrow
+
+      # native_sim is a host binary, so the sanitizers actually apply here. The
+      # memory-safety cases (truncated DIR blobs, buffer growth) rely on them.
+      - name: Run Twister
+        run: |
+          ./zephyr/scripts/twister \
+            -T modules/lib/onomondo-softsim/tests \
+            -p native_sim \
+            --enable-asan \
+            --enable-ubsan \
+            --inline-logs \
+            -v
+
+      - name: Archive Twister results
+        if: always()
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: twister-results
+          path: |
+            twister-out/twister.xml
+            twister-out/twister.json
+          if-no-files-found: warn

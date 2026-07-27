@@ -1,0 +1,13 @@
+tests:
+  softsim.unit.cache:
+    # native_sim only: it is what CI runs and the only platform supporting
+    # --enable-asan/--enable-ubsan. Its POSIX architecture is unsupported on
+    # macOS, so run locally via Docker or act rather than carrying a second
+    # platform in-tree.
+    platform_allow:
+      - native_sim
+    integration_platforms:
+      - native_sim
+    tags:
+      - softsim
+      - ci_tests_softsim_unit
