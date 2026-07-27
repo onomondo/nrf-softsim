@@ -1,0 +1,15 @@
+tests:
+  softsim.fs.nvs:
+    platform_allow:
+      - native_sim
+    integration_platforms:
+      - native_sim
+    tags:
+      - softsim
+      - ci_tests_softsim_unit
+      # Runs with ASan but not UBSan. Zephyr's own flash simulator trips UBSan:
+      # nvs_read(&fs, id, NULL, 0) -- the size-probe idiom ss_init_fs() uses --
+      # reaches memcpy(NULL, src, 0) at drivers/flash/flash_simulator.c:188,
+      # violating a nonnull attribute. Harmless, not ours to fix, and twister
+      # runs UBSan with halt_on_error=1. CI selects on this tag.
+      - softsim_no_ubsan

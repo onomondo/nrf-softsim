@@ -55,8 +55,23 @@ jobs:
             -p native_sim \
             --enable-asan \
             --enable-ubsan \
+            --exclude-tag softsim_no_ubsan \
             --inline-logs \
             -v
+
+      # Suites tagged softsim_no_ubsan run with ASan but without UBSan; see the
+      # tag comment in tests/fs/testcase.yaml for why. Split rather than dropping
+      # UBSan everywhere, since it is what catches the integer-underflow class.
+      - name: Run Twister (ASan only)
+        run: |
+          ./zephyr/scripts/twister \
+            -T modules/lib/onomondo-softsim/tests \
+            -p native_sim \
+            --enable-asan \
+            --tag softsim_no_ubsan \
+            --inline-logs \
+            -v \
+            --outdir twister-out-asan
 
       - name: Archive Twister results
         if: always()
@@ -66,4 +81,6 @@ jobs:
           path: |
             twister-out/twister.xml
             twister-out/twister.json
+            twister-out-asan/twister.xml
+            twister-out-asan/twister.json
           if-no-files-found: warn
