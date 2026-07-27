@@ -104,3 +104,38 @@ jobs:
           west build --sysbuild --pristine=always --board ${{ matrix.board }} \
             -- -DSB_CONFIG_PARTITION_MANAGER=y
           test -f build/merged.hex
+
+      # Every step above builds our own sample, which wires SoftSIM in through
+      # its CMakeLists.txt, sysbuild.conf and boards/<board>.overlay. These two
+      # cover the README's integration path instead: SoftSIM added to somebody
+      # else's application. at_client is a small NCS sample that uses the modem
+      # library and builds without a bootloader, which is what
+      # nrf91_softsim_partitions.dtsi is written for.
+      #
+      # DTC_OVERLAY_FILE, not EXTRA_DTC_OVERLAY_FILE: at_client carries its own
+      # partition layout and the two cannot stack, so ours has to replace the
+      # application's overlay list rather than append to it.
+      - name: Build a foreign application with SoftSIM
+        if: matrix.board == 'nrf9151dk/nrf9151/ns'
+        env:
+          SOFTSIM: modules/lib/onomondo-softsim
+        run: |
+          west build --sysbuild --pristine=always --board ${{ matrix.board }} \
+            -d build-at-client nrf/samples/cellular/at_client \
+            -- -DOVERLAY_CONFIG="$PWD/$SOFTSIM/overlay-softsim.conf" \
+               -DDTC_OVERLAY_FILE="$PWD/$SOFTSIM/dts/softsim/nrf91_softsim_partitions.dtsi;$PWD/$SOFTSIM/dts/softsim/nrf91_softsim_sram.dtsi"
+          grep -qx 'CONFIG_SOFTSIM=y' build-at-client/at_client/zephyr/.config
+
+      # Same, bundling the template: an integrator has to be able to produce a
+      # flashable artifact for their own application, not just for our sample.
+      - name: Build a foreign application with SoftSIM (bundled template)
+        if: matrix.board == 'nrf9151dk/nrf9151/ns'
+        env:
+          SOFTSIM: modules/lib/onomondo-softsim
+        run: |
+          west build --sysbuild --pristine=always --board ${{ matrix.board }} \
+            -d build-at-client-bundled nrf/samples/cellular/at_client \
+            -- -DOVERLAY_CONFIG="$PWD/$SOFTSIM/overlay-softsim.conf" \
+               -DDTC_OVERLAY_FILE="$PWD/$SOFTSIM/dts/softsim/nrf91_softsim_partitions.dtsi;$PWD/$SOFTSIM/dts/softsim/nrf91_softsim_sram.dtsi" \
+               -DSB_CONFIG_SOFTSIM_BUNDLE_TEMPLATE_HEX=y
+          test -f build-at-client-bundled/merged.hex
