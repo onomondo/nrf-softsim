@@ -104,6 +104,23 @@ jobs:
           west build --sysbuild --pristine=always --board ${{ matrix.board }} \
             -- -DSB_CONFIG_PARTITION_MANAGER=y
           test -f build/merged.hex
+          # The devicetree layouts are byte-identical to what PM computed, and
+          # prj.conf no longer pins CONFIG_PM_PARTITION_SIZE_TFM. Pin the PM
+          # side of that claim: a shifted nvs_storage destroys the provisioned
+          # profile of every device upgraded in place, and builds fine.
+          python3 -c "import yaml, sys; p = yaml.safe_load(open('build/partitions.yml'))['nvs_storage']; sys.exit(None if (p['address'], p['size']) == (0xf0000, 0x8000) else f'nvs_storage moved: {p}')"
+
+      # The DFU layout the README documents. Nothing built it before, so its
+      # geometry was verified by inspection only; this is also the only build
+      # that exercises the boot_partition build assert.
+      - name: Build firmware (MCUboot DFU layout)
+        if: matrix.board == 'nrf9151dk/nrf9151/ns'
+        working-directory: modules/lib/onomondo-softsim/samples/softsim_external_profile
+        run: |
+          west build --sysbuild --pristine=always --board ${{ matrix.board }} \
+            -- -DSB_CONFIG_BOOTLOADER_MCUBOOT=y \
+               -DEXTRA_DTC_OVERLAY_FILE=mcuboot-partitions.overlay
+          test -f build/merged.hex
 
       # Every step above builds our own sample, which wires SoftSIM in through
       # its CMakeLists.txt, sysbuild.conf and boards/<board>.overlay. These two
