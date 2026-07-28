@@ -79,13 +79,6 @@ int ss_utils_setup_key(size_t key_len, uint8_t key[static key_len], enum key_ide
 	return 0;
 }
 
-/*
- * The module still exports the init entry point as onomondo_init(); the header
- * documents it as nrf_softsim_init(), a mismatch tracked separately. Declare
- * what actually exists.
- */
-int onomondo_init(void);
-
 #define ALL_FAKES(F)                                                                               \
 	F(nrf_modem_softsim_req_handler_set)                                                       \
 	F(nrf_modem_softsim_res)                                                                   \
@@ -179,7 +172,7 @@ static void *suite_setup(void)
 	reset_all_fakes();
 
 	/* Starts the SoftSIM work queue exactly once for the whole binary. */
-	zassert_ok(onomondo_init(), "SoftSIM init failed");
+	zassert_ok(nrf_softsim_init(), "SoftSIM init failed");
 	zassert_not_null(req_handler, "module did not register a request handler");
 
 	return NULL;

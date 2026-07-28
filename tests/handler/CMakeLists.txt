@@ -28,5 +28,5 @@ target_include_directories(app PRIVATE
 )
 
 # CONFIG_SOFTSIM_AUTO_INIT is deliberately left undefined so the SYS_INIT hook
-# is compiled out and the test drives onomondo_init() explicitly.
+# is compiled out and the test drives nrf_softsim_init() explicitly.
 target_compile_definitions(app PRIVATE CONFIG_SOFTSIM_NRF_LOG_LEVEL=3)
