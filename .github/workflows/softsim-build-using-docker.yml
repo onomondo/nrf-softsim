@@ -28,6 +28,11 @@ jobs:
       fail-fast: false
       matrix:
         board: [nrf9160dk/nrf9160/ns, nrf9161dk/nrf9161/ns, nrf9151dk/nrf9151/ns, thingy91/nrf9160/ns, thingy91x/nrf9151/ns]
+        # Factory nvs_storage address per board; every other board uses the
+        # default 0xf0000 (see the pin in the build step below).
+        include:
+          - board: thingy91/nrf9160/ns
+            nvs_addr: "0x60000"
 
     steps:
       # Initialize a Zephyr West workspace in its default format
@@ -52,6 +57,13 @@ jobs:
         run: |
           west build --sysbuild --pristine=always --board ${{ matrix.board }}
           test -f build/merged.hex
+          # The devicetree layouts promise in-place upgrades: nvs_storage must
+          # never move, or the provisioned profile of every device upgraded in
+          # place is destroyed -- and the build that moves it succeeds. Pin the
+          # resolved address per board; the Partition Manager canary further
+          # down pins the same claim for PM mode via partitions.yml.
+          grep -A4 'nvs_storage: partition@' build/softsim_external_profile/zephyr/zephyr.dts \
+            | grep -Eq 'reg = <\s*${{ matrix.nvs_addr || '0xf0000' }} 0x8000\s*>'
 
       - name: Archive name generator
         id: artifact_name
