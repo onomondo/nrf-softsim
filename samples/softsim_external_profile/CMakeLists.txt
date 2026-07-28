@@ -8,4 +8,4 @@ list(APPEND OVERLAY_CONFIG "$ENV{ZEPHYR_BASE}/../modules/lib/onomondo-softsim/ov
 find_package(Zephyr REQUIRED HINTS $ENV{ZEPHYR_BASE})
 project(softsim)
 
-target_sources(app PRIVATE src/main.c)
+target_sources(app PRIVATE src/main.c src/profile_serial.c)

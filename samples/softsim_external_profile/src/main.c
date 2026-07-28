@@ -19,20 +19,14 @@
 #include <zephyr/logging/log_ctrl.h>
 #include <zephyr/sys/reboot.h>
 
+#include "profile_serial.h"
+
 LOG_MODULE_REGISTER(softsim_sample, LOG_LEVEL_INF);
 
 /* Headroom over the full SoftSIM profile (~410 chars incl. SMSP/PIN/SMSC) */
 #define PROFILE_MAX_SIZE 512
 
-/* Semaphores */
-K_SEM_DEFINE(lte_connected, 0, 1);    /* Semaphore to signal LTE connection established */
-K_SEM_DEFINE(profile_received, 0, 1); /* Semaphore to signal profile received */
-
-struct rx_buf_t {
-	char *buf;
-	size_t len;
-	size_t pos;
-};
+K_SEM_DEFINE(lte_connected, 0, 1); /* Semaphore to signal LTE connection established */
 
 static int client_fd;
 static struct sockaddr_storage host_addr;
@@ -160,30 +154,6 @@ static void drain_logs_and_reboot(void)
 		k_yield();
 	}
 	sys_reboot(0);
-}
-
-void serial_cb(const struct device *dev, void *user_data)
-{
-	int rx_recv = 0;
-	struct rx_buf_t *rx = (struct rx_buf_t *)user_data;
-	char *rx_buf = rx->buf;
-	size_t *rx_buf_pos = &rx->pos;
-
-	if (!uart_irq_update(uart_dev)) {
-		return;
-	}
-
-	while (uart_irq_rx_ready(uart_dev)) {
-		rx_recv = uart_fifo_read(uart_dev, &rx_buf[*rx_buf_pos], 1);
-
-		if ((rx_buf[*rx_buf_pos] == '\n') || (rx_buf[*rx_buf_pos] == '\r')) {
-			rx_buf[*rx_buf_pos] = 0;
-			k_sem_give(&profile_received);
-			return;
-		}
-
-		*rx_buf_pos += rx_recv;
-	}
 }
 
 static int provision_softsim_from_serial(void)
