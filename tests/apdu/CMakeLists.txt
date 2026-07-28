@@ -21,6 +21,16 @@ set(CONFIG_BUILD_LIB_ONLY ON CACHE BOOL "" FORCE)
 set(CONFIG_USE_EXPERIMENTAL_SUSPEND_COMMAND ON CACHE BOOL "" FORCE)
 add_subdirectory(${SOFTSIM_LIB}/onomondo-uicc onomondo-uicc)
 
+# Same propagation lib/CMakeLists.txt does for firmware: the subproject
+# targets do not inherit Zephyr's flags on their own, and without them the
+# libraries build for the host ABI (elf64) while native_sim links elf32.
+foreach(_t uicc storage milenage crypto)
+  target_compile_definitions(${_t} PRIVATE
+    $<TARGET_PROPERTY:zephyr_interface,INTERFACE_COMPILE_DEFINITIONS>)
+  target_compile_options(${_t} PRIVATE
+    $<TARGET_PROPERTY:zephyr_interface,INTERFACE_COMPILE_OPTIONS>)
+endforeach()
+
 # The nRF port of the UICC filesystem underneath the core, on the real Zephyr
 # NVS over the flash simulator -- the integration this suite exists to pin.
 target_sources(app PRIVATE

@@ -170,8 +170,11 @@ ZTEST(softsim_apdu, test_read_binary_without_an_ef_fails_cleanly)
 	static const uint8_t read10[] = {0x00, 0xb0, 0x00, 0x00, 0x0a};
 	uint8_t rsp[RSP_MAX];
 
-	/* Fresh reset: the MF is selected, no EF is. */
+	/* Fresh reset: the MF is selected, no EF is. The core answers 6981
+	 * (command incompatible with file structure -- the current file is a
+	 * DF), where TS 102 221 would also allow 6986; either is a clean
+	 * rejection, this pins the one the core actually gives. */
 	size_t len = transact(read10, sizeof(read10), rsp);
 
-	expect_sw(rsp, len, 0x6986, "READ BINARY with no EF selected");
+	expect_sw(rsp, len, 0x6981, "READ BINARY with no EF selected");
 }
