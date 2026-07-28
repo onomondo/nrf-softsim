@@ -56,25 +56,26 @@ FAKE_VALUE_FUNC(int, port_check_provisioned);
 FAKE_VALUE_FUNC(int, ss_utils_check_key_existence, enum key_identifier_base);
 
 /*
- * These two are declared with VLA-style parameters, which FFF cannot express --
- * a generated `const char *` prototype trips -Werror=vla-parameter against the
- * real header. The provisioning path is not exercised here, so plain stubs with
- * the exact declared signature are enough.
+ * ss_utils_setup_key is declared with a VLA-style parameter, which FFF cannot
+ * express -- a generated plain-pointer prototype trips -Werror=vla-parameter
+ * against the real header. Hand-written recording stub instead. (The profile
+ * parser, ss_profile_from_string, has the same signature problem but is not
+ * faked at all: the provisioning suite below compiles the real one.)
  */
-uint8_t ss_profile_from_string(uint16_t len, const char input_string[len],
-			       struct ss_profile *profile)
-{
-	ARG_UNUSED(len);
-	ARG_UNUSED(input_string);
-	ARG_UNUSED(profile);
-	return 0;
-}
+static struct {
+	int count;
+	enum key_identifier_base ids[8];
+	uint8_t keys[8][16];
+} key_setup;
 
 int ss_utils_setup_key(size_t key_len, uint8_t key[static key_len], enum key_identifier_base key_id)
 {
-	ARG_UNUSED(key_len);
-	ARG_UNUSED(key);
-	ARG_UNUSED(key_id);
+	if (key_setup.count < (int)ARRAY_SIZE(key_setup.ids) &&
+	    key_len <= sizeof(key_setup.keys[0])) {
+		key_setup.ids[key_setup.count] = key_id;
+		memcpy(key_setup.keys[key_setup.count], key, key_len);
+	}
+	key_setup.count++;
 	return 0;
 }
 
@@ -148,16 +149,29 @@ static void data_free_real(void *data)
 	k_free(data);
 }
 
+/* nrf_softsim_provision() hands port_provision a pointer to a stack-local
+ * struct; keep a deep copy, the pointer is dangling by assert time. */
+static struct ss_profile captured_profile;
+
+static int capture_profile(struct ss_profile *profile)
+{
+	captured_profile = *profile;
+	return 0;
+}
+
 static void reset_all_fakes(void)
 {
 	ALL_FAKES(RESET_FAKE)
 	FFF_RESET_HISTORY();
+	memset(&key_setup, 0, sizeof(key_setup));
+	memset(&captured_profile, 0, sizeof(captured_profile));
 
 	nrf_modem_softsim_req_handler_set_fake.custom_fake = capture_handler;
 	ss_new_ctx_fake.custom_fake = new_ctx_ok;
 	ss_atr_fake.custom_fake = atr_ok;
 	ss_application_apdu_transact_fake.custom_fake = apdu_ok;
 	nrf_modem_softsim_data_free_fake.custom_fake = data_free_real;
+	port_provision_fake.custom_fake = capture_profile;
 }
 
 static void *suite_setup(void)
@@ -371,3 +385,156 @@ ZTEST(softsim_handler, test_init_handles_context_allocation_failure)
 		      "a failed context allocation must not reach ss_reset()");
 }
 ZTEST_EXPECT_FAIL(softsim_handler, test_init_handles_context_allocation_failure);
+
+/* ===========================================================================
+ * nrf_softsim_provision(): the validation layer over the profile parser.
+ *
+ * The parser itself is upstream code with its own tests (onomondo-uicc
+ * tests/utils); these cases pin the glue on top of it -- length bounds ahead
+ * of the uint16_t cast, required-field rejection before anything is written
+ * to the KMU, and that a legitimately zero-valued key survives: the OPc of
+ * the GSMA TS.48 test profile is 32 hex-ASCII '0' characters, which must not
+ * be mistaken for an absent tag.
+ */
+
+/* The TS.48 test profile the sample ships in overlay-static.conf:
+ * IMSI 080910101032547698, ICCID 98001032547698103214, OPc = 32 x '0',
+ * KI = KIC = KID = 000102030405060708090A0B0C0D0E0F. 190 chars, TLV-clean. */
+static const char ts48_profile[] =
+	"011208091010103254769802149800103254769810321403200000000000000000000000"
+	"00000000000420000102030405060708090A0B0C0D0E0F0520000102030405060708090A"
+	"0B0C0D0E0F0620000102030405060708090A0B0C0D0E0F";
+
+static const uint8_t ts48_key[16] = {0x00, 0x01, 0x02, 0x03, 0x04, 0x05, 0x06, 0x07,
+				     0x08, 0x09, 0x0a, 0x0b, 0x0c, 0x0d, 0x0e, 0x0f};
+
+static uint8_t hexval(char c)
+{
+	return (c <= '9') ? (uint8_t)(c - '0') : (uint8_t)((c & 0x5f) - 'A' + 10);
+}
+
+/* Copy the TLV records of src into dst, skipping the record with the given
+ * tag. Records are TAG(2 hex) | LEN(2 hex, counting DATA hex chars) | DATA.
+ * Returns the new length; asserts src was a clean concatenation. */
+static size_t drop_tag(const char *src, size_t len, uint8_t tag, char *dst)
+{
+	size_t out = 0;
+	size_t pos = 0;
+
+	while (pos + 4 <= len) {
+		uint8_t rec_tag = (uint8_t)((hexval(src[pos]) << 4) | hexval(src[pos + 1]));
+		size_t rec_len = 4 + ((hexval(src[pos + 2]) << 4) | hexval(src[pos + 3]));
+
+		if (rec_tag != tag) {
+			memcpy(&dst[out], &src[pos], rec_len);
+			out += rec_len;
+		}
+		pos += rec_len;
+	}
+	zassert_equal(pos, len, "vector is not a clean TLV concatenation");
+	zassert_true(out < len, "tag %02x not found in the vector", tag);
+
+	return out;
+}
+
+static void provision_before(void *fixture)
+{
+	ARG_UNUSED(fixture);
+
+	reset_all_fakes();
+}
+
+ZTEST_SUITE(softsim_provision, NULL, NULL, provision_before, NULL, NULL);
+
+ZTEST(softsim_provision, test_valid_profile_provisions)
+{
+	uint8_t buf[sizeof(ts48_profile)];
+
+	memcpy(buf, ts48_profile, sizeof(ts48_profile));
+
+	zassert_ok(nrf_softsim_provision(buf, sizeof(ts48_profile) - 1));
+
+	zassert_equal(port_provision_fake.call_count, 1);
+	zassert_mem_equal(captured_profile._3F00_7ff0_6f07, "080910101032547698", IMSI_LEN);
+	zassert_mem_equal(captured_profile._3F00_2FE2, "98001032547698103214", ICCID_LEN);
+
+	/* The all-'0' OPc must arrive as hex-ASCII zeros -- and be accepted. */
+	for (size_t i = 0; i < KEY_SIZE; i++) {
+		zassert_equal(captured_profile._3F00_A001[KEY_SIZE + i], '0',
+			      "OPc hex char %zu was mangled", i);
+	}
+
+	/* KI, KIC, KID reach the KMU as decoded bytes, in that order. */
+	zassert_equal(key_setup.count, 3);
+	zassert_equal(key_setup.ids[0], KEY_ID_KI);
+	zassert_equal(key_setup.ids[1], KEY_ID_KIC);
+	zassert_equal(key_setup.ids[2], KEY_ID_KID);
+	for (int i = 0; i < 3; i++) {
+		zassert_mem_equal(key_setup.keys[i], ts48_key, sizeof(ts48_key));
+	}
+}
+
+ZTEST(softsim_provision, test_missing_required_field_is_rejected)
+{
+	/* IMSI, ICCID, OPC, KI, KIC, KID -- dropping any one of them must fail
+	 * the whole provisioning, and fail it before any key hits the KMU. */
+	const uint8_t required_tags[] = {0x01, 0x02, 0x03, 0x04, 0x05, 0x06};
+	char reduced[sizeof(ts48_profile)];
+
+	for (size_t i = 0; i < ARRAY_SIZE(required_tags); i++) {
+		size_t len =
+			drop_tag(ts48_profile, sizeof(ts48_profile) - 1, required_tags[i], reduced);
+
+		reset_all_fakes();
+		zassert_true(nrf_softsim_provision((uint8_t *)reduced, len) != 0,
+			     "profile without tag %02x was accepted", required_tags[i]);
+		zassert_equal(port_provision_fake.call_count, 0,
+			      "rejected profile (no tag %02x) still reached the filesystem",
+			      required_tags[i]);
+		zassert_equal(key_setup.count, 0,
+			      "rejected profile (no tag %02x) still wrote KMU keys",
+			      required_tags[i]);
+	}
+}
+
+ZTEST(softsim_provision, test_undersized_input_is_rejected)
+{
+	/* Below 4 chars there is not even one TLV header. The parser's loop
+	 * bound underflows for 0 and 1, reads out of bounds for 3, and returns
+	 * success without parsing anything for 2 -- so the bound must hold in
+	 * nrf_softsim_provision(), before the parser runs. */
+	uint8_t buf[4] = {'0', '1', '1', '2'};
+
+	for (size_t len = 0; len < 4; len++) {
+		reset_all_fakes();
+		zassert_true(nrf_softsim_provision(buf, len) != 0, "len %zu was accepted", len);
+		zassert_equal(port_provision_fake.call_count, 0);
+		zassert_equal(key_setup.count, 0);
+	}
+}
+
+ZTEST(softsim_provision, test_oversized_input_is_rejected)
+{
+	/* The parser takes a uint16_t; a longer buffer must be rejected up
+	 * front, not silently truncated into a "valid" prefix. */
+	static uint8_t big[UINT16_MAX + 64];
+
+	memset(big, '0', sizeof(big));
+
+	zassert_true(nrf_softsim_provision(big, sizeof(big)) != 0);
+	zassert_equal(port_provision_fake.call_count, 0);
+	zassert_equal(key_setup.count, 0);
+}
+
+ZTEST(softsim_provision, test_malformed_tlv_is_rejected)
+{
+	/* A record whose declared length runs past the end of the input. */
+	uint8_t overrun[] = {'0', '1', '9', '9'};
+	/* A known tag with the wrong length for that tag. */
+	uint8_t short_imsi[] = "011008091010103254";
+
+	zassert_true(nrf_softsim_provision(overrun, sizeof(overrun)) != 0);
+	zassert_true(nrf_softsim_provision(short_imsi, sizeof(short_imsi) - 1) != 0);
+	zassert_equal(port_provision_fake.call_count, 0);
+	zassert_equal(key_setup.count, 0);
+}

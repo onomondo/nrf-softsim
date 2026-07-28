@@ -9,10 +9,14 @@ set(SOFTSIM_LIB ${CMAKE_CURRENT_LIST_DIR}/../../lib)
 
 # nrf_softsim.c is the unit under test. Everything it calls below itself -- the
 # UICC core, the filesystem port and the modem SoftSIM API -- is faked in
-# src/main.c, so the real kernel work queue and FIFO still run.
+# src/main.c, so the real kernel work queue and FIFO still run. The one
+# exception is the profile parser: the provisioning tests drive the REAL
+# ss_profile_from_string (it is self-contained -- string.h only), because what
+# they pin is nrf_softsim_provision()'s validation of the parser's output.
 target_sources(app PRIVATE
   src/main.c
   ${SOFTSIM_LIB}/nrf_softsim.c
+  ${SOFTSIM_LIB}/onomondo-uicc/utils/ss_profile.c
 )
 
 target_include_directories(app PRIVATE
