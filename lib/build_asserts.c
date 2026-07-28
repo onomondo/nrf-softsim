@@ -6,8 +6,16 @@
 #include <zephyr/kernel.h>
 #include <autoconf.h>
 
+#include <onomondo/utils/ss_profile.h>
+
 #define EXPECTED_PARTITION_SIZE 0x8000
 #define EXPECTED_MIN_HEAP_SIZE  30000
+
+/* nrf_softsim_provision() validates the parsed profile by indexing the KI/OPc pair in
+ * A001 and the KIC/KID pair in A004. Pin those layouts so a submodule bump that moves
+ * them fails the build instead of silently reading the wrong bytes. */
+BUILD_ASSERT(2 * KEY_SIZE <= A001_LEN, "SoftSIM: A001 layout changed");
+BUILD_ASSERT(A004_HEADER_SIZE + 2 * KEY_SIZE <= A004_LEN, "SoftSIM: A004 layout changed");
 
 BUILD_ASSERT(CONFIG_HEAP_MEM_POOL_SIZE >= EXPECTED_MIN_HEAP_SIZE,
 	     "SoftSIM: "

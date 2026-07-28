@@ -107,14 +107,47 @@ int onomondo_init(void)
 	return 0;
 }
 
+/* True if the first len bytes of p are all zero. Used to detect profile fields
+ * the parser left unset because their TLV tag was absent from the input. */
+static bool is_all_zero(const uint8_t *p, size_t len)
+{
+	for (size_t i = 0; i < len; i++) {
+		if (p[i] != 0) {
+			return false;
+		}
+	}
+	return true;
+}
+
 /* See in nrf_softsim.h */
 int nrf_softsim_provision(uint8_t *profile_r, size_t len)
 {
+	/* The parser's loop bound underflows below 4 bytes, and it validates against a
+	 * uint16_t length, so anything above UINT16_MAX would be truncated. */
+	if (len < 4 || len > UINT16_MAX) {
+		LOG_ERR("SoftSIM profile length invalid: %zu bytes", len);
+		return -1;
+	}
+
 	struct ss_profile profile = {0};
 	uint8_t decode_err =
 		ss_profile_from_string((uint16_t)len, (const char *)profile_r, &profile);
 	if (decode_err != 0) {
 		LOG_ERR("SoftSIM profile decode failed (err %u)", decode_err);
+		return -1;
+	}
+
+	/* Reject a profile missing any field provisioning consumes: IMSI, ICCID, KI,
+	 * OPc, KIC, KID. Checked on the hex-ASCII fields the parser fills, not on the
+	 * decoded keys: a legitimately zero-valued key is '0' characters, not NUL --
+	 * the GSMA TS.48 test profile has exactly that for OPc. */
+	if (is_all_zero(profile._3F00_7ff0_6f07, IMSI_LEN) ||                          /* IMSI */
+	    is_all_zero(profile._3F00_2FE2, ICCID_LEN) ||                              /* ICCID */
+	    is_all_zero(&profile._3F00_A001[0], KEY_SIZE) ||                           /* KI */
+	    is_all_zero(&profile._3F00_A001[KEY_SIZE], KEY_SIZE) ||                    /* OPc */
+	    is_all_zero(&profile._3F00_A004[A004_HEADER_SIZE], KEY_SIZE) ||            /* KIC */
+	    is_all_zero(&profile._3F00_A004[A004_HEADER_SIZE + KEY_SIZE], KEY_SIZE)) { /* KID */
+		LOG_ERR("SoftSIM profile missing required field(s)");
 		return -1;
 	}
 
