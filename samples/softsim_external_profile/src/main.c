@@ -11,6 +11,7 @@
 #include <nrf_softsim.h>
 #include <modem/lte_lc.h>
 #include <modem/nrf_modem_lib.h>
+#include <nrf_modem_at.h>
 #include <zephyr/kernel.h>
 #include <zephyr/net/socket.h>
 #include <zephyr/device.h>
@@ -207,6 +208,16 @@ int main(void)
 {
 	LOG_INF("SoftSIM sample started.");
 
+#ifndef CONFIG_SOFTSIM_AUTO_INIT
+	/* Without auto-init the module's SYS_INIT is compiled out, so bring SoftSIM
+	 * up here -- before nrf_softsim_check_provisioned(), which needs the
+	 * filesystem this initializes. */
+	if (nrf_softsim_init()) {
+		LOG_ERR("Failed to initialize SoftSIM.");
+		return -1;
+	}
+#endif
+
 	if (!nrf_softsim_check_provisioned()) {
 		if (provision_softsim_from_serial() != 0) {
 			return -1;
@@ -217,6 +228,16 @@ int main(void)
 	if (err) {
 		LOG_ERR("Failed to initialize modem library, error: %d", err);
 	}
+
+#ifndef CONFIG_SOFTSIM_AUTO_INIT
+	/* The module's NRF_MODEM_LIB_ON_INIT hook is compiled out too, so select the
+	 * software SIM here. Runtime SIM selection lives at this point: send this
+	 * only when a profile is provisioned, and the device falls back to a
+	 * physical SIM otherwise. */
+	if (nrf_modem_at_printf("AT%%CSUS=2")) {
+		LOG_ERR("Failed to select software SIM.");
+	}
+#endif
 
 #ifdef CONFIG_SOFTSIM_FACTORY_RESET_ON_PROVISION
 	/* Modem is now initialised; if a profile was just provisioned (static or

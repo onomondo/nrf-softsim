@@ -15,11 +15,18 @@ struct ss_profile;
 /**
  * @brief Initialize the SoftSIM library and install handlers
  *
- * Only use if CONFIG_NRF_SOFTSIM_AUTO_INIT is not set.
+ * Brings up the SoftSIM filesystem, installs the modem request handler and
+ * starts the SoftSIM work queue.
  *
- * This function initializes the SoftSIM module by calling the Onomondo
- * initialization function. It sets up the necessary context and prepares
- * the SoftSIM for use.
+ * With CONFIG_SOFTSIM_AUTO_INIT=y (the default) this runs from SYS_INIT at
+ * APPLICATION level, before main(), and the modem is told to use the software
+ * SIM from an NRF_MODEM_LIB_ON_INIT hook. Call this function only when that
+ * option is disabled, and then the application owns both halves:
+ *
+ *   1. Call it before any other SoftSIM API -- nrf_softsim_provision() and
+ *      nrf_softsim_check_provisioned() need the filesystem it initializes.
+ *   2. Select the software SIM itself with AT%CSUS=2 after nrf_modem_lib_init(),
+ *      because the hook that normally does so is compiled out.
  *
  * @return 0 on success
  */

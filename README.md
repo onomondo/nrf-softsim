@@ -409,7 +409,12 @@ The inital DIR is designed to prioritize most accessed files as well. Internally
 
 
 #### SoftSIM integration in application code
-Either call `nrf_softsim_init()` explicitly or let the kernel do it on boot with the config option.
+Either let the kernel bring SoftSIM up on boot with `CONFIG_SOFTSIM_AUTO_INIT=y` (the default), or set it to `n` and call `nrf_softsim_init()` explicitly. The two are not quite equivalent: with auto-init the module also selects the software SIM from an `NRF_MODEM_LIB_ON_INIT` hook, and that hook is compiled out along with the rest. Taking the manual route, the application owns both halves:
+
+1. Call `nrf_softsim_init()` before any other SoftSIM API — `nrf_softsim_provision()` and `nrf_softsim_check_provisioned()` need the filesystem it initializes. With auto-init this happened from `SYS_INIT` at `APPLICATION` level, before `main()`.
+2. Send `AT%CSUS=2` yourself after `nrf_modem_lib_init()`.
+
+Manual init is what runtime SIM selection needs: bring SoftSIM up and send `AT%CSUS=2` only when a profile is actually provisioned, so a device without one falls back to a physical SIM without a separate firmware build. The sample builds in this mode with `-DEXTRA_CONF_FILE=overlay-manual-init.conf`.
 
 SoftSIM entrypoint starts its own work queue and returns immediately after. The handler installed with `nrf_modem_softsim_req_handler_set()` will enqueue requests, as they come and the work queue will unblock and handle the request. The SoftSIM context will be blocked most of the time. The main interaction happens on boot.
 
