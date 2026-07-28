@@ -156,13 +156,16 @@ ZTEST(softsim_fs, test_repeated_buffer_growth_does_not_leak)
 /* --- seek bounds ----------------------------------------------------------- */
 
 /*
- * Known defect. SEEK_SET assigns the offset straight into a uint16_t position
- * with no bound, so the file pointer can be left past EOF. ss_fread() then
- * computes (_l - _p) unsigned, which underflows to ~65535 and turns into an
+ * Proxy for a known defect in ss_fread(), not in ss_fseek() itself: seeking
+ * past EOF is POSIX-like and intentional, but ss_fread() then computes
+ * (_l - _p) unsigned, which underflows to ~65535 and turns into an
  * out-of-bounds memcpy from the cache buffer.
  *
- * Asserted on the resulting position rather than by performing the read, so the
- * defect is reported instead of aborting the process under ASan.
+ * Asserted on the position rather than by performing the read, because the
+ * read aborts the whole process under ASan. Once ss_fread() gets its EOF
+ * guard (branch fix/ss-fread-eof-short-read), replace this test and the one
+ * below with direct fread-past-EOF short-read tests and drop the
+ * ZTEST_EXPECT_FAIL markers.
  */
 ZTEST(softsim_fs, test_seek_set_cannot_position_past_eof)
 {
@@ -178,8 +181,9 @@ ZTEST(softsim_fs, test_seek_set_cannot_position_past_eof)
 ZTEST_EXPECT_FAIL(softsim_fs, test_seek_set_cannot_position_past_eof);
 
 /*
- * Same class: SEEK_END computes (_l - offset) unsigned, so overshooting the
- * start of the file wraps to a huge position instead of clamping to zero.
+ * Same proxy, other direction: SEEK_END computes (_l - offset) unsigned, so
+ * overshooting the start of the file wraps the position, and a following
+ * ss_fread() over-reads exactly as above.
  */
 ZTEST(softsim_fs, test_seek_end_cannot_wrap_before_the_start)
 {
