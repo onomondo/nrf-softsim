@@ -509,8 +509,10 @@ ZTEST(softsim_provision, test_undersized_input_is_rejected)
 ZTEST(softsim_provision, test_oversized_input_is_rejected)
 {
 	/* The parser takes a uint16_t; a longer buffer must be rejected up
-	 * front, not silently truncated into a "valid" prefix. */
-	static uint8_t big[UINT16_MAX + 64];
+	 * front, not silently truncated into a "valid" prefix. The size is
+	 * chosen so the truncated length (65) parses cleanly as unknown-tag
+	 * records -- without the bound, this provisions an empty profile. */
+	static uint8_t big[UINT16_MAX + 65];
 
 	memset(big, '0', sizeof(big));
 
