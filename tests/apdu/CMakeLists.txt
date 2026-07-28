@@ -39,9 +39,14 @@ target_include_directories(app PRIVATE
   ${SOFTSIM_LIB}/onomondo-uicc/include
 )
 
+# No CONFIG_SOFTSIM_LIBS_LOG_LEVEL: the log-level symbols sit at the top
+# level of the module Kconfig, so autoconf.h already defines it in any
+# workspace build and a -D with a different value is a redefinition error.
+# ss_logp_zephyr.c picks it up from autoconf. (CONFIG_SOFTSIM_NRF_LOG_LEVEL=3
+# matches autoconf's value byte for byte, so it stays for parity with the
+# other suites.)
 target_compile_definitions(app PRIVATE
   CONFIG_SOFTSIM_NRF_LOG_LEVEL=3
-  CONFIG_SOFTSIM_LIBS_LOG_LEVEL=2
   CONFIG_COMPACT_STORAGE=1
 )
 
