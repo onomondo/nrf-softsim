@@ -48,12 +48,15 @@ jobs:
 
       # native_sim is a host binary, so the sanitizers actually apply here. The
       # memory-safety cases (truncated DIR blobs, buffer growth) rely on them.
+      # --enable-lsan is not optional: without it twister puts detect_leaks=0
+      # into ASAN_OPTIONS, and the buffer-growth cases have nothing to assert.
       - name: Run Twister
         run: |
           ./zephyr/scripts/twister \
             -T modules/lib/onomondo-softsim/tests \
             -p native_sim \
             --enable-asan \
+            --enable-lsan \
             --enable-ubsan \
             --exclude-tag softsim_no_ubsan \
             --inline-logs \
@@ -68,6 +71,7 @@ jobs:
             -T modules/lib/onomondo-softsim/tests \
             -p native_sim \
             --enable-asan \
+            --enable-lsan \
             --tag softsim_no_ubsan \
             --inline-logs \
             -v \

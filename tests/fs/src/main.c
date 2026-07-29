@@ -57,8 +57,8 @@ int port_check_provisioned(void);
 /* Owned by the write-persistence test alone. The growth test extends
  * COMMIT_PATH's record, and with shuffle on either order is possible, so a test
  * that asserts an exact on-flash length needs a record nothing else touches. */
-#define PATCH_ID   0x8011
-#define PATCH_PATH "/3f00/a101"
+#define PATCH_ID    0x8011
+#define PATCH_PATH  "/3f00/a101"
 
 /* Records with no flag byte at all: ss_fclose() does not commit these, so a
  * write to one stays dirty in the cache. That makes them the only way to reach
@@ -68,6 +68,8 @@ int port_check_provisioned(void);
 #define EVICT_BASE_ID 0x0020
 #define DEINIT_ID     0x0030
 #define DEINIT_PATH   "/3f00/d000"
+#define GROW_ID       0x0050
+#define GROW_PATH     "/3f00/g000"
 
 /* The four EFs port_provision() writes. The paths are the ones ss_fs.c looks up
  * by name; the keys are this suite's own. */
@@ -87,8 +89,7 @@ static const uint8_t deinit_content[] = {0xd0, 0xd1, 0xd2, 0xd3, 0xd4, 0xd5, 0xd
 
 /* default_imsi in ss_fs.c: what an unprovisioned card carries, and what
  * port_check_provisioned() compares the stored IMSI against. */
-static const uint8_t unprovisioned_imsi[] = {0x08, 0x09, 0x10, 0x10, 0x00,
-					     0x00, 0x00, 0x00, 0x10};
+static const uint8_t unprovisioned_imsi[] = {0x08, 0x09, 0x10, 0x10, 0x00, 0x00, 0x00, 0x00, 0x10};
 
 /* SS_MAX_ENTRIES in ss_cache.c: the cache grows to this many buffered entries
  * before f_cache_find_buffer() starts evicting. */
@@ -162,6 +163,7 @@ static void seed_nvs(void)
 	len = put_record(blob, len, COMMIT_ID, COMMIT_PATH);
 	len = put_record(blob, len, PATCH_ID, PATCH_PATH);
 	len = put_record(blob, len, DEINIT_ID, DEINIT_PATH);
+	len = put_record(blob, len, GROW_ID, GROW_PATH);
 	len = put_record(blob, len, IMSI_PROV_ID, IMSI_PROV_PATH);
 	len = put_record(blob, len, ICCID_PROV_ID, ICCID_PROV_PATH);
 	len = put_record(blob, len, A001_PROV_ID, A001_PROV_PATH);
@@ -183,20 +185,22 @@ static void seed_nvs(void)
 		     "seeding %s failed", PATCH_PATH);
 	zassume_true(nvs_write(&seed, DEINIT_ID, deinit_content, sizeof(deinit_content)) > 0,
 		     "seeding %s failed", DEINIT_PATH);
+	zassume_true(nvs_write(&seed, GROW_ID, commit_content, sizeof(commit_content)) > 0,
+		     "seeding %s failed", GROW_PATH);
 
 	/* The IMSI record starts out holding the placeholder ss_fs.c compares
 	 * against, so port_check_provisioned() reports "not provisioned". */
-	zassume_true(nvs_write(&seed, IMSI_PROV_ID, unprovisioned_imsi,
-			       sizeof(unprovisioned_imsi)) > 0,
-		     "seeding %s failed", IMSI_PROV_PATH);
+	zassume_true(
+		nvs_write(&seed, IMSI_PROV_ID, unprovisioned_imsi, sizeof(unprovisioned_imsi)) > 0,
+		"seeding %s failed", IMSI_PROV_PATH);
 
 	for (unsigned int i = 0; i < EVICT_COUNT; i++) {
 		uint8_t content[EVICT_BIG_SIZE];
 
 		memset(content, (uint8_t)(0x40 + i), sizeof(content));
-		zassume_true(nvs_write(&seed, (uint16_t)(EVICT_BASE_ID + i), content,
-				       evict_size(i)) > 0,
-			     "seeding eviction file %u failed", i);
+		zassume_true(
+			nvs_write(&seed, (uint16_t)(EVICT_BASE_ID + i), content, evict_size(i)) > 0,
+			"seeding eviction file %u failed", i);
 	}
 }
 
@@ -273,9 +277,10 @@ ZTEST(softsim_fs, test_write_then_reread_in_the_same_session)
 
 /*
  * #143 was a missing SS_FREE when ss_fputc grew the cache buffer. Growing a
- * buffer repeatedly is the shape that leaked; under --enable-lsan the leak is
- * reported at exit rather than by this assertion, which is the point of running
- * the suite with sanitizers on.
+ * buffer repeatedly is the shape that leaked; the leak itself is reported by
+ * LeakSanitizer at exit rather than by an assertion here, so this case only
+ * means anything when the suite runs with --enable-lsan (which the workflow
+ * passes -- without it twister sets detect_leaks=0 and nothing is checked).
  */
 ZTEST(softsim_fs, test_repeated_buffer_growth_does_not_leak)
 {
@@ -285,6 +290,27 @@ ZTEST(softsim_fs, test_repeated_buffer_growth_does_not_leak)
 
 	for (int i = 0; i < 200; i++) {
 		zassert_true(ss_fputc('a' + (i % 26), f) >= 0, "ss_fputc failed at %d", i);
+	}
+
+	ss_fclose(f);
+}
+
+/*
+ * The same growth shape through ss_fwrite, which is the one that matters: no
+ * caller in onomondo-uicc uses ss_fputc, while every UPDATE BINARY lands in
+ * ss_fwrite. It reallocates by hand exactly as ss_fputc does, so it can leak
+ * exactly as #143 did, and only this path would take a real device with it.
+ */
+ZTEST(softsim_fs, test_repeated_write_growth_does_not_leak)
+{
+	ss_FILE f = ss_fopen(GROW_PATH, "r+");
+
+	zassert_not_null(f);
+
+	for (int i = 0; i < 200; i++) {
+		const uint8_t byte = (uint8_t)i;
+
+		zassert_equal(ss_fwrite(&byte, 1, 1, f), 1, "ss_fwrite failed at %d", i);
 	}
 
 	ss_fclose(f);
@@ -441,8 +467,8 @@ ZTEST(softsim_fs, test_provisioning_writes_the_expected_binary_efs)
 
 	memcpy(profile._3F00_7ff0_6f07, imsi_hex, IMSI_LEN);
 	memcpy(profile._3F00_2FE2, iccid_hex, ICCID_LEN);
-	memcpy(profile._3F00_A001, key_hex, KEY_SIZE);          /* KI  */
-	memset(&profile._3F00_A001[KEY_SIZE], '0', KEY_SIZE);   /* OPc */
+	memcpy(profile._3F00_A001, key_hex, KEY_SIZE);        /* KI  */
+	memset(&profile._3F00_A001[KEY_SIZE], '0', KEY_SIZE); /* OPc */
 
 	zassert_equal(port_check_provisioned(), 0, "the seeded IMSI is the default one");
 	zassert_ok(port_provision(&profile), "provisioning failed");
