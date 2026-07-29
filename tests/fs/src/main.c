@@ -25,6 +25,7 @@
 
 #include <nrf_softsim.h>
 #include <onomondo/softsim/fs.h>
+#include <onomondo/utils/ss_profile.h>
 
 LOG_MODULE_REGISTER(softsim, CONFIG_SOFTSIM_NRF_LOG_LEVEL);
 
@@ -32,12 +33,25 @@ LOG_MODULE_REGISTER(softsim, CONFIG_SOFTSIM_NRF_LOG_LEVEL);
  * defines them. Declared here so the tests can reach them. */
 int ss_fputc(int c, ss_FILE fp);
 long ss_ftell(ss_FILE fp);
+int port_provision(struct ss_profile *profile);
+int port_check_provisioned(void);
+
+/* Binary EF sizes and KMU slot tags, as ss_fs.c derives them from the profile
+ * field sizes. Kept here rather than exported so the test states the layout it
+ * expects independently of the implementation. */
+#define KEY_BIN_LEN   (KEY_SIZE / 2)
+#define IMSI_BIN_LEN  (IMSI_LEN / 2)
+#define ICCID_BIN_LEN (ICCID_LEN / 2)
+#define A001_BIN_LEN  (A001_LEN / 2)
+#define A004_BIN_LEN  (A004_LEN / 2)
 
 /* DIR_ID in ss_fs.c: NVS key 1 holds the directory table. */
 #define DIR_ID 1
 
+/* Any ordinary readable EF. Deliberately not EF.ICCID: that path is what
+ * port_provision() overwrites, and the provisioning test below owns it. */
 #define PLAIN_ID    0x0002
-#define PLAIN_PATH  "/3f00/2fe2"
+#define PLAIN_PATH  "/3f00/2f05"
 #define COMMIT_ID   0x8010 /* high byte 0x80 -> FS_COMMIT_ON_CLOSE */
 #define COMMIT_PATH "/3f00/a100"
 /* Owned by the write-persistence test alone. The growth test extends
@@ -55,10 +69,26 @@ long ss_ftell(ss_FILE fp);
 #define DEINIT_ID     0x0030
 #define DEINIT_PATH   "/3f00/d000"
 
+/* The four EFs port_provision() writes. The paths are the ones ss_fs.c looks up
+ * by name; the keys are this suite's own. */
+#define IMSI_PROV_ID    0x0040
+#define IMSI_PROV_PATH  "/3f00/7ff0/6f07"
+#define ICCID_PROV_ID   0x0041
+#define ICCID_PROV_PATH "/3f00/2fe2"
+#define A001_PROV_ID    0x0042
+#define A001_PROV_PATH  "/3f00/a001"
+#define A004_PROV_ID    0x0043
+#define A004_PROV_PATH  "/3f00/a004"
+
 static const uint8_t plain_content[] = {0x98, 0x00, 0x10, 0x32, 0x54, 0x76, 0x98, 0x10, 0x32, 0x14};
 static const uint8_t commit_content[] = {1, 2, 3, 4, 5, 6, 7, 8};
 static const uint8_t patch_content[] = {0x11, 0x22, 0x33, 0x44, 0x55, 0x66, 0x77, 0x88};
 static const uint8_t deinit_content[] = {0xd0, 0xd1, 0xd2, 0xd3, 0xd4, 0xd5, 0xd6, 0xd7};
+
+/* default_imsi in ss_fs.c: what an unprovisioned card carries, and what
+ * port_check_provisioned() compares the stored IMSI against. */
+static const uint8_t unprovisioned_imsi[] = {0x08, 0x09, 0x10, 0x10, 0x00,
+					     0x00, 0x00, 0x00, 0x10};
 
 /* SS_MAX_ENTRIES in ss_cache.c: the cache grows to this many buffered entries
  * before f_cache_find_buffer() starts evicting. */
@@ -116,7 +146,7 @@ static ssize_t read_flash_record(uint16_t id, void *buf, size_t len)
  * the setup, so the seeding would otherwise carry on against an unmounted fs. */
 static void seed_nvs(void)
 {
-	uint8_t blob[256];
+	uint8_t blob[512];
 	size_t len;
 
 	seed.flash_device = PARTITION_DEVICE(nvs_storage);
@@ -132,6 +162,10 @@ static void seed_nvs(void)
 	len = put_record(blob, len, COMMIT_ID, COMMIT_PATH);
 	len = put_record(blob, len, PATCH_ID, PATCH_PATH);
 	len = put_record(blob, len, DEINIT_ID, DEINIT_PATH);
+	len = put_record(blob, len, IMSI_PROV_ID, IMSI_PROV_PATH);
+	len = put_record(blob, len, ICCID_PROV_ID, ICCID_PROV_PATH);
+	len = put_record(blob, len, A001_PROV_ID, A001_PROV_PATH);
+	len = put_record(blob, len, A004_PROV_ID, A004_PROV_PATH);
 
 	for (unsigned int i = 0; i < EVICT_COUNT; i++) {
 		char path[11];
@@ -149,6 +183,12 @@ static void seed_nvs(void)
 		     "seeding %s failed", PATCH_PATH);
 	zassume_true(nvs_write(&seed, DEINIT_ID, deinit_content, sizeof(deinit_content)) > 0,
 		     "seeding %s failed", DEINIT_PATH);
+
+	/* The IMSI record starts out holding the placeholder ss_fs.c compares
+	 * against, so port_check_provisioned() reports "not provisioned". */
+	zassume_true(nvs_write(&seed, IMSI_PROV_ID, unprovisioned_imsi,
+			       sizeof(unprovisioned_imsi)) > 0,
+		     "seeding %s failed", IMSI_PROV_PATH);
 
 	for (unsigned int i = 0; i < EVICT_COUNT; i++) {
 		uint8_t content[EVICT_BIG_SIZE];
@@ -375,6 +415,65 @@ ZTEST(softsim_fs, test_deinit_commits_what_close_did_not)
  * flash looks identical whether the port's check is there or not. The behaviour
  * is only observable from inside the cache entry, which no test can reach.
  */
+
+/* --- provisioning ---------------------------------------------------------- */
+
+/*
+ * port_provision() is where a profile turns into the four EFs the card
+ * authenticates from, and it is the largest single function in the port. It was
+ * faked in every suite, so none of the encodings below had ever been checked:
+ * the hex-ASCII fields of the parsed profile become packed binary, and each key
+ * is replaced by a one-byte KMU slot tag because the real key material lives in
+ * the KMU rather than on flash.
+ *
+ * The KMU is not involved here -- that is nrf_softsim_provision()'s half of the
+ * job, covered in the handler suite -- so this needs no PSA.
+ */
+ZTEST(softsim_fs, test_provisioning_writes_the_expected_binary_efs)
+{
+	/* The GSMA TS.48 test profile, as the parser would hand it over:
+	 * hex-ASCII throughout, OPc all '0'. */
+	static const char imsi_hex[] = "080910101032547698";
+	static const char iccid_hex[] = "98001032547698103214";
+	static const char key_hex[] = "000102030405060708090A0B0C0D0E0F";
+	struct ss_profile profile = {0};
+	uint8_t buf[A004_BIN_LEN];
+
+	memcpy(profile._3F00_7ff0_6f07, imsi_hex, IMSI_LEN);
+	memcpy(profile._3F00_2FE2, iccid_hex, ICCID_LEN);
+	memcpy(profile._3F00_A001, key_hex, KEY_SIZE);          /* KI  */
+	memset(&profile._3F00_A001[KEY_SIZE], '0', KEY_SIZE);   /* OPc */
+
+	zassert_equal(port_check_provisioned(), 0, "the seeded IMSI is the default one");
+	zassert_ok(port_provision(&profile), "provisioning failed");
+	zassert_equal(port_check_provisioned(), 1, "a provisioned IMSI must be detected");
+
+	/* IMSI and ICCID are stored packed, two hex chars per byte. */
+	zassert_equal(read_flash_record(IMSI_PROV_ID, buf, IMSI_BIN_LEN), IMSI_BIN_LEN);
+	zassert_mem_equal(buf, "\x08\x09\x10\x10\x10\x32\x54\x76\x98", IMSI_BIN_LEN,
+			  "IMSI encoding");
+	zassert_equal(read_flash_record(ICCID_PROV_ID, buf, ICCID_BIN_LEN), ICCID_BIN_LEN);
+	zassert_mem_equal(buf, "\x98\x00\x10\x32\x54\x76\x98\x10\x32\x14", ICCID_BIN_LEN,
+			  "ICCID encoding");
+
+	/* A001: the KI slot carries its KMU tag and nothing else, then the OPc. */
+	zassert_equal(read_flash_record(A001_PROV_ID, buf, A001_BIN_LEN), A001_BIN_LEN);
+	zassert_equal(buf[0], KI_TAG, "A001 does not start with the KI slot tag");
+	for (size_t i = 1; i < KEY_BIN_LEN; i++) {
+		zassert_equal(buf[i], 0x00, "A001 byte %zu leaked key material", i);
+	}
+	for (size_t i = 0; i < KEY_BIN_LEN; i++) {
+		zassert_equal(buf[KEY_BIN_LEN + i], 0x00, "the all-zero OPc was mangled at %zu", i);
+	}
+
+	/* A004: a fixed 6-byte header, then the KIC and KID slot tags, then 0xff. */
+	zassert_equal(read_flash_record(A004_PROV_ID, buf, A004_BIN_LEN), A004_BIN_LEN);
+	zassert_mem_equal(buf, "\xb0\x00\x11\x06\x01\x01", 6, "A004 header changed");
+	zassert_equal(buf[6], KIC_TAG, "A004 does not carry the KIC slot tag");
+	zassert_equal(buf[6 + KEY_BIN_LEN], KID_TAG, "A004 does not carry the KID slot tag");
+	zassert_equal(buf[6 + 2 * KEY_BIN_LEN], 0xff, "A004 padding does not start at 38");
+	zassert_equal(buf[A004_BIN_LEN - 1], 0xff, "A004 is not padded to its full length");
+}
 
 /* --- seek bounds ----------------------------------------------------------- */
 
