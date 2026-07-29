@@ -296,6 +296,38 @@ ZTEST(softsim_cache, test_find_buffer_prefers_clean_big_enough_least_used)
 	zassert_equal_ptr(victim, &pool[3], "clean entry should win over dirty");
 }
 
+/*
+ * The middle preference: a clean entry whose buffer is too small still beats a
+ * dirty one, because handing it over only costs an allocation while reusing a
+ * dirty entry costs a flash write. Every entry in the pool is big enough for the
+ * requests above, so without this case the first two preferences are
+ * indistinguishable and only one of the three branches is ever taken.
+ */
+ZTEST(softsim_cache, test_find_buffer_takes_a_clean_small_buffer_over_a_dirty_one)
+{
+	struct ss_list cache;
+	struct cache_entry want = {._l = sizeof(pool_buf[0]) + 8};
+
+	pool_reset(&cache, EXPECTED_MAX_ENTRIES);
+
+	/* Clean, fewest hits, but its buffer cannot hold the request. */
+	pool[2]._b_dirty = 0;
+	pool[2]._cache_hits = 1;
+
+	/* Dirty and completely unused: still loses, a write is the worse cost. */
+	pool[5]._b_dirty = 1;
+	pool[5]._cache_hits = 0;
+
+	/* Nobody can satisfy the size, so the best-case branch stays empty. */
+	for (size_t i = 0; i < EXPECTED_MAX_ENTRIES; i++) {
+		zassert_true(pool[i]._b_size < want._l, "entry %zu was unexpectedly big enough", i);
+	}
+
+	struct cache_entry *victim = f_cache_find_buffer(&want, &cache);
+
+	zassert_equal_ptr(victim, &pool[2], "a clean undersized buffer should win over dirty");
+}
+
 ZTEST(softsim_cache, test_find_buffer_falls_back_to_dirty_when_all_dirty)
 {
 	struct ss_list cache;
