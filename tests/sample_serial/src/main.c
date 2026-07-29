@@ -51,9 +51,11 @@ static void wait_for_line(void)
 	quiesce();
 }
 
+/* zassume, not zassert: a failing assert does not stop a suite setup, so an
+ * unready device would otherwise be handed to the UART API anyway. */
 static void *suite_setup(void)
 {
-	zassert_true(device_is_ready(uart_dev), "uart-emul device not ready");
+	zassume_true(device_is_ready(uart_dev), "uart-emul device not ready");
 	uart_irq_callback_user_data_set(uart_dev, serial_cb, &rx);
 
 	return NULL;
@@ -120,6 +122,12 @@ ZTEST(softsim_sample_serial, test_flood_is_truncated_at_capacity)
  * The data-race guard: once serial_cb signals a finished line it masks RX, so
  * bytes arriving while main() reads the buffer must neither be stored nor
  * advance the position.
+ *
+ * "Nothing happened" is then confirmed by re-arming RX and waiting for the same
+ * bytes to arrive: they can only still be in the emulated fifo if masking held.
+ * A sleep long enough to prove a negative does not exist, but this positive
+ * event does -- if the bytes had leaked through while masked, the fifo would be
+ * empty and the position would never advance here.
  */
 ZTEST(softsim_sample_serial, test_bytes_after_the_terminator_are_not_consumed)
 {
@@ -129,9 +137,17 @@ ZTEST(softsim_sample_serial, test_bytes_after_the_terminator_are_not_consumed)
 	zassert_str_equal(rx.buf, "AB");
 	zassert_equal(rx.pos, 2);
 
+	uart_emul_flush_rx_data(uart_dev); /* drop the unread "CD" */
 	inject("EF", 2);
 	quiesce();
 
 	zassert_equal(rx.pos, 2, "RX must stay masked after the terminator");
 	zassert_str_equal(rx.buf, "AB", "buffer changed while the line was being read");
+
+	uart_irq_rx_enable(uart_dev);
+	for (int i = 0; i < 1000 && rx.pos < 4; i++) {
+		k_msleep(1);
+	}
+	zassert_equal(rx.pos, 4, "the masked bytes were lost instead of staying queued");
+	zassert_mem_equal(rx.buf, "ABEF", 4, "the queued bytes arrived corrupted");
 }
