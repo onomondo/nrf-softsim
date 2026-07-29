@@ -233,6 +233,49 @@ ZTEST(softsim_handler, test_each_request_is_answered_exactly_once)
 	zassert_equal(nrf_modem_softsim_res_fake.arg1_history[2], 3);
 }
 
+/*
+ * The handler answers out of one static buffer for both the ATR and every APDU
+ * response, and narrows the core's size_t length into the modem's uint16_t. That
+ * plumbing is what the modem actually consumes, so pin the bytes and the length,
+ * not just the call count.
+ */
+ZTEST(softsim_handler, test_answers_carry_the_core_response_bytes)
+{
+	const uint8_t *out;
+
+	submit(NRF_MODEM_SOFTSIM_INIT, 1, NULL, 0);
+	wait_for_completions(1);
+
+	/* atr_ok() fills 8 bytes of 0x3b and returns 8. */
+	zassert_equal(nrf_modem_softsim_res_fake.arg3_val, 8, "ATR length was not passed through");
+	out = nrf_modem_softsim_res_fake.arg2_val;
+	zassert_not_null(out, "INIT must answer with the ATR buffer");
+	for (int i = 0; i < 8; i++) {
+		zassert_equal(out[i], 0x3b, "ATR byte %d differs from what the core produced", i);
+	}
+
+	uint8_t *apdu = k_malloc(4);
+
+	zassert_not_null(apdu);
+	memcpy(apdu, "\x00\xa4\x00\x0c", 4);
+	submit(NRF_MODEM_SOFTSIM_APDU, 2, apdu, 4);
+	wait_for_completions(2);
+
+	/* apdu_ok() fills 2 bytes of 0x90 and returns 2. */
+	zassert_equal(nrf_modem_softsim_res_fake.arg3_val, 2,
+		      "APDU response length was not passed through");
+	out = nrf_modem_softsim_res_fake.arg2_val;
+	zassert_not_null(out, "APDU must answer with the response buffer");
+	zassert_equal(out[0], 0x90, "APDU response byte 0 differs");
+	zassert_equal(out[1], 0x90, "APDU response byte 1 differs");
+
+	/* DEINIT has nothing to say and must not point the modem at the buffer. */
+	submit(NRF_MODEM_SOFTSIM_DEINIT, 3, NULL, 0);
+	wait_for_completions(3);
+	zassert_is_null(nrf_modem_softsim_res_fake.arg2_val, "DEINIT answered with a payload");
+	zassert_equal(nrf_modem_softsim_res_fake.arg3_val, 0, "DEINIT answered with a length");
+}
+
 ZTEST(softsim_handler, test_payload_is_freed_exactly_once)
 {
 	submit(NRF_MODEM_SOFTSIM_INIT, 1, NULL, 0);
@@ -324,7 +367,54 @@ ZTEST(softsim_handler, test_context_accounting_is_balanced_over_many_cycles)
 	zassert_is_null(ctx);
 }
 
+/*
+ * The modem hands requests to an ISR-side callback that queues them, and the work
+ * queue drains the FIFO in a loop. A burst that arrives while the drain loop is
+ * finishing is the classic lost-wakeup shape, and the cycle test above never
+ * queues more than two at a time. Submit a deep burst without waiting in
+ * between: every request must still be answered exactly once.
+ */
+ZTEST(softsim_handler, test_a_deep_burst_is_drained_completely)
+{
+	const int burst = 32;
+
+	submit(NRF_MODEM_SOFTSIM_INIT, 0, NULL, 0);
+	wait_for_completions(1);
+
+	for (int i = 0; i < burst; i++) {
+		uint8_t *apdu = k_malloc(4);
+
+		zassert_not_null(apdu, "heap exhausted at request %d", i);
+		memcpy(apdu, "\x00\xa4\x00\x0c", 4);
+		submit(NRF_MODEM_SOFTSIM_APDU, (uint16_t)(i + 1), apdu, 4);
+	}
+
+	wait_for_completions(burst + 1);
+	zassert_equal(nrf_modem_softsim_err_fake.call_count, 0, "a queued request errored");
+	zassert_equal(nrf_modem_softsim_data_free_fake.call_count, burst,
+		      "every payload in the burst must be released");
+}
+
 /* --- the NULL-context orderings -------------------------------------------- */
+
+/*
+ * Known defect. The command enum has a gap at value 2 (INIT=1, APDU=3,
+ * DEINIT=4, RESET=5), and the handler's default case answers nothing at all --
+ * no response, no error -- so the modem is left waiting on a req_id that will
+ * never come back. Any command the modem gains in a future firmware lands here.
+ * Expected to fail until the default case answers with nrf_modem_softsim_err().
+ */
+ZTEST(softsim_handler, test_an_unknown_command_is_still_answered)
+{
+	submit((enum nrf_modem_softsim_cmd)2, 1, NULL, 0);
+
+	for (int i = 0; i < 200 && completions() == 0; i++) {
+		k_msleep(1);
+	}
+
+	zassert_equal(completions(), 1, "an unknown command left the modem without an answer");
+}
+ZTEST_EXPECT_FAIL(softsim_handler, test_an_unknown_command_is_still_answered);
 
 /*
  * Known defect. DEINIT clears ctx and guards its own use of it, but the RESET
@@ -510,7 +600,7 @@ ZTEST(softsim_provision, test_oversized_input_is_rejected)
 {
 	/* The parser takes a uint16_t; a longer buffer must be rejected up
 	 * front, not silently truncated into a "valid" prefix. The size is
-	 * chosen so the truncated length (65) parses cleanly as unknown-tag
+	 * chosen so the truncated length (64) parses cleanly as unknown-tag
 	 * records -- without the bound, this provisions an empty profile. */
 	static uint8_t big[UINT16_MAX + 65];
 
@@ -523,13 +613,41 @@ ZTEST(softsim_provision, test_oversized_input_is_rejected)
 
 ZTEST(softsim_provision, test_malformed_tlv_is_rejected)
 {
-	/* A record whose declared length runs past the end of the input. */
+	/* A declared length that runs past the end of the input: once with no data
+	 * at all after the header, once with a header whose data is present but
+	 * two chars short. Both are the same parser check, from either side. */
 	uint8_t overrun[] = {'0', '1', '9', '9'};
-	/* A known tag with the wrong length for that tag. */
-	uint8_t short_imsi[] = "011008091010103254";
+	uint8_t truncated_imsi[] = "011008091010103254";
 
 	zassert_true(nrf_softsim_provision(overrun, sizeof(overrun)) != 0);
-	zassert_true(nrf_softsim_provision(short_imsi, sizeof(short_imsi) - 1) != 0);
+	zassert_true(nrf_softsim_provision(truncated_imsi, sizeof(truncated_imsi) - 1) != 0);
+	zassert_equal(port_provision_fake.call_count, 0);
+	zassert_equal(key_setup.count, 0);
+}
+
+/*
+ * The per-tag length checks are a separate parser branch from the overrun check
+ * above: the record is well formed and fits, but the declared length is wrong
+ * for that particular tag. Every required tag has one, and until now none of
+ * them ran -- a profile carrying a 16-char IMSI would have been copied into an
+ * 18-byte field.
+ */
+ZTEST(softsim_provision, test_known_tag_with_the_wrong_length_is_rejected)
+{
+	const size_t imsi_rec = 4 + IMSI_LEN; /* the IMSI record heads the vector */
+	char mutated[sizeof(ts48_profile)];
+	size_t out;
+
+	/* Re-declare the IMSI as two hex chars shorter and drop two data chars,
+	 * so the buffer stays a clean TLV concatenation. */
+	out = (size_t)snprintk(mutated, sizeof(mutated), "%02x%02x", 0x01, IMSI_LEN - 2);
+	memcpy(&mutated[out], &ts48_profile[4], IMSI_LEN - 2);
+	out += IMSI_LEN - 2;
+	memcpy(&mutated[out], &ts48_profile[imsi_rec], sizeof(ts48_profile) - 1 - imsi_rec);
+	out += sizeof(ts48_profile) - 1 - imsi_rec;
+
+	zassert_true(nrf_softsim_provision((uint8_t *)mutated, out) != 0,
+		     "an IMSI declared %d chars long was accepted", IMSI_LEN - 2);
 	zassert_equal(port_provision_fake.call_count, 0);
 	zassert_equal(key_setup.count, 0);
 }
