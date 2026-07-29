@@ -57,19 +57,21 @@ static void expect_sw(const uint8_t *rsp, size_t len, uint16_t sw, const char *w
 		      "%s: SW %02x%02x, expected %04x", what, rsp[len - 2], rsp[len - 1], sw);
 }
 
+/* zassume, not zassert: a failing assert does not stop a suite setup, so an
+ * unready flash device would otherwise be erased and written anyway. */
 static void *suite_setup(void)
 {
 	/* Seed the partition exactly the way the flashed template.hex would:
 	 * the raw NVS image at the partition base, erased flash after it. */
 	const struct device *flash_dev = PARTITION_DEVICE(nvs_storage);
 
-	zassert_true(device_is_ready(flash_dev));
-	zassert_ok(
+	zassume_true(device_is_ready(flash_dev), "flash simulator not ready");
+	zassume_ok(
 		flash_erase(flash_dev, PARTITION_OFFSET(nvs_storage), PARTITION_SIZE(nvs_storage)));
-	zassert_ok(flash_write(flash_dev, PARTITION_OFFSET(nvs_storage), template_bin,
+	zassume_ok(flash_write(flash_dev, PARTITION_OFFSET(nvs_storage), template_bin,
 			       sizeof(template_bin)));
 
-	zassert_ok(ss_init_fs(), "ss_init_fs() rejected the template image");
+	zassume_ok(ss_init_fs(), "ss_init_fs() rejected the template image");
 
 	return NULL;
 }
@@ -177,4 +179,121 @@ ZTEST(softsim_apdu, test_read_binary_without_an_ef_fails_cleanly)
 	size_t len = transact(read10, sizeof(read10), rsp);
 
 	expect_sw(rsp, len, 0x6981, "READ BINARY with no EF selected");
+}
+
+/*
+ * The write path, end to end: UPDATE BINARY into EF.LOCI, then tear the
+ * filesystem down and bring it back up so the bytes have to come off flash
+ * rather than out of the cache buffer they were written into.
+ *
+ * EF.LOCI is the file the modem rewrites on every location update, so this is
+ * also the most-travelled write on a real device. Nothing else in the suite
+ * writes, which left the cache dirty-tracking and the ss_deinit_fs() flush
+ * unexercised at this level.
+ */
+ZTEST(softsim_apdu, test_update_binary_survives_a_remount)
+{
+	static const uint8_t select_adf[] = {0x00, 0xa4, 0x00, 0x04, 0x02, 0x7f, 0xf0};
+	static const uint8_t select_loci[] = {0x00, 0xa4, 0x00, 0x04, 0x02, 0x6f, 0x7e};
+	static const uint8_t read_loci[] = {0x00, 0xb0, 0x00, 0x00, 0x0b};
+	static const uint8_t update_loci[] = {0x00, 0xd6, 0x00, 0x00, 0x0b, 0x11, 0x22, 0x33,
+					      0x44, 0x55, 0x66, 0x77, 0x88, 0x99, 0xaa, 0xbb};
+	static const uint8_t golden[] = {0x11, 0x22, 0x33, 0x44, 0x55, 0x66, 0x77,
+					 0x88, 0x99, 0xaa, 0xbb, 0x90, 0x00};
+	uint8_t rsp[RSP_MAX];
+	size_t len;
+
+	len = transact(select_adf, sizeof(select_adf), rsp);
+	expect_sw(rsp, len, 0x9000, "SELECT ADF.USIM");
+	len = transact(select_loci, sizeof(select_loci), rsp);
+	expect_sw(rsp, len, 0x9000, "SELECT EF.LOCI");
+
+	len = transact(update_loci, sizeof(update_loci), rsp);
+	expect_sw(rsp, len, 0x9000, "UPDATE BINARY EF.LOCI");
+
+	len = transact(read_loci, sizeof(read_loci), rsp);
+	zassert_equal(len, sizeof(golden), "READ BINARY returned %zu bytes", len);
+	zassert_mem_equal(rsp, golden, sizeof(golden), "the update was not visible");
+
+	/* Drop every cache buffer and re-read the directory table from flash. */
+	zassert_ok(ss_deinit_fs(), "could not shut the filesystem down");
+	zassert_ok(ss_init_fs(), "the filesystem did not come back up");
+
+	/* A new context, since the old one's selection state referred to the
+	 * filesystem that was just torn down. */
+	ss_free_ctx(ctx);
+	ctx = ss_new_ctx();
+	zassert_not_null(ctx);
+	ss_reset(ctx);
+
+	len = transact(select_adf, sizeof(select_adf), rsp);
+	expect_sw(rsp, len, 0x9000, "SELECT ADF.USIM after remount");
+	len = transact(select_loci, sizeof(select_loci), rsp);
+	expect_sw(rsp, len, 0x9000, "SELECT EF.LOCI after remount");
+	len = transact(read_loci, sizeof(read_loci), rsp);
+	zassert_equal(len, sizeof(golden), "READ BINARY returned %zu bytes after remount", len);
+	zassert_mem_equal(rsp, golden, sizeof(golden), "the update did not reach flash");
+}
+
+/*
+ * The nRF9151 modem issues STATUS with an extended Le field
+ * (80 F2 00 00 00 01 68, Le = 360) during USIM initialisation, even though the
+ * card's ATR declares no support for extended lengths. Rejecting it was tried
+ * upstream and proved on hardware to stop the device attaching at all -- the
+ * card must answer normally instead, and an extended Le only bounds the
+ * response size, so answering short is correct.
+ *
+ * This is the cheapest possible guard against that rejection coming back with
+ * a future core bump.
+ */
+ZTEST(softsim_apdu, test_status_with_an_extended_le_is_answered)
+{
+	static const uint8_t status_ext_le[] = {0x80, 0xf2, 0x00, 0x00, 0x00, 0x01, 0x68};
+	uint8_t rsp[RSP_MAX];
+
+	size_t len = transact(status_ext_le, sizeof(status_ext_le), rsp);
+
+	/* 6700 is the wrong-length rejection this must never become. */
+	expect_sw(rsp, len, 0x9000, "STATUS with an extended Le");
+	zassert_true(len > 2, "the extended Le suppressed the response data");
+	zassert_equal(rsp[0], 0x62, "STATUS did not answer with an FCP template");
+}
+
+/*
+ * AUTHENTICATE is the one command every attach depends on, and it is the only
+ * thing in the suite that runs Milenage and AES -- both are linked in but were
+ * otherwise never called, so a broken cipher would have gone unnoticed here.
+ *
+ * The AUTN below is not a valid one for the template's key material, so the
+ * card answers with a resynchronisation token (TS 31.102 tag 0xDC + AUTS)
+ * instead of a success response. That answer is still fully computed: AUTS
+ * carries the card's own sequence number encrypted under the key it read from
+ * EF.A001, so pinning it covers the key-reading path, the resynchronisation
+ * functions and the AES primitive underneath, without needing a valid vector.
+ */
+ZTEST(softsim_apdu, test_authenticate_answers_with_a_resync_token)
+{
+	static const uint8_t select_adf[] = {0x00, 0xa4, 0x00, 0x04, 0x02, 0x7f, 0xf0};
+	static const uint8_t authenticate[] = {
+		0x00, 0x88, 0x00, 0x81, 0x22, /* CLA INS P1 P2 Lc */
+		0x10, 1,    2,	  3,	4,    5,    6,	  7,	8,    9,   10,
+		11,   12,   13,	  14,	15,   16, /* L_RAND, RAND */
+		0x10, 0x21, 0x22, 0x23, 0x24, 0x25, 0x26, 0x27, 0x28, 0x29, 0x2a,
+		0x2b, 0x2c, 0x2d, 0x2e, 0x2f, 0x30, 0x31 /* L_AUTN, AUTN */
+	};
+	/* Tag 0xDC, 14-byte AUTS, then SW. */
+	static const uint8_t golden[] = {0xdc, 0x0e, 0xd3, 0x8b, 0xcb, 0xfa, 0xad, 0xdc, 0xdf,
+					 0xa1, 0x25, 0x74, 0x23, 0x2e, 0xdf, 0xca, 0x90, 0x00};
+	uint8_t rsp[RSP_MAX];
+	size_t len;
+
+	len = transact(select_adf, sizeof(select_adf), rsp);
+	expect_sw(rsp, len, 0x9000, "SELECT ADF.USIM");
+
+	len = transact(authenticate, sizeof(authenticate), rsp);
+	expect_sw(rsp, len, 0x9000, "AUTHENTICATE");
+	zassert_equal(rsp[0], 0xdc, "AUTHENTICATE did not answer with a resync token");
+	zassert_equal(rsp[1], 0x0e, "AUTS length changed");
+	zassert_equal(len, sizeof(golden), "AUTHENTICATE returned %zu bytes", len);
+	zassert_mem_equal(rsp, golden, sizeof(golden), "the computed AUTS changed");
 }
