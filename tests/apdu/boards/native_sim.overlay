@@ -1,0 +1,22 @@
+/*
+ * SPDX-FileCopyrightText: Copyright (c) 2026 Onomondo ApS
+ * SPDX-License-Identifier: GPL-3.0-only
+ *
+ * lib/ss_fs.c resolves its storage through FIXED_PARTITION_*(nvs_storage), so
+ * the simulated flash needs a partition with that node label. native_sim's
+ * flash0 is 2 MB but only maps partitions up to 0x100000, so this carves the
+ * region above that and disturbs nothing the board already defines.
+ *
+ * The size is the same 0x8000 the nRF91 targets use, and native_sim's flash0
+ * already has a 4096-byte erase block -- which ss_init_fs() hardcodes as its
+ * NVS sector size.
+ */
+
+&flash0 {
+	partitions {
+		nvs_storage: partition@100000 {
+			label = "nvs_storage";
+			reg = <0x00100000 0x00008000>;
+		};
+	};
+};

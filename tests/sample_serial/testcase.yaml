@@ -1,0 +1,10 @@
+tests:
+  softsim.sample.serial:
+    # native_sim only -- same rationale as tests/cache/testcase.yaml.
+    platform_allow:
+      - native_sim
+    integration_platforms:
+      - native_sim
+    tags:
+      - softsim
+      - ci_tests_softsim_unit

@@ -12,3 +12,6 @@ build:
 
 samples:
   - samples
+
+tests:
+  - tests

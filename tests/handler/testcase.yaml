@@ -1,0 +1,9 @@
+tests:
+  softsim.unit.handler:
+    platform_allow:
+      - native_sim
+    integration_platforms:
+      - native_sim
+    tags:
+      - softsim
+      - ci_tests_softsim_unit

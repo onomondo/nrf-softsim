@@ -1,0 +1,18 @@
+/*
+ * SPDX-FileCopyrightText: Copyright (c) 2026 Onomondo ApS
+ * SPDX-License-Identifier: GPL-3.0-only
+ *
+ * An emulated UART the test injects bytes into. A root-level node rather than
+ * an override of uart0: native_sim's uart0 is the PTY console and has no RX
+ * injection API. Same shape as zephyr/tests/drivers/uart/uart_emul.
+ */
+
+/ {
+	euart0: uart-emul {
+		compatible = "zephyr,uart-emul";
+		status = "okay";
+		current-speed = <0>;
+		rx-fifo-size = <256>;
+		tx-fifo-size = <256>;
+	};
+};

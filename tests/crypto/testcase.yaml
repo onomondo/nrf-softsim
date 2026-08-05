@@ -1,0 +1,13 @@
+tests:
+  softsim.unit.crypto:
+    # native_sim only; see tests/cache/testcase.yaml for why. PSA comes from
+    # Mbed TLS here rather than TF-M, and the internal trusted storage backend
+    # is the RAM one in src/, so this suite needs no flash device and runs under
+    # UBSan as well as ASan.
+    platform_allow:
+      - native_sim
+    integration_platforms:
+      - native_sim
+    tags:
+      - softsim
+      - ci_tests_softsim_unit
