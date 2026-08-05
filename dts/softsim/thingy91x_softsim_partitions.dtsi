@@ -1,0 +1,137 @@
+/*
+ * SPDX-FileCopyrightText: Copyright (c) 2026 Onomondo ApS
+ * SPDX-License-Identifier: GPL-3.0-only
+ *
+ * SoftSIM flash layout for the Thingy:91 X (nrf9151/ns). Byte-identical to
+ * the factory Partition Manager layout (boards/thingy91x_nrf9151_pm_static.yml)
+ * so devices upgrading in place keep the provisioned profile in nvs_storage
+ * and stay compatible with the factory B0 + MCUboot chain.
+ *
+ * Internal flash:
+ * 0x0000_0000  B0 (immutable bootloader)       ( 32 kB)
+ * 0x0000_8000  S0 (MCUboot, slot 0)            ( 80 kB)
+ * 0x0001_c000  S1 (MCUboot, slot 1)            ( 80 kB)
+ * 0x0003_0000  Image 0 (pad + TF-M + app)      (768 kB)
+ *   0x0003_0000  Secure image (pad + TF-M)     (128 kB)
+ *   0x0005_0000  Non-secure image (app)        (640 kB)
+ * 0x000f_0000  SoftSIM NVS storage             ( 32 kB)
+ * 0x000f_8000  TF-M Internal Trusted Storage   (  8 kB)
+ * 0x000f_a000  TF-M OTP / NV counters          (  8 kB)
+ * 0x000f_c000  TF-M Protected Storage          ( 16 kB)
+ *
+ * External flash (GD25LE255E):
+ * 0x0000_0000  Image 1 (MCUboot secondary)     (832 kB)
+ * 0x000d_0000  FMFU (modem firmware) storage   (  4 MB)
+ * 0x004d_0000  Settings storage                (  8 kB)
+ */
+
+/delete-node/ &b0_partition;
+/delete-node/ &s0_partition;
+/delete-node/ &s1_partition;
+/delete-node/ &slot0_partition;
+/delete-node/ &slot1_partition;
+/delete-node/ &fmfu_storage_partition;
+/delete-node/ &storage_partition;
+
+&flash0 {
+	partitions {
+		ranges;
+		#address-cells = <1>;
+		#size-cells = <1>;
+
+		b0_partition: partition@0 {
+			compatible = "zephyr,mapped-partition";
+			label = "b0";
+			reg = <0x00000000 0x8000>;
+		};
+
+		boot_partition: s0_partition: partition@8000 {
+			compatible = "zephyr,mapped-partition";
+			label = "b0-image-0";
+			reg = <0x00008000 0x14000>;
+		};
+
+		s1_partition: partition@1c000 {
+			compatible = "zephyr,mapped-partition";
+			label = "b0-image-1";
+			reg = <0x0001c000 0x14000>;
+		};
+
+		slot0_partition: partition@30000 {
+			compatible = "zephyr,mapped-partition";
+			label = "image-0";
+			reg = <0x00030000 0xc0000>;
+			ranges = <0x0 0x30000 0xc0000>;
+			#address-cells = <1>;
+			#size-cells = <1>;
+
+			slot0_s_partition: partition@0 {
+				compatible = "zephyr,mapped-partition";
+				label = "image-0-secure";
+				reg = <0x00000000 0x20000>;
+			};
+
+			slot0_ns_partition: partition@20000 {
+				compatible = "zephyr,mapped-partition";
+				label = "image-0-nonsecure";
+				reg = <0x00020000 0xa0000>;
+			};
+		};
+
+		/* The storage_partition label makes TF-M configure this range as
+		 * non-secure in the SPU (the Partition Manager nonsecure_storage
+		 * region did the same); without it the application faults on the
+		 * first NVS write. The settings storage_partition on the external
+		 * flash is renamed ext_storage_partition (see below). */
+		storage_partition: nvs_storage: partition@f0000 {
+			compatible = "zephyr,mapped-partition";
+			label = "nvs-storage";
+			reg = <0x000f0000 0x8000>;
+		};
+
+		tfm_its_partition: partition@f8000 {
+			compatible = "zephyr,mapped-partition";
+			label = "tfm-its";
+			reg = <0x000f8000 0x2000>;
+		};
+
+		tfm_otp_partition: partition@fa000 {
+			compatible = "zephyr,mapped-partition";
+			label = "tfm-otp";
+			reg = <0x000fa000 0x2000>;
+		};
+
+		tfm_ps_partition: partition@fc000 {
+			compatible = "zephyr,mapped-partition";
+			label = "tfm-ps";
+			reg = <0x000fc000 0x4000>;
+		};
+	};
+};
+
+&flash_ext {
+	partitions {
+		compatible = "fixed-partitions";
+		#address-cells = <1>;
+		#size-cells = <1>;
+
+		slot1_partition: partition@0 {
+			label = "image-1";
+			reg = <0x00000000 0xd0000>;
+		};
+
+		fmfu_storage_partition: partition@d0000 {
+			label = "fmfu-storage";
+			reg = <0x000d0000 0x400000>;
+		};
+
+		/* Settings storage. Not labelled storage_partition: TF-M requires
+		 * that label on the internal-flash NS storage range (see above),
+		 * and it must not point at external flash. Point your settings
+		 * backend here explicitly if you need one. */
+		ext_storage_partition: partition@4d0000 {
+			label = "storage";
+			reg = <0x004d0000 0x2000>;
+		};
+	};
+};

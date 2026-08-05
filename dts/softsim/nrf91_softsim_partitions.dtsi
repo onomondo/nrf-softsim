@@ -1,0 +1,72 @@
+/*
+ * SPDX-FileCopyrightText: Copyright (c) 2026 Onomondo ApS
+ * SPDX-License-Identifier: GPL-3.0-only
+ *
+ * SoftSIM flash layout for the nRF91 DKs (nRF9151/nRF9160/nRF9161, /ns),
+ * no bootloader. Byte-identical to the Partition Manager layout previous
+ * releases computed, so devices upgrading in place keep the provisioned
+ * profile stored in nvs_storage.
+ *
+ * 0x0000_0000  Secure image (TF-M)             ( 96 kB)
+ * 0x0001_8000  Non-secure image (application)  (864 kB)
+ * 0x000f_0000  SoftSIM NVS storage             ( 32 kB)
+ * 0x000f_8000  TF-M Internal Trusted Storage   (  8 kB)
+ * 0x000f_a000  TF-M OTP / NV counters          (  8 kB)
+ * 0x000f_c000  TF-M Protected Storage          ( 16 kB)
+ */
+
+/delete-node/ &boot_partition;
+/delete-node/ &slot0_partition;
+/delete-node/ &slot1_partition;
+/delete-node/ &tfm_ps_partition;
+/delete-node/ &tfm_its_partition;
+/delete-node/ &tfm_otp_partition;
+/delete-node/ &storage_partition;
+
+&flash0 {
+	partitions {
+		ranges;
+		#address-cells = <1>;
+		#size-cells = <1>;
+
+		slot0_s_partition: partition@0 {
+			compatible = "zephyr,mapped-partition";
+			label = "image-0-secure";
+			reg = <0x00000000 0x18000>;
+		};
+
+		slot0_ns_partition: partition@18000 {
+			compatible = "zephyr,mapped-partition";
+			label = "image-0-nonsecure";
+			reg = <0x00018000 0xd8000>;
+		};
+
+		/* The storage_partition label makes TF-M configure this range as
+		 * non-secure in the SPU (the Partition Manager nonsecure_storage
+		 * region did the same); without it the application faults on the
+		 * first NVS write. */
+		storage_partition: nvs_storage: partition@f0000 {
+			compatible = "zephyr,mapped-partition";
+			label = "nvs-storage";
+			reg = <0x000f0000 0x8000>;
+		};
+
+		tfm_its_partition: partition@f8000 {
+			compatible = "zephyr,mapped-partition";
+			label = "tfm-its";
+			reg = <0x000f8000 0x2000>;
+		};
+
+		tfm_otp_partition: partition@fa000 {
+			compatible = "zephyr,mapped-partition";
+			label = "tfm-otp";
+			reg = <0x000fa000 0x2000>;
+		};
+
+		tfm_ps_partition: partition@fc000 {
+			compatible = "zephyr,mapped-partition";
+			label = "tfm-ps";
+			reg = <0x000fc000 0x4000>;
+		};
+	};
+};

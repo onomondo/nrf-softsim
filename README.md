@@ -147,6 +147,50 @@ The external (default) flow results in:
 [00:00:07.096,221] <inf> softsim_sample: Network registration status: Connected - roaming
 [00:00:07.096,405] <inf> softsim_sample: LTE connected!
 ```
+### Flash partitioning
+
+SoftSIM stores profiles in a dedicated `nvs_storage` flash partition. From NCS v3.4.0 the partitioning comes from the devicetree — Nordic's Partition Manager is deprecated and no longer enabled by default. NCS **v3.4.0 is the minimum**: the layouts use the `zephyr,mapped-partition` binding and the module resolves the partition through the `PARTITION_*` flash map macros, neither of which exists in earlier releases.
+
+The module ships ready-made layouts in `dts/softsim/` (on the devicetree include path automatically), and the sample applies them through `samples/softsim_external_profile/boards/<board>.overlay`. The addresses are identical to the Partition Manager layouts previously used, so a firmware upgrade flashed onto an already-provisioned device keeps the SoftSIM profile intact — provided the upgrade is flashed as described below.
+
+#### Upgrading provisioned devices
+
+The default build bundles the SoftSIM filesystem template into `build/merged.hex` and points `west flash` at it. That is the right artifact for a **fresh or fully erased** device — but on a provisioned device `west flash` reprograms the template over the start of `nvs_storage`, destroying the profile. Worse than a clean wipe: the template covers only the first sectors of the partition, so the remaining sectors keep stale filesystem records and the resulting mixed state is undefined (an old profile may even resurrect). To deliberately reset provisioning, erase the whole partition (`west flash --erase`, or `nrfutil device recover`).
+
+To upgrade the firmware while keeping the provisioned profile, either:
+
+- build with `-DSB_CONFIG_SOFTSIM_BUNDLE_TEMPLATE_HEX=n` — no template is merged and `west flash` programs the application-only hex, which never touches `nvs_storage`; or
+- flash the application-only artifact explicitly (`build/<app>/zephyr/tfm_merged.hex`, or `build/<app>/zephyr/zephyr.signed.hex` under MCUboot) with an erase mode limited to the pages the file touches, e.g. `nrfutil device program --firmware <hex> --options chip_erase_mode=ERASE_RANGES_TOUCHED_BY_FIRMWARE`.
+
+For your own application, include the layout for your board from a board overlay:
+
+```c
+#include <softsim/nrf91_softsim_partitions.dtsi>   /* nRF91 DKs; thingy91/thingy91x variants also available */
+#include <softsim/nrf91_softsim_sram.dtsi>
+```
+
+Any custom layout works too, as long as it declares a `nvs_storage` partition (node label spelled exactly like that) of 32 kB — a build assert enforces this.
+
+If your application already brings its own partition layout — as the NCS cellular samples do, through `#include <samples/cellular/nrf91_no_bootloader_partitions.dtsi>` in `boards/<board>.overlay` — the SoftSIM layout **replaces** it rather than stacking on top; two complete layouts cannot both apply, and the second one fails with `undefined node label 'boot_partition'`. Either edit that overlay, or override the application's overlay list with `DTC_OVERLAY_FILE` (which replaces, unlike `EXTRA_DTC_OVERLAY_FILE`, which appends):
+
+```
+west build --sysbuild -b nrf9151dk/nrf9151/ns nrf/samples/cellular/at_client -- \
+  -DOVERLAY_CONFIG=$PATH_TO_ONOMONDO_SOFTSIM/overlay-softsim.conf \
+  -DDTC_OVERLAY_FILE="$PATH_TO_ONOMONDO_SOFTSIM/dts/softsim/nrf91_softsim_partitions.dtsi;$PATH_TO_ONOMONDO_SOFTSIM/dts/softsim/nrf91_softsim_sram.dtsi"
+```
+
+For DFU with MCUboot on the DKs, add the MCUboot layout on top (it matches the stock boot/slot0/slot1 geometry, so the MCUboot image builds with the unmodified board devicetree; see `samples/softsim_external_profile/mcuboot-partitions.overlay`):
+
+```
+west build --sysbuild -b nrf9151dk/nrf9151/ns -- \
+  -DSB_CONFIG_BOOTLOADER_MCUBOOT=y \
+  -DEXTRA_DTC_OVERLAY_FILE=mcuboot-partitions.overlay
+```
+
+On the Thingy:91 and Thingy:91 X the bootloader chain (MCUboot, and B0 on the Thingy:91 X) is enabled by the board defaults; the module automatically gives those images the matching partition view where the factory layout differs from the stock board devicetree.
+
+The deprecated Partition Manager flow still works during the transition window: build with `-DSB_CONFIG_PARTITION_MANAGER=y` (the `pm_static.yml` files are still in the sample).
+
 ### General usage
 
 For most samples and applications, it's sufficient to build by executing the following command:
@@ -158,15 +202,10 @@ Where `PATH_TO_ONOMONDO_SOFTSIM` is the path of the downloaded Onomondo SoftSIM 
 #### Note
 SoftSIM is relying on some default data in the storage partition. This section of the flash can be generated and flashed manually (see steps below) or, as we recommend, automatically included by adding `SB_CONFIG_SOFTSIM_BUNDLE_TEMPLATE_HEX=y` to `sysbuild.conf`.
 
-Manually generating SoftSIM profile template data:
-1. After building the application, generate the application-specific template profile. `west build -b nrf9151dk/nrf9151/ns -t onomondo_softsim_template`
-2. Flash the application-specific template profile. `west flash --hex-file build/onomondo-softsim/template.hex`
+Manually flashing the SoftSIM profile template data: every build generates it at the `nvs_storage` address as `build/<app>/onomondo-softsim/template.hex` (with the deprecated Partition Manager: `west build -t onomondo_softsim_template`, output in `build/onomondo-softsim/template.hex`). Flash it with `west flash --hex-file <path-to-template.hex>`.
 
 If the partition table of the application changes, for example due to another partition changing size, the template profile must be rebuilt and flashed again.
-The partition table can be checked at any time with:
-```
-west build -t partition_manager_report
-```
+The resolved partition table can be checked at any time in `build/<app>/zephyr/zephyr.dts` (or with `west build -t partition_manager_report` when building with the Partition Manager).
 
 #### Note
 Some applications will fail to link with error `zephyr/zephyr_pre0.elf uses VFP register arguments` (for example `modem_shell`). In this case it is required to also enable `CONFIG_FP_SOFTABI=y`. It is suggested to create an additional Kconfig overlay for application specific SoftSIM configurations and add them to `overlay-softsim.conf` inside
@@ -420,7 +459,7 @@ SoftSIM entrypoint starts its own work queue and returns immediately after. The 
 
 ![softsim_nrf_flow](https://github.com/onomondo/nrf-softsim/assets/46489969/7513bb06-99b3-4de4-95bb-34884a9726ed)
 
-Please note that SoftSIM internally need access to a storage partition. This should be pre-populated with the `template.hex` provided in the samples. The adress in the `template.hex` is hardcoded but can be moved around freely as pleased with an appropriate tool. The location is derived from the devicetree at compile time (` FIXED_PARTITION_DEVICE(NVS_PARTITION)`)
+Please note that SoftSIM internally need access to a storage partition. This should be pre-populated with the `template.hex` provided in the samples. The adress in the `template.hex` is hardcoded but can be moved around freely as pleased with an appropriate tool. The location is derived from the devicetree at compile time (`PARTITION_DEVICE(nvs_storage)`)
 
 ## Contributing
 

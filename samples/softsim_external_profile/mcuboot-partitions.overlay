@@ -1,0 +1,16 @@
+/*
+ * SPDX-FileCopyrightText: Copyright (c) 2026 Onomondo ApS
+ * SPDX-License-Identifier: GPL-3.0-only
+ *
+ * Opt-in MCUboot (DFU) partition layout for the nRF91 DKs. Applied after the
+ * board overlay, it replaces the no-bootloader layout. Build with:
+ *
+ *   west build --sysbuild -b <board> -- \
+ *     -DSB_CONFIG_BOOTLOADER_MCUBOOT=y \
+ *     -DEXTRA_DTC_OVERLAY_FILE=mcuboot-partitions.overlay
+ *
+ * boot/slot0/slot1 match the stock nRF91 layout, so the MCUboot image itself
+ * builds with the unmodified board devicetree.
+ */
+
+#include <softsim/nrf91_softsim_mcuboot_partitions.dtsi>

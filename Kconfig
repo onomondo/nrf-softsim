@@ -47,6 +47,17 @@ config SOFTSIM_LIBS_DEBUG_LOGS
         bytes (winning over the nrf sizing when both are enabled). Production
         builds should leave this disabled.
 
+config SOFTSIM_FLASH_BUNDLED_HEX
+    bool "west flash programs the merged hex bundling the SoftSIM template"
+    default n
+    help
+        Point west flash at the sysbuild-level merged.hex, which bundles the
+        firmware with the SoftSIM filesystem template at the nvs_storage
+        address. Set automatically by sysbuild when
+        SB_CONFIG_SOFTSIM_BUNDLE_TEMPLATE_HEX is enabled with devicetree
+        partitioning (the deprecated Partition Manager flow bundles the
+        template into its own merged.hex instead).
+
 config SOFTSIM_STATIC_PROFILE_ENABLE
     bool "Enable static profile"
     default n

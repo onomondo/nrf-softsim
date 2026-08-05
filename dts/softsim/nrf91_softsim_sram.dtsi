@@ -1,0 +1,63 @@
+/*
+ * SPDX-FileCopyrightText: Copyright (c) 2026 Onomondo ApS
+ * SPDX-License-Identifier: GPL-3.0-only
+ *
+ * SoftSIM SRAM layout for nRF91 (/ns). Matches the 48 kB secure RAM the
+ * Partition Manager builds reserved via CONFIG_PM_PARTITION_SIZE_TFM_SRAM.
+ * Modem shared-memory subregions follow the NCS defaults.
+ *
+ * On the Thingy:91 the factory Partition Manager layout gave TF-M 88 kB of
+ * SRAM (tfm_sram 0x16000); this layout gives it 48 kB on all boards. SRAM
+ * holds no persistent state, so unlike flash this is not a migration
+ * concern -- a TF-M configuration that does not fit fails at build time.
+ *
+ * 0x2000_0000  Secure RAM (TF-M)               ( 48 kB)
+ * 0x2000_c000  Non-secure RAM                  (208 kB)
+ *   0x2000_c000  Modem shared area             (17768 B)
+ *   0x2001_0568  Application RAM
+ */
+
+/delete-node/ &sram0_s;
+/delete-node/ &sram0_ns;
+
+&sram0 {
+	sram0_s: sram@0 {
+		reg = <0x0 0xc000>;
+	};
+
+	sram0_ns: sram@c000 {
+		reg = <0xc000 0x34000>;
+		#address-cells = <1>;
+		#size-cells = <1>;
+		ranges = <0x0 0xc000 0x34000>;
+
+		/* Must be in first 128 kB of RAM. */
+		sram0_ns_modem: sram0_ns@0 {
+			/* Modem (shared) memory */
+			reg = <0x0 0x4568>;
+			#address-cells = <1>;
+			#size-cells = <1>;
+			ranges = <0x0 0x0 0x4568>;
+
+			cpuapp_cpucell_ipc_shm_ctrl: sram0_ns_modem@0 {
+				/* Modem IPC control */
+				reg = <0x0 0x4e8>;
+			};
+
+			cpuapp_cpucell_ipc_shm_heap: sram0_ns_modem@4e8 {
+				/* Modem IPC transmit */
+				reg = <0x4e8 0x2080>;
+			};
+
+			cpucell_cpuapp_ipc_shm_heap: sram0_ns_modem@2568 {
+				/* Modem IPC receive */
+				reg = <0x2568 0x2000>;
+			};
+		};
+
+		sram0_ns_app: sram0_ns@4568 {
+			/* Non-Secure application memory */
+			reg = <0x4568 0x2fa98>;
+		};
+	};
+};
