@@ -99,7 +99,13 @@ int ss_init_fs(void)
 	fs.flash_device = NVS_PARTITION_DEVICE;
 	fs.sector_size =
 		0x1000; /* Where to read this? :DT_PROP(NVS_PARTITION, erase_block_size); */
-	fs.sector_count = FLASH_AREA_SIZE(nvs_storage) / fs.sector_size;
+	/* FIXED_PARTITION_SIZE, not FLASH_AREA_SIZE: the latter only exists in
+	 * NCS's Partition Manager header (nrf/include/flash_map_pm.h), where it is
+	 * defined as FIXED_PARTITION_SIZE anyway. Using the portable spelling lets
+	 * this build both under PM (apps/softsim) and against a plain devicetree
+	 * partition (the Asset Tracker Template port), and matches the
+	 * FIXED_PARTITION_* macros used for the device and offset above. */
+	fs.sector_count = FIXED_PARTITION_SIZE(NVS_PARTITION) / fs.sector_size;
 	fs.offset = NVS_PARTITION_OFFSET;
 
 	int rc = nvs_mount(&fs);

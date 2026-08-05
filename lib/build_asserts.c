@@ -4,6 +4,7 @@
  */
 
 #include <zephyr/kernel.h>
+#include <zephyr/storage/flash_map.h>
 #include <autoconf.h>
 
 #include <onomondo/utils/ss_profile.h>
@@ -29,9 +30,18 @@ BUILD_ASSERT(CONFIG_HEAP_MEM_POOL_SIZE >= EXPECTED_MIN_HEAP_SIZE,
  */
 #if CONFIG_SETTINGS_NVS
 BUILD_ASSERT(0, "SoftSIM: Please disable CONFIG_SETTINGS_NVS. Choose CONFIG_SETTINGS_FCB instead.");
-#else
+#elif defined(CONFIG_PARTITION_MANAGER_ENABLED)
 BUILD_ASSERT(CONFIG_PM_PARTITION_SIZE_NVS_STORAGE == EXPECTED_PARTITION_SIZE,
 	     "SoftSIM: "
 	     "nvs_partition size is not valid. "
+	     "Please reconfigure the project.");
+#else
+/* Partition Manager is deprecated from NCS 3.4 and applications may define
+ * nvs_storage as a plain devicetree partition instead (see the Asset Tracker
+ * Template port). CONFIG_PM_PARTITION_SIZE_NVS_STORAGE does not exist there and
+ * would silently evaluate to 0, so measure the partition itself. */
+BUILD_ASSERT(FIXED_PARTITION_SIZE(nvs_storage) == EXPECTED_PARTITION_SIZE,
+	     "SoftSIM: "
+	     "nvs_storage partition size is not valid. "
 	     "Please reconfigure the project.");
 #endif
