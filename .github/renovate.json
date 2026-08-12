@@ -45,6 +45,13 @@
         "pinDigest"
       ],
       "minimumReleaseAge": null
+    },
+    {
+      "description": "onomondo-uicc is pinned to a release tag via the .gitmodules branch field, so only accept refs shaped like a release. The git-refs datasource returns branches and tags in one list, so without this a tag-like branch name could move the pin to an unreleased HEAD.",
+      "matchManagers": [
+        "git-submodules"
+      ],
+      "allowedVersions": "/^v\\d+\\.\\d+\\.\\d+$/"
     }
   ]
 }
