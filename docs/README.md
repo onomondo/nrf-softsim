@@ -1,10 +1,16 @@
 # Onomondo SoftSIM documentation
 
+These pages document **nrf-softsim**, the nRF91 integration. They cover what the code
+cannot tell you on its own: ordering constraints, hazards, and the reasons behind the
+design. For option-by-option detail, read [`Kconfig`](../Kconfig) and
+[`lib/include/nrf_softsim.h`](../lib/include/nrf_softsim.h) — both are documented at the
+source.
+
 Two codebases make up the SoftSIM:
 
 | Repository | Role |
 |---|---|
-| [onomondo-uicc](https://github.com/onomondo/onomondo-uicc) | The SIM. A portable, dependency-free C implementation of a SIM/UICC/USIM — APDU parser, smart-card filesystem, USIM authentication (MILENAGE), OTA remote file management. It knows nothing about Zephyr or Nordic hardware; it reaches the outside world through four port interfaces. |
+| [onomondo-uicc](https://github.com/onomondo/onomondo-uicc) | The SIM. A portable, dependency-free C implementation of a SIM/UICC/USIM — APDU parser, smart-card filesystem, USIM authentication (MILENAGE), OTA remote file management. It knows nothing about Zephyr or Nordic hardware; it reaches the outside world through four port interfaces. Feature boundaries, specification coverage and host testing are documented in that repository. GPL-3.0-only. |
 | [nrf-softsim](https://github.com/onomondo/nrf-softsim) (this repository) | The nRF91 integration. A Zephyr module for the [nRF Connect SDK](https://www.nordicsemi.com/Products/Development-software/nrf-connect-sdk) that binds onomondo-uicc to the nRF91 modem, implements the port interfaces on Zephyr and TF-M, and ships a reference sample. |
 
 The nRF91 modem firmware supports a software SIM: instead of driving the physical SIM
@@ -41,23 +47,14 @@ as a git submodule at [`lib/onomondo-uicc`](../lib/onomondo-uicc) and built from
 
 | Page | What it covers |
 |---|---|
-| [Architecture](architecture.md) | Layers, request lifecycle, threading, boot flow, the NVS-backed filesystem, the security model, source map. |
-| [onomondo-uicc](onomondo-uicc.md) | The SIM core: specification coverage, what is and isn't supported, source layout, host testing, licensing. |
-| [Interfaces](interfaces.md) | The application API, the modem contract, the SIM core API, and the four port interfaces. |
-| [Configuration](configuration.md) | Kconfig and sysbuild options, flash partitioning, the filesystem template, resource requirements, coexistence constraints. |
+| [Architecture](architecture.md) | Request lifecycle, threading, boot flow, the NVS-backed filesystem, the security model, the port and source maps. |
+| [Integration](integration.md) | Adding the module to your application, the options worth commenting on, flash partitioning, the filesystem template, resources and coexistence, adapting to your own board. |
 | [Provisioning](provisioning.md) | Profile format, delivery, the on-device flow, key storage, re-provisioning. |
-| [Adapting](adapting.md) | Your own application, custom boards and layouts, replacing the ports, porting to another platform. |
+
+Just want it running? The [top-level README](../README.md) is the quick path.
 
 ## Supported hardware
 
 nRF91 series (nRF9151, nRF9160, nRF9161) on the non-secure (`*/ns`) build targets —
 TF-M is required for key storage. Validated board overlays ship for the nRF9151 DK,
 nRF9160 DK, nRF9161 DK, Thingy:91 and Thingy:91 X. NCS v3.4.0 or later.
-
-## Where to start
-
-- Just want it running: the [top-level README](../README.md).
-- Evaluating the design or preparing a port: [Architecture](architecture.md), then
-  [Interfaces](interfaces.md).
-- Integrating into an existing NCS application: [Adapting](adapting.md) and
-  [Configuration](configuration.md).
