@@ -460,9 +460,3 @@ SoftSIM entrypoint starts its own work queue and returns immediately after. The 
 ![softsim_nrf_flow](https://github.com/onomondo/nrf-softsim/assets/46489969/7513bb06-99b3-4de4-95bb-34884a9726ed)
 
 Please note that SoftSIM internally need access to a storage partition. This should be pre-populated with the `template.hex` provided in the samples. The adress in the `template.hex` is hardcoded but can be moved around freely as pleased with an appropriate tool. The location is derived from the devicetree at compile time (`PARTITION_DEVICE(nvs_storage)`)
-
-## Contributing
-
-Pull requests are welcome. CI checks [Conventional Commit](https://www.conventionalcommits.org/) subjects, a `Signed-off-by:` trailer on every commit (`git commit -s`), clang-format, and a signed CLA (a bot prompts on the PR).
-
-Pull requests are squash merged and credited to the author of the first commit, so submit a single commit to keep authorship.
