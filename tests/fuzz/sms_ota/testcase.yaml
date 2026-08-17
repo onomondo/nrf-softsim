@@ -1,0 +1,11 @@
+tests:
+  softsim.fuzz.sms_ota:
+    toolchain_allow: llvm
+    platform_allow:
+      - native_sim/native/64
+    integration_platforms:
+      - native_sim/native/64
+    build_only: true
+    tags:
+      - softsim
+      - softsim_fuzz

@@ -1,0 +1,16 @@
+tests:
+  softsim.fuzz.parse_apdu:
+    # libfuzzer only builds with a 64-bit clang on native_sim; twister filters
+    # this out of the default (Zephyr SDK / plain native_sim) runs, so the
+    # existing unit-test job never tries to build it.
+    toolchain_allow: llvm
+    platform_allow:
+      - native_sim/native/64
+    integration_platforms:
+      - native_sim/native/64
+    # A fuzz run is open-ended; twister only proves the harness compiles. The
+    # actual timed run happens in the fuzz workflow.
+    build_only: true
+    tags:
+      - softsim
+      - softsim_fuzz

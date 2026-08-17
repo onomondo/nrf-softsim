@@ -1,0 +1,147 @@
+name: SoftSIM Fuzzing
+
+# Zephyr's libfuzzer support (CONFIG_ARCH_POSIX_LIBFUZZER) builds only with a
+# 64-bit clang on native_sim/native/64, so this needs the LLVM toolchain -- which
+# the Zephyr SDK / GCC job in twister-tests.yml cannot provide. Kept a separate
+# workflow for that reason.
+#
+#   build : compile every fuzz harness (blocking gate on PRs that touch them).
+#   fuzz  : timed, coverage-guided runs, on a schedule only. NOT a PR gate --
+#           the harnesses are expected to surface real findings (an ASan report
+#           in the core's APDU parser is the first one), which should not block
+#           unrelated changes. Any reproducer is uploaded as an artifact.
+
+on:
+  push:
+    branches:
+      - master
+    paths:
+      - 'tests/fuzz/**'
+      - 'lib/**'
+      - '.github/workflows/fuzz.yml'
+  pull_request:
+    paths:
+      - 'tests/fuzz/**'
+      - 'lib/**'
+      - '.github/workflows/fuzz.yml'
+  schedule:
+    # 03:00 UTC nightly.
+    - cron: '0 3 * * *'
+  workflow_dispatch:
+    inputs:
+      duration:
+        description: 'Seconds to fuzz each target'
+        required: false
+        default: '300'
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  build:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 30
+    container: ghcr.io/nrfconnect/sdk-nrf-toolchain:v3.4.0@sha256:f1dca44678dae83e37404e33f369786f5b2ffe2ed497eec1815f66c3a868bace
+    defaults:
+      run:
+        shell: bash
+    steps:
+      - name: Install make and clang
+        run: |
+          apt-get update -qq
+          # make: native_sim's runner is built with it. clang/lld: the only
+          # toolchain libfuzzer works with.
+          apt-get install -y -qq --no-install-recommends make clang lld
+
+      - name: Initialize workspace
+        run: west init -m https://github.com/${GITHUB_REPOSITORY}
+
+      - name: Checkout
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          path: modules/lib/onomondo-softsim
+          submodules: true
+
+      - name: Fetch nRF and Zephyr workspaces and dependencies
+        run: west update -o=--depth=1 --narrow
+
+      # build_only in each testcase.yaml, so this just proves the harnesses
+      # compile under the llvm toolchain on the 64-bit board.
+      - name: Build fuzz targets
+        env:
+          ZEPHYR_TOOLCHAIN_VARIANT: llvm
+          LLVM_TOOLCHAIN_PATH: /usr
+        run: |
+          ./zephyr/scripts/twister \
+            -T modules/lib/onomondo-softsim/tests/fuzz \
+            -p native_sim/native/64 \
+            --tag softsim_fuzz \
+            --inline-logs \
+            -v
+
+  fuzz:
+    # Timed runs are informational; do not gate PRs on findings.
+    if: github.event_name == 'schedule' || github.event_name == 'workflow_dispatch'
+    runs-on: ubuntu-24.04
+    timeout-minutes: 30
+    container: ghcr.io/nrfconnect/sdk-nrf-toolchain:v3.4.0@sha256:f1dca44678dae83e37404e33f369786f5b2ffe2ed497eec1815f66c3a868bace
+    defaults:
+      run:
+        shell: bash
+    strategy:
+      fail-fast: false
+      matrix:
+        target: [parse_apdu, transact, sms_ota]
+    steps:
+      - name: Install make and clang
+        run: |
+          apt-get update -qq
+          apt-get install -y -qq --no-install-recommends make clang lld
+
+      - name: Initialize workspace
+        run: west init -m https://github.com/${GITHUB_REPOSITORY}
+
+      - name: Checkout
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          path: modules/lib/onomondo-softsim
+          submodules: true
+
+      - name: Fetch nRF and Zephyr workspaces and dependencies
+        run: west update -o=--depth=1 --narrow
+
+      - name: Build ${{ matrix.target }} (libfuzzer + ASan)
+        env:
+          ZEPHYR_TOOLCHAIN_VARIANT: llvm
+          LLVM_TOOLCHAIN_PATH: /usr
+        run: |
+          west build -b native_sim/native/64 -d build \
+            modules/lib/onomondo-softsim/tests/fuzz/${{ matrix.target }} \
+            -- -DCONFIG_ASAN=y
+
+      - name: Fuzz ${{ matrix.target }}
+        run: |
+          DURATION="${{ github.event.inputs.duration || '300' }}"
+          SEEDS="modules/lib/onomondo-softsim/tests/fuzz/${{ matrix.target }}/corpus"
+          # Writable working corpus so the checked-in seeds are not mutated.
+          mkdir -p work_corpus crashes
+          cp -a "${SEEDS}/." work_corpus/ 2>/dev/null || true
+          # -error_exitcode makes a sanitizer report a job failure; the reproducer
+          # lands under crashes/ for download.
+          ./build/zephyr/zephyr.exe \
+            -max_total_time="${DURATION}" \
+            -error_exitcode=99 \
+            -artifact_prefix=crashes/ \
+            work_corpus
+
+      - name: Upload reproducers
+        if: failure()
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: fuzz-crashes-${{ matrix.target }}
+          path: crashes/
+          if-no-files-found: ignore

@@ -1,0 +1,16 @@
+/*
+ * SPDX-FileCopyrightText: Copyright (c) 2026 Onomondo ApS
+ * SPDX-License-Identifier: GPL-3.0-only
+ *
+ * Same nvs_storage partition as tests/apdu/boards/native_sim.overlay; ss_fs.c
+ * needs it to resolve PARTITION_*(nvs_storage) on native_sim's flash0.
+ */
+
+&flash0 {
+	partitions {
+		nvs_storage: partition@100000 {
+			label = "nvs_storage";
+			reg = <0x00100000 0x00008000>;
+		};
+	};
+};

@@ -1,0 +1,9 @@
+# libFuzzer run artifacts -- reproducers, working corpora and coverage output.
+# The seed corpus/ dirs are tracked; nothing a run produces is.
+crashes/
+work_corpus/
+crash-*
+leak-*
+timeout-*
+oom-*
+*.profraw
