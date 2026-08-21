@@ -81,7 +81,9 @@ void nrf_softsim_modem_factory_reset(void);
  * Sets up the in-memory cache that backs the SoftSIM filesystem and primes it
  * from NVS-backed persistent storage.
  *
- * @return 0 on success, negative error code on failure
+ * @return 0 on success, 1 if the filesystem came up empty (no directory entry
+ *         in NVS — e.g. the template was never flashed), -1 if the NVS mount
+ *         fails
  */
 int ss_init_fs(void);
 

@@ -6,47 +6,52 @@ To integrate this awesome new SoftSIM UICC form factor, we have partnered with N
 
 This README is the quick path to a running sample. The full documentation — the design, every interface and configuration option, and how to adapt the SoftSIM to your own product or platform — lives in [`docs/`](docs/README.md).
 
+## Quick start
 
-## Quick Setup Guide
+1. **Initialize a workspace.**
 
-The Onomondo SoftSIM samples for nRF91 Series SiP's can be imported as a Zephyr module within the [nRF Connect SDK](https://www.nordicsemi.com/Products/Development-software/nrf-connect-sdk).
+   ```
+   west init -m https://github.com/onomondo/nrf-softsim.git
+   git -C modules/lib/onomondo-softsim submodule update --init
+   west update
+   ```
 
-A new SDK can be initiated with the following two commands if you are already a user of west and nrf:
+   The `git submodule` step is required: `west update` does not initialize the manifest
+   repository's own submodules, and without it `lib/onomondo-uicc` stays empty and the
+   CMake configure step fails. To add the module to an existing application instead,
+   see [docs/integration.md](docs/integration.md).
 
-```
-west init -m https://github.com/onomondo/nrf-softsim.git
-git -C modules/lib/onomondo-softsim submodule update --init
-west update
-```
+2. **Build and flash the sample.**
 
-Getting started with the external profile sample:
-```
-cd modules/lib/onomondo-softsim/samples/softsim_external_profile
-west build --sysbuild -b nrf9151dk/nrf9151/ns
-west flash
-```
+   ```
+   cd modules/lib/onomondo-softsim/samples/softsim_external_profile
+   west build --sysbuild -b nrf9151dk/nrf9151/ns
+   west flash
+   ```
 
-## Prerequisites
+3. **Fetch a profile.** Profiles are delivered through Onomondo's API, wrapped by the
+   [softsim-cli](https://github.com/onomondo/onomondo-softsim-cli). Generate an API key
+   at [app.onomondo.com/api-keys](https://app.onomondo.com/api-keys), then:
 
-### Initialize the onomondo-uicc git submodule
+   ```
+   ./softsim fetch --api-key <your_api_key> -n 1    # download 1 encrypted profile into ./profiles
+   ./softsim next --key=<path to your private key>  # decrypt and print the next unused profile
+   ```
 
-`onomondo-uicc` is bundled as a git submodule of this repository (under `lib/onomondo-uicc`). `west update` does **not** automatically initialize submodules of the manifest self repo, so you must run:
+   `softsim next` guarantees a fresh profile on every call.
 
-```
-git -C modules/lib/onomondo-softsim submodule update --init
-```
+4. **Provision the device.** The flashed sample prompts on the UART (115200 baud):
+   `Transfer SoftSIM profile using serial COM port, terminate by newline character`.
+   Paste the `softsim next` output and press return. The device provisions, reboots
+   and attaches:
 
-Skipping this step leaves `lib/onomondo-uicc` empty and the CMake configure step will fail.
+   ```
+   <inf> softsim_sample: Profile received: <n> characters in total
+   ...
+   <inf> softsim_sample: LTE connected!
+   ```
 
-### Get access to your free Onomondo SoftSIM profile
-SoftSIM profiles are delivered through our API. As this can be a bit cumbersome, we've developed a small tool to make this process easier. The tool is available at [softsim-cli](https://github.com/onomondo/onomondo-softsim-cli). Additional instructions can be found in the CLI repository.
-
-1. Generate an API key on [app.onomondo.com/api-keys](https://app.onomondo.com/api-keys). Follow the instructions on the app.
-2. Download the `softsim` cli tool for your platform.
-3. Fetch your profile: `./softsim fetch --api-key <your_api_key> -n 1`. This will create a `profiles` directory for you with `1` encrypted profile.
-
-Every time you require a new profile, simply use the `./softsim next --key=<path to your private key>`. It will look in the `./profiles` folder and decrypt and format a profile. _This command guarantees that a new profile is given each time._
-
+   Other delivery transports are covered in [docs/provisioning.md](docs/provisioning.md).
 
 ## License
 

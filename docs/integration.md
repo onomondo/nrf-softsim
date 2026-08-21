@@ -27,10 +27,8 @@ No changes to this repository are needed — consume it as a west module.
    Match `revision` to a release validated against your NCS version — each release pins
    its NCS in [`west.yml`](../west.yml) and lists it in the [changelog](../CHANGELOG.md).
 
-   (To point an existing NCS workspace at *this* repository's manifest instead, clone it
-   to `modules/lib/onomondo-softsim`, `west config manifest.path` at it, and `west
-   update` — with the same `git submodule update --init`, since `west update` does not
-   cover the manifest-self repository's submodules either.)
+   (To use this repository as the manifest itself, see the
+   [README quick start](../README.md) — the same submodule step applies there.)
 
 2. Apply [`overlay-softsim.conf`](../overlay-softsim.conf) — the drop-in that enables the
    SoftSIM with its required dependencies and sane defaults:
