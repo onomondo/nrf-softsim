@@ -13,12 +13,12 @@ characters — `LEN` counts hex characters, not bytes):
 |---|---|---|
 | `01` | IMSI | Subscriber identity, encoded as in EF.IMSI |
 | `02` | ICCID | Card identifier, encoded as in EF.ICCID |
-| `03` | OPC | MILENAGE operator constant (pre-computed) |
+| `03` | OPC | MILENAGE operator constant |
 | `04` | K/Ki | Subscriber authentication key |
 | `05` | KIC | OTA ciphering key |
 | `06` | KID | OTA integrity key |
 | `07` | SMSP | SMS parameters (optional) |
-| `08`–`0b` | PIN1, PIN2, ADM, PUK | PIN values (optional) |
+| `08`–`0b` | PIN1, PIN2, ADM, PUK | PIN values |
 | `0c` | SMSC | SMS service-center address (optional) |
 
 The full tag list and the decoder (`ss_profile_from_string()`) live in onomondo-uicc, in
@@ -33,7 +33,7 @@ profile for connectivity.
 ## Getting profiles
 
 Profiles are delivered encrypted through Onomondo's API. The
-[softsim-cli](https://github.com/onomondo/onomondo-softsim-cli) wraps the flow:
+[onomondo-softsim-cli](https://github.com/onomondo/onomondo-softsim-cli) wraps the flow:
 `softsim fetch` downloads encrypted profiles, `softsim next` decrypts and prints the next
 unused one — see the [README](../README.md) for the steps. That output string is exactly
 what `nrf_softsim_provision()` expects.
@@ -49,9 +49,9 @@ what `nrf_softsim_provision()` expects.
    all later crypto references them by id. The application should discard the plaintext
    profile string after the call.
 3. **Write identity to the filesystem** (`port_provision()` in
-   [`lib/ss_fs.c`](../lib/ss_fs.c)): IMSI, ICCID and the `A001`/`A004` records, plus
-   EF.SMSP (`/3f00/7ff0/6f42`) whenever the profile carries tag `07` (SMSP) or `0c`
-   (SMSC) — record 1 is read-modify-written, with the SMSC overlaid at byte 37.
+   [`lib/ss_fs.c`](../lib/ss_fs.c)): IMSI, ICCID, the `A001`/`A004` records, and — if the
+   profile carries an SMSP or SMSC — EF.SMSP's record 1, read-modify-written so the rest
+   of the record survives.
 
 `nrf_softsim_check_provisioned()` returns 1 only when both halves are in place: the KI key
 exists *and* the stored IMSI differs from the template default. Applications branch on it

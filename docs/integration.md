@@ -231,7 +231,7 @@ Two more that no assert catches: some applications (e.g. `modem_shell`) fail to 
 `CONFIG_PSA_WANT_ALG_ECB_NO_PADDING` and `CONFIG_PSA_WANT_ALG_CMAC`, all already set by
 `overlay-softsim.conf`.
 
-## Custom boards and ports
+## Custom boards
 
 - Any flash layout works if it contains a 32 kB partition labeled `nvs_storage`, plus the
   `storage_partition` label on the same node for TF-M's SPU configuration on DK-style
@@ -243,15 +243,8 @@ Two more that no assert catches: some applications (e.g. `modem_shell`) fail to 
 - **Memory**: `port_malloc`/`port_free` map to `k_malloc`/`k_free`. Point them at a
   dedicated `k_heap` to isolate the SoftSIM's ~30 kB from your application's heap
   accounting.
-- **Storage**: for a different medium there are two cut points — reimplement the
-  `ss_storage_*` operations of `storage.h` wholesale, or keep the submodule's
-  `storage_compact.c` and implement the `fs.h` shim underneath it, as this module does
-  (see [the filesystem](architecture.md#the-filesystem)). The cache layer is reusable if
-  you keep the path→id model.
-- **Crypto**: stays on PSA under TF-M on the nRF91. On other platforms, map it to whatever
-  secure key store exists.
 
-Three things that bite when porting to another modem or MCU:
+Three hazards worth knowing:
 
 - **Don't reject large Le values.** Modems legitimately request Le = 256; size response
   buffers for payload + status words (this module uses 260) and let the SIM core

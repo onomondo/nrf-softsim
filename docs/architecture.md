@@ -7,8 +7,7 @@ The SIM itself — specification behaviour, no platform assumptions — is
 [onomondo-uicc](https://github.com/onomondo/onomondo-uicc), vendored as a submodule.
 This repository is the nRF91 port: the modem transport plus implementations of the four
 port interfaces (storage, crypto, memory, logging) on Zephyr and TF-M. Replace that
-bottom layer and the SIM core runs elsewhere — which is what the submodule's host/PC
-build does.
+bottom layer and the SIM core runs elsewhere.
 
 ## Request lifecycle
 
@@ -35,15 +34,12 @@ library's SoftSIM interface, and the glue in
    `nrf_modem_softsim_data_free()`.
 
 APDU buffers are sized `SIM_HAL_MAX_LE` (260) bytes: the modem may request the full
-256-byte short-APDU payload, plus room for the status words. A port that rejects large
-Le values will break LTE attach.
+256-byte short-APDU payload, plus room for the status words.
 
 The modem uses the software SIM only when selected with `AT%CSUS=2`. Selection is
 accepted only while the modem is deactivated, and is committed to modem NVM on
 `AT+CFUN=0`; `AT%CSUS=0` reverts to the physical SIM. The rest of the contract is in the
-[SoftSIM interface documentation](https://nrfconnectdocs.nordicsemi.com/ncs/3.4.0/nrfxlib/nrf_modem/doc/softsim_interface.html)
-(`nrf_modem_softsim.h` in nrfxlib; the link matches the NCS version pinned in
-[`west.yml`](../west.yml)).
+[SoftSIM interface documentation](https://nrfconnectdocs.nordicsemi.com/ncs/3.4.0/nrfxlib/nrf_modem/doc/softsim_interface.html).
 
 ### Threading
 
@@ -54,16 +50,19 @@ and `nrf_softsim_provision()` runs on the application thread and mutates the sam
 (`port_provision()` in [`lib/ss_fs.c`](../lib/ss_fs.c)). **Provision before the modem is
 activated, not concurrently with it.**
 
-### Error handling
+### Failure behavior
+
+Recovery lives one layer up: since no SIM-core request or response is checked inside the
+worker, it's the modem's own response-timeout and `RESET` protocol — not per-call error
+codes — that actually recovers from a failure.
 
 `nrf_modem_softsim_err()` has one call site: the ISR, when the request node cannot be
-allocated. Inside the worker the SIM-core calls are not error-checked at all — return
-values from `ss_init_fs()`/`ss_deinit_fs()` are discarded, `ss_reset()` is `void`, and
-the lengths from `ss_atr()` and `ss_application_apdu_transact()` go straight into the
-response — so a SIM-core failure is still answered, just with a possibly empty or bogus
-payload. Only `nrf_modem_softsim_res()` itself is checked; when *it* fails the error is
-logged and the request goes unanswered, and the modem falls back on its own timeout and
-`RESET`.
+allocated. Return values from `ss_init_fs()`/`ss_deinit_fs()` are discarded, `ss_reset()`
+is `void`, and the lengths from `ss_atr()` and `ss_application_apdu_transact()` go
+straight into the response — so a SIM-core failure is still answered, just with a
+possibly empty or bogus payload. Only `nrf_modem_softsim_res()` itself is checked; when
+*it* fails the error is logged and the request goes unanswered, again falling back to
+the modem's timeout and `RESET`.
 
 ### Suspend
 
@@ -105,7 +104,7 @@ Most of what a SIM does is filesystem access with access control. Activating the
 (`AT+CFUN=41`) starts a long run of `SELECT` followed by `READ BINARY` or `READ RECORD`
 — `00a408040000022fe20168` selects EF.ICCID, `00b000000a` reads it, and so on for tens of
 files. The exception is `AUTHENTICATE`, which runs MILENAGE, derives session keys and
-validates that the network is not an imposter. See [Provisioning](provisioning.md).
+validates that the network is not an imposter.
 
 ## The filesystem
 
@@ -143,9 +142,7 @@ NVS is a `uint16 id → blob` store, so a translation layer is needed:
   integrity.
 
 <p align="center">
- <img width="338" src="https://github.com/onomondo/nrf-softsim/assets/46489969/e77404ed-f8fd-46c8-98d8-054258727b8b">
- <img width="358" src="https://github.com/onomondo/nrf-softsim/assets/46489969/c03113b3-f41b-41c7-b681-0e2b09f7ee7b">
- <img height="338" src="https://github.com/onomondo/nrf-softsim/assets/46489969/815529a8-caf4-485f-a752-1a6242bec082">
+ <img width="900" src="https://github.com/onomondo/nrf-softsim/assets/46489969/815529a8-caf4-485f-a752-1a6242bec082">
 </p>
 
 Every fresh SIM shares the same file tree — only identity and keys differ — so the module

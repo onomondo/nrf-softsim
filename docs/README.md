@@ -10,7 +10,7 @@ Two codebases make up the SoftSIM:
 
 | Repository | Role |
 |---|---|
-| [onomondo-uicc](https://github.com/onomondo/onomondo-uicc) | The SIM. A portable, dependency-free C implementation of a SIM/UICC/USIM — APDU parser, smart-card filesystem, USIM authentication (MILENAGE), OTA remote file management. It knows nothing about Zephyr or Nordic hardware; it reaches the outside world through four port interfaces. Feature boundaries, specification coverage and host testing are documented in that repository. GPL-3.0-only. |
+| [onomondo-uicc](https://github.com/onomondo/onomondo-uicc) | The SIM. A portable, dependency-free C implementation of a SIM/UICC/USIM — APDU parser, smart-card filesystem, USIM authentication (MILENAGE), OTA remote file management. It knows nothing about Zephyr or Nordic hardware; it reaches the outside world through four port interfaces. Feature boundaries, specification coverage and host testing are documented in that repository. |
 | [nrf-softsim](https://github.com/onomondo/nrf-softsim) (this repository) | The nRF91 integration. A Zephyr module for the [nRF Connect SDK](https://www.nordicsemi.com/Products/Development-software/nrf-connect-sdk) that binds onomondo-uicc to the nRF91 modem, implements the port interfaces on Zephyr and TF-M, and ships a reference sample. |
 
 The nRF91 modem firmware supports a software SIM: instead of driving the physical SIM
@@ -20,22 +20,20 @@ to the application core, where this module answers them using onomondo-uicc. Tha
 interface was developed in partnership with Nordic Semiconductor.
 
 ```
-┌─────────────────────────────────────────────┐
-│ Your application            (Zephyr, NCS)   │
-├─────────────────────────────────────────────┤
-│ nrf-softsim        Zephyr module (this repo)│
-│  · modem glue, work queue                   │
-│  · ports: NVS fs + cache, PSA crypto,       │
-│    heap, logging                            │
-├─────────────────────────────────────────────┤
-│ onomondo-uicc      portable SIM core        │
-│  · APDU/TLV codecs, UICC filesystem,        │
-│    USIM auth (MILENAGE), OTA (RFM)          │
-├─────────────────────────────────────────────┤
-│ nrf_modem SoftSIM interface     (nrfxlib)   │
-├─────────────────────────────────────────────┤
-│ nRF91 modem core       (cellular protocol)  │
-└─────────────────────────────────────────────┘
+┌───────────────────────────────────────────────────────────────────────┐
+│ Your application                                        (Zephyr, NCS) │
+├───────────────────────────────────────────────────────────────────────┤
+│ nrf-softsim                                 Zephyr module (this repo) │
+│   · modem glue, work queue                                            │
+│   · ports: NVS fs + cache, PSA crypto, heap, logging                  │
+├───────────────────────────────────────────────────────────────────────┤
+│ onomondo-uicc                                       portable SIM core │
+│   · APDU/TLV codecs, UICC filesystem, USIM auth (MILENAGE), OTA (RFM) │
+├───────────────────────────────────────────────────────────────────────┤
+│ nrf_modem SoftSIM interface                                 (nrfxlib) │
+├───────────────────────────────────────────────────────────────────────┤
+│ nRF91 modem core                                  (cellular protocol) │
+└───────────────────────────────────────────────────────────────────────┘
 ```
 
 nrf-softsim is consumed as a regular [west](https://docs.zephyrproject.org/latest/develop/west/index.html)
@@ -57,4 +55,4 @@ Just want it running? The [top-level README](../README.md) is the quick path.
 
 nRF91 series (nRF9151, nRF9160, nRF9161) on the non-secure (`*/ns`) build targets —
 TF-M is required for key storage. Validated board overlays ship for the nRF9151 DK,
-nRF9160 DK, nRF9161 DK, Thingy:91 and Thingy:91 X. NCS v3.4.0 or later.
+nRF9160 DK, nRF9161 DK, Thingy:91 and Thingy:91 X.
