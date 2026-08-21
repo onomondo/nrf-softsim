@@ -30,7 +30,7 @@ This README is the quick path to a running sample. The full documentation — th
    ```
 
 3. **Fetch a profile.** Profiles are delivered through Onomondo's API, wrapped by the
-   [softsim-cli](https://github.com/onomondo/onomondo-softsim-cli). Generate an API key
+   [onomondo-softsim-cli](https://github.com/onomondo/onomondo-softsim-cli). Generate an API key
    at [app.onomondo.com/api-keys](https://app.onomondo.com/api-keys), then:
 
    ```
