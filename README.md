@@ -53,6 +53,33 @@ This README is the quick path to a running sample. The full documentation — th
 
    Other delivery transports are covered in [docs/provisioning.md](docs/provisioning.md).
 
+That's it — at a glance, this is what you have just built and provisioned:
+
+```
+            ┌─────────────────────────────────────────────────────┐
+            │         Application (your Zephyr software)          ├───────┐
+            └──────────────────────────┬──────────────────────────┘       │
+                                       │                                  │
+                                       │  lte_lc_connect() / AT+CFUN=1    │  SoftSIM profile
+                                       │                                  │  (onomondo-softsim-cli)
+            ┌──────────────────────────▼──────────────────────────┐       │
+LTE ~~~)))  │                     nRF91 modem                     │       │
+            └────────────┬─────────────────────────▲──────────────┘       │
+                         │                         │                      │
+                         │  INIT · APDU ·          │  ATR · response      │
+                         │  RESET · DEINIT         │  APDU + SW           │
+                         │                         │                      │
+            ┌────────────▼─────────────────────────┴──────────────┐       │
+            │               nrf-softsim (this repo)               │◄──────┘
+            │       modem glue · work queue · provisioning        │  nrf_softsim_provision()
+            ├─────────────────────────────────────────────────────┤
+            │            onomondo-uicc — the SIM core             │
+            ├──────────────────────────┬──────────────────────────┤
+            │  Storage port            │  Crypto port             │
+            │  Zephyr NVS + RAM cache  │  PSA Crypto in TF-M      │
+            └──────────────────────────┴──────────────────────────┘
+```
+
 ## License
 
 The Onomondo nrf-softsim repository is provided under:
