@@ -39,7 +39,6 @@ static void nrf_modem_softsim_req_handler(enum nrf_modem_softsim_cmd req, uint16
 static struct k_work_q softsim_work_q;
 static K_FIFO_DEFINE(softsim_req_fifo);
 static K_WORK_DEFINE(softsim_req_work, softsim_req_task);
-static uint8_t softsim_buffer_out[SIM_HAL_MAX_LE];
 
 #ifdef CONFIG_SOFTSIM_FACTORY_RESET_ON_PROVISION
 static bool just_provisioned;
@@ -225,6 +224,7 @@ static void softsim_req_task(struct k_work *item)
 {
 	int err;
 	struct softsim_req_node *s_req;
+	uint8_t softsim_buffer_out[SIM_HAL_MAX_LE];
 
 	while ((s_req = k_fifo_get(&softsim_req_fifo, K_NO_WAIT))) {
 		switch (s_req->req) {
