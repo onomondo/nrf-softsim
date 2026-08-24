@@ -140,6 +140,18 @@ endif #SOFTSIM
 
 endmenu
 
+# Top-level (not under `if SOFTSIM`) so autoconf defines it in every build,
+# including the native_sim unit-test builds that compile nrf_softsim.c without
+# CONFIG_SOFTSIM — same reason the log-level symbols below live here.
+config SOFTSIM_STACK_SIZE
+    int "SoftSIM work-queue thread stack size"
+    default 10000
+    help
+        Stack size of the dedicated work-queue thread that runs all SoftSIM
+        processing (ATR, APDU transactions, filesystem and crypto). The
+        default is deliberately generous; measure the high-water mark with
+        CONFIG_THREAD_ANALYZER before lowering it in a product build.
+
 # Conditional defaults for per-layer log levels — placed BEFORE each template
 # source so they win over the template's `default LOG_DEFAULT_LEVEL` fallback
 # (Kconfig: first matching default wins).
@@ -161,6 +173,15 @@ source "${ZEPHYR_BASE}/subsys/logging/Kconfig.template.log_config"
 # bumps them; otherwise the production-friendly sizing applies. These are
 # `default` directives so any explicit value in a prj.conf or overlay wins.
 if SOFTSIM
+
+# Stack/heap sizing SoftSIM needs on top of Zephyr's defaults. Previously hard
+# assignments in overlay-softsim.conf, which an application prj.conf could not
+# lower; as `default` directives any explicit value wins.
+config MAIN_STACK_SIZE
+    default 5000
+
+config HEAP_MEM_POOL_SIZE
+    default 30000
 
 config LOG_DEFAULT_LEVEL
     default 1
