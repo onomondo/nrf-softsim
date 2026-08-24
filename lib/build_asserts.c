@@ -56,8 +56,7 @@ BUILD_ASSERT(DT_REG_SIZE(DT_NODELABEL(nvs_storage)) == EXPECTED_PARTITION_SIZE,
 BUILD_ASSERT(DT_NODE_EXISTS(DT_NODELABEL(boot_partition)),
 	     "SoftSIM: "
 	     "MCUboot is enabled but the devicetree has no boot_partition. "
-	     "Build with -DEXTRA_DTC_OVERLAY_FILE=mcuboot-partitions.overlay "
-	     "(see docs/integration.md).");
+	     "Build with -DEXTRA_DTC_OVERLAY_FILE=mcuboot-partitions.overlay.");
 #endif
 /* In the SoftSIM layouts the storage_partition label sits on the nvs_storage
  * node (TF-M derives its non-secure SPU flash region from that label), so a

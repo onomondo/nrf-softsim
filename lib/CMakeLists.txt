@@ -14,8 +14,7 @@ zephyr_library()
 # Heads-up for contributors:
 #   1. The submodule is NOT auto-initialized by `west update` because nrf-softsim
 #      is a manifest-self repo. See the FATAL_ERROR guard below for the actionable
-#      message, and the "Quick start" section in README.md for the user-facing
-#      instructions.
+#      message.
 #   2. `_softsim_install_dir` is created at configure time and lives in-tree
 #      under lib/ss_lib_build. It is managed by this CMakeLists; it is not
 #      cleaned by `west build -p always` (that only cleans the build directory).
