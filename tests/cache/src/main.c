@@ -162,21 +162,15 @@ ZTEST(softsim_cache, test_flags_are_derived_but_key_keeps_all_16_bits)
 }
 
 /*
- * Known defect: flags is a uint8_t holding (id >> 8), so a flag macro above
- * 0xFF can never match. FS_COMMIT_ON_CLOSE (1<<7) is expressed in post-shift
- * space and works; FS_READ_ONLY (1<<8) is expressed in raw-id space and does
- * not, which makes the read-only guard in ss_fs.c dead code.
- *
- * Expected to fail until the units mismatch is fixed. Fixing it changes no
- * behaviour today -- the shipped template marks no file read-only -- but the
- * fix must not touch key derivation (see the test above).
+ * flags is a uint8_t holding (id >> 8), so every flag macro must be expressed
+ * in that post-shift space or it can never match. FS_READ_ONLY was once
+ * (1<<8) in raw-id space, which made the read-only guard in ss_fs.c dead code.
  */
 ZTEST(softsim_cache, test_flag_macros_fit_the_flags_field)
 {
 	zassert_true(FS_COMMIT_ON_CLOSE <= UINT8_MAX, "FS_COMMIT_ON_CLOSE cannot match");
 	zassert_true(FS_READ_ONLY <= UINT8_MAX, "FS_READ_ONLY cannot match a uint8_t flags");
 }
-ZTEST_EXPECT_FAIL(softsim_cache, test_flag_macros_fit_the_flags_field);
 
 /*
  * Lookups compare path hashes, so two paths hashing identically would silently
