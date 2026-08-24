@@ -43,6 +43,12 @@ function(_softsim_set_uicc_bool uicc_opt softsim_opt default doc)
   endif()
 endfunction()
 
+# Longest path in a provisioned profile is 20 chars; the submodule default
+# (100) mostly pays in the many stack frames sized SS_STORAGE_PATH_MAX+1 in
+# the storage layer. Must match the value the port sources compile with, see
+# zephyr_library_compile_definitions below.
+set(CONFIG_SS_STORAGE_PATH_MAX "32" CACHE STRING "Maximum path length for storage operations")
+
 message(STATUS "SoftSIM: Building static libraries from onomondo-uicc")
 message(STATUS "SoftSIM: onomondo-uicc library install dir: ${_softsim_install_dir}")
 file(MAKE_DIRECTORY ${_softsim_install_dir})
@@ -118,3 +124,6 @@ zephyr_library_sources(
 )
 
 target_compile_definitions(${ZEPHYR_CURRENT_LIBRARY} PRIVATE CONFIG_CUSTOM_HEAP)
+# Keep the port's storage_path[] and path buffers the same size as the
+# submodule's (the header falls back to 100 when the define is absent).
+target_compile_definitions(${ZEPHYR_CURRENT_LIBRARY} PRIVATE SS_STORAGE_PATH_MAX=${CONFIG_SS_STORAGE_PATH_MAX})
