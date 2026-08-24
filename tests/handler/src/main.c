@@ -411,11 +411,10 @@ ZTEST(softsim_handler, test_a_deep_burst_is_drained_completely)
 /* --- the NULL-context orderings -------------------------------------------- */
 
 /*
- * Known defect. The command enum has a gap at value 2 (INIT=1, APDU=3,
- * DEINIT=4, RESET=5), and the handler's default case answers nothing at all --
- * no response, no error -- so the modem is left waiting on a req_id that will
- * never come back. Any command the modem gains in a future firmware lands here.
- * Expected to fail until the default case answers with nrf_modem_softsim_err().
+ * The command enum has a gap at value 2 (INIT=1, APDU=3, DEINIT=4, RESET=5),
+ * and any command the modem gains in a future firmware lands in the default
+ * case -- which must answer with nrf_modem_softsim_err() so the modem is never
+ * left waiting on a req_id.
  */
 ZTEST(softsim_handler, test_an_unknown_command_is_still_answered)
 {
@@ -427,7 +426,6 @@ ZTEST(softsim_handler, test_an_unknown_command_is_still_answered)
 
 	zassert_equal(completions(), 1, "an unknown command left the modem without an answer");
 }
-ZTEST_EXPECT_FAIL(softsim_handler, test_an_unknown_command_is_still_answered);
 
 /*
  * Known defect. DEINIT clears ctx and guards its own use of it, but the RESET
