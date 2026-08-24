@@ -310,6 +310,9 @@ static void softsim_req_task(struct k_work *item)
 			break;
 		}
 		default:
+			/* Never leave the modem waiting on a req_id. */
+			LOG_ERR("SoftSIM unknown request: %d", s_req->req);
+			nrf_modem_softsim_err(s_req->req, s_req->req_id);
 			break;
 		}
 
