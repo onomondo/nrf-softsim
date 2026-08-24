@@ -100,7 +100,8 @@ int nrf_softsim_init(void)
 	k_work_queue_start(&softsim_work_q, softsim_stack_area,
 			   K_THREAD_STACK_SIZEOF(softsim_stack_area), SOFTSIM_PRIORITY, NULL);
 
-	ctx = ss_new_ctx(); /* TODO: consider dropping this call here */
+	/* The SIM context (~5 KB of heap) is allocated lazily by the
+	 * NRF_MODEM_SOFTSIM_INIT request, not here. */
 
 	LOG_INF("SoftSIM initialized");
 	return 0;
@@ -221,11 +222,26 @@ static void softsim_req_task(struct k_work *item)
 	struct softsim_req_node *s_req;
 
 	while ((s_req = k_fifo_get(&softsim_req_fifo, K_NO_WAIT))) {
+		/* The context is allocated by INIT, which the modem sends first;
+		 * APDU and RESET dereference it and cannot run without it. */
+		if (!ctx && (s_req->req == NRF_MODEM_SOFTSIM_APDU ||
+			     s_req->req == NRF_MODEM_SOFTSIM_RESET)) {
+			LOG_ERR("SoftSIM request %d before INIT", s_req->req);
+			nrf_modem_softsim_err(s_req->req, s_req->req_id);
+			goto free_node;
+		}
+
 		switch (s_req->req) {
 		case NRF_MODEM_SOFTSIM_INIT: {
 			LOG_DBG("SoftSIM INIT REQ");
 			if (!ctx) { /* Check needed since multiple INIT requests can be sent */
 				ctx = ss_new_ctx();
+			}
+
+			if (!ctx) { /* ss_is_suspended(NULL) is 0; ss_reset(NULL) crashes */
+				LOG_ERR("SoftSIM context allocation failed");
+				nrf_modem_softsim_err(s_req->req, s_req->req_id);
+				goto free_node;
 			}
 
 			if (!ss_is_suspended(ctx)) {
@@ -297,6 +313,7 @@ static void softsim_req_task(struct k_work *item)
 			break;
 		}
 
+free_node:
 		/* Free the payload data of the request node if allocated */
 		if (s_req->payload.data) {
 			nrf_modem_softsim_data_free(s_req->payload.data);
