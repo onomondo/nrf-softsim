@@ -33,7 +33,6 @@ enum key_identifier_base key_id_to_kmu_slot(uint8_t key_id)
 }
 
 #define SHARED_BUFFER_SIZE 256
-static uint8_t shared_buffer[SHARED_BUFFER_SIZE];
 
 #define ASSERT_STATUS(actual, expected)                                                            \
 	do {                                                                                       \
@@ -166,7 +165,7 @@ void ss_utils_aes_decrypt(uint8_t *buffer, size_t buffer_len, const uint8_t *key
 
 	psa_cipher_operation_t operation = PSA_CIPHER_OPERATION_INIT;
 	uint8_t iv[AES_BLOCKSIZE] = {0}; /* per standards in telco.. */
-	uint8_t *decrypted_buffer = shared_buffer;
+	uint8_t decrypted_buffer[SHARED_BUFFER_SIZE];
 
 	uint32_t out_len = 0;
 
@@ -200,7 +199,7 @@ void ss_utils_aes_encrypt(uint8_t *buffer, size_t buffer_len, const uint8_t *key
 
 	psa_cipher_operation_t operation = PSA_CIPHER_OPERATION_INIT;
 	uint8_t iv[AES_BLOCKSIZE] = {0}; /* per standards in telco... */
-	uint8_t *encrypted_buffer = shared_buffer;
+	uint8_t encrypted_buffer[SHARED_BUFFER_SIZE];
 	uint32_t out_len = 0;
 
 	status = psa_cipher_encrypt_setup(&operation, slot_id, PSA_ALG_CBC_NO_PADDING);
