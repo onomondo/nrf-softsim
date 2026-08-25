@@ -96,14 +96,7 @@ endforeach()
 
 # Port sizing for the SIM core. SS_FS_CHG_PATH_MAXLEN=10 is the deepest
 # standard path (MF/DF/DF/EF plus terminator, TS 102 223 clause 8.18); the
-# shipped file tree needs 8. The counts come from Kconfig (defaults in a
-# non-Zephyr consumer's build).
-if(NOT DEFINED CONFIG_SOFTSIM_UICC_FS_CHG_MAX_FILES)
-  set(CONFIG_SOFTSIM_UICC_FS_CHG_MAX_FILES 20)
-endif()
-if(NOT DEFINED CONFIG_SOFTSIM_UICC_SMS_RX_MAX_PARTS)
-  set(CONFIG_SOFTSIM_UICC_SMS_RX_MAX_PARTS 5)
-endif()
+# shipped file tree needs 8. The counts come from Kconfig.
 target_compile_definitions(uicc PRIVATE
   SS_FS_CHG_PATH_MAXLEN=10
   SS_FS_CHG_MAX_FILES=${CONFIG_SOFTSIM_UICC_FS_CHG_MAX_FILES}
@@ -123,12 +116,5 @@ zephyr_library_sources(
   ss_logp_zephyr.c
   build_asserts.c
 )
-
-# ss_profile.c is compiled here, outside the submodule's scope, so it needs the
-# logging switch passed explicitly or its SS_LOGP diagnostics compile out.
-if(CONFIG_USE_LOGS)
-  set_source_files_properties(onomondo-uicc/utils/ss_profile.c
-    PROPERTIES COMPILE_DEFINITIONS CONFIG_USE_LOGS)
-endif()
 
 target_compile_definitions(${ZEPHYR_CURRENT_LIBRARY} PRIVATE CONFIG_CUSTOM_HEAP)
