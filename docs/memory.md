@@ -12,7 +12,7 @@ The nRF9151 has 256 KB of SRAM, split three ways before the application sees any
 
 | Region | Size | Owner |
 |---|---|---|
-| TF-M secure RAM | 48 KB | Set by [`overlay-softsim.conf`](../overlay-softsim.conf) (`CONFIG_PM_PARTITION_SIZE_TFM_SRAM=0xC000`) — already trimmed from the 88 KB NCS default for nRF91. TF-M uses ~40 KB of it (*measured*). |
+| TF-M secure RAM | 48 KB | Fixed in [`dts/softsim/nrf91_softsim_sram.dtsi`](../dts/softsim/nrf91_softsim_sram.dtsi) — already trimmed from the 88 KB NCS default for nRF91; `CONFIG_PM_PARTITION_SIZE_TFM_SRAM` no longer affects the split. TF-M itself uses ~40 KB (*measured*), and the reservation deliberately stays at 48 KB: the next SPU-granularity step down (8 KB) would leave ~1.2 KB of slack, and this TF-M instance also serves your application's own PSA keys, ITS data and crypto. Don't trim it. |
 | Modem shared memory | 17.4 KB | `nrf_modem_lib` control (1,256 B) + TX (8,320 B) + RX (8,192 B) heaps, NCS defaults. RX has a hard floor of 2,616 B on this SoC; TX can go down to 1,024 B if your application's traffic allows. Trace is off. |
 | Application | 190.6 KB | Everything else, including this module. |
 
