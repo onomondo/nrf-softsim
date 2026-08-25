@@ -264,14 +264,22 @@ ZTEST(softsim_apdu, test_status_with_an_extended_le_is_answered)
  * thing in the suite that runs Milenage and AES -- both are linked in but were
  * otherwise never called, so a broken cipher would have gone unnoticed here.
  *
- * The AUTN below is not a valid one for the template's key material, so the
- * card answers with a resynchronisation token (TS 31.102 tag 0xDC + AUTS)
- * instead of a success response. That answer is still fully computed: AUTS
- * carries the card's own sequence number encrypted under the key it read from
- * EF.A001, so pinning it covers the key-reading path, the resynchronisation
- * functions and the AES primitive underneath, without needing a valid vector.
+ * The AUTN below carries a MAC that is not valid for the template's key
+ * material. Per 3GPP TS 33.102 6.3.3 the USIM verifies the network MAC before
+ * it looks at the sequence number, and rejects a bad MAC as an authentication
+ * error -- SW 9862 (TS 31.102 "authentication error, incorrect MAC") with no
+ * response data. Reaching that verdict still runs the full crypto path the
+ * cipher check needs: the card reads K/OPc from EF.A001, derives RES/CK/IK/AK
+ * with Milenage f2..f5 and computes the expected MAC with f1, all over AES,
+ * before the compare fails. A broken primitive would change the derived MAC
+ * and the command would not fault in this exact way.
+ *
+ * This vector no longer exercises the resynchronisation-token formatting (the
+ * f1-star and f5-star functions, tag 0xDC plus AUTS). Restoring that needs a
+ * valid-MAC, stale-SQN AUTN whose golden AUTS is derived from template.bin's
+ * key and SEQ material -- worth adding as a separate case with the release bump.
  */
-ZTEST(softsim_apdu, test_authenticate_answers_with_a_resync_token)
+ZTEST(softsim_apdu, test_authenticate_rejects_a_forged_mac)
 {
 	static const uint8_t select_adf[] = {0x00, 0xa4, 0x00, 0x04, 0x02, 0x7f, 0xf0};
 	static const uint8_t authenticate[] = {
@@ -281,9 +289,6 @@ ZTEST(softsim_apdu, test_authenticate_answers_with_a_resync_token)
 		0x10, 0x21, 0x22, 0x23, 0x24, 0x25, 0x26, 0x27, 0x28,
 		0x29, 0x2a, 0x2b, 0x2c, 0x2d, 0x2e, 0x2f, 0x30, 0x31 /* L_AUTN, AUTN */
 	};
-	/* Tag 0xDC, 14-byte AUTS, then SW. */
-	static const uint8_t golden[] = {0xdc, 0x0e, 0xd3, 0x8b, 0xcb, 0xfa, 0xad, 0xdc, 0xdf,
-					 0xa1, 0x25, 0x74, 0x23, 0x2e, 0xdf, 0xca, 0x90, 0x00};
 	uint8_t rsp[RSP_MAX];
 	size_t len;
 
@@ -291,9 +296,6 @@ ZTEST(softsim_apdu, test_authenticate_answers_with_a_resync_token)
 	expect_sw(rsp, len, 0x9000, "SELECT ADF.USIM");
 
 	len = transact(authenticate, sizeof(authenticate), rsp);
-	expect_sw(rsp, len, 0x9000, "AUTHENTICATE");
-	zassert_equal(rsp[0], 0xdc, "AUTHENTICATE did not answer with a resync token");
-	zassert_equal(rsp[1], 0x0e, "AUTS length changed");
-	zassert_equal(len, sizeof(golden), "AUTHENTICATE returned %zu bytes", len);
-	zassert_mem_equal(rsp, golden, sizeof(golden), "the computed AUTS changed");
+	expect_sw(rsp, len, 0x9862, "AUTHENTICATE with a forged MAC");
+	zassert_equal(len, 2, "a rejected AUTHENTICATE must carry no response data");
 }
