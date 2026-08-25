@@ -108,4 +108,11 @@ zephyr_library_sources(
   build_asserts.c
 )
 
+# ss_profile.c is compiled here, outside the submodule's scope, so it needs the
+# logging switch passed explicitly or its SS_LOGP diagnostics compile out.
+if(CONFIG_USE_LOGS)
+  set_source_files_properties(onomondo-uicc/utils/ss_profile.c
+    PROPERTIES COMPILE_DEFINITIONS CONFIG_USE_LOGS)
+endif()
+
 target_compile_definitions(${ZEPHYR_CURRENT_LIBRARY} PRIVATE CONFIG_CUSTOM_HEAP)
