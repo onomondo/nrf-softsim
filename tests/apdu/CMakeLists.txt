@@ -31,6 +31,14 @@ foreach(_t uicc storage milenage crypto)
     $<TARGET_PROPERTY:zephyr_interface,INTERFACE_COMPILE_OPTIONS>)
 endforeach()
 
+# Same port sizing lib/CMakeLists.txt applies for firmware (Kconfig defaults),
+# so the suite exercises the core as shipped.
+target_compile_definitions(uicc PRIVATE
+  SS_FS_CHG_PATH_MAXLEN=10
+  SS_FS_CHG_MAX_FILES=20
+  SS_SMS_RX_MAX_PARTS=5
+)
+
 # The nRF port of the UICC filesystem underneath the core, on the real Zephyr
 # NVS over the flash simulator -- the integration this suite exists to pin.
 target_sources(app PRIVATE
