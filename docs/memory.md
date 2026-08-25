@@ -31,8 +31,11 @@ Static:
 | Log-formatting buffers in the SIM core | 5,125 B | Compiled in unconditionally by the vendored SIM-core revision; once the submodule updates past its logging rework, `CONFIG_SOFTSIM_UICC_USE_LOGS=n` removes them along with ~25 KB of flash-resident log strings. |
 | Work queue object, FIFO, filesystem bookkeeping | ~450 B | — |
 
-Heap, drawn from the Zephyr system heap (`CONFIG_HEAP_MEM_POOL_SIZE`, default 24,000 B —
-a build assert enforces the floor because every SIM operation allocates from it):
+Heap, drawn from the Zephyr system heap. SoftSIM contributes
+`CONFIG_HEAP_MEM_POOL_ADD_SIZE_SOFTSIM` (default 24,000 B), so the kernel rounds the
+effective pool up to that even when the application sets a smaller
+`CONFIG_HEAP_MEM_POOL_SIZE`; a build assert enforces the floor on the effective size
+because every SIM operation allocates from it:
 
 | Item | Size | When |
 |---|---|---|
@@ -50,10 +53,13 @@ OTA response and margin for fragmentation.
 ## Sizing knobs
 
 - `CONFIG_SOFTSIM_STACK_SIZE` — the dedicated thread that runs all SIM processing.
-- `CONFIG_MAIN_STACK_SIZE` (default 5000) and `CONFIG_HEAP_MEM_POOL_SIZE` (default
-  24000) — SoftSIM raises these via Kconfig defaults, so an application `prj.conf` can
-  override them. The main-stack demand comes from the provisioning path, which builds
-  the decoded profile (~1 KB of locals) on the caller's stack.
+- `CONFIG_MAIN_STACK_SIZE` (default 5000) — raised via a Kconfig default, so an
+  application `prj.conf` can override it. The demand comes from the provisioning path,
+  which builds the decoded profile (~1 KB of locals) on the caller's stack.
+- `CONFIG_HEAP_MEM_POOL_ADD_SIZE_SOFTSIM` (default 24000) — SoftSIM's system-heap
+  contribution. Applications keep their own `CONFIG_HEAP_MEM_POOL_SIZE`; the effective
+  pool is the larger of that and the summed contributions. Lower the contribution only
+  with a measured heap profile.
 - `CONFIG_SOFTSIM_NRF_DEBUG_LOGS` / `CONFIG_SOFTSIM_LIBS_DEBUG_LOGS` (default off) —
   each enables verbose logging and grows the deferred log buffer to 5,000 / 16,384 B
   plus ~1.5 KB of UART buffers. Never in production.

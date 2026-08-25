@@ -184,8 +184,12 @@ config MAIN_STACK_SIZE
 
 # Measured on an nRF9151-DK: 17856-byte peak across provisioning, LTE attach
 # and 12 re-attach cycles, plus headroom for a worst-case OTA response
-# allocation (~4.1 KB) and margin. lib/build_asserts.c enforces the floor.
-config HEAP_MEM_POOL_SIZE
+# allocation (~4.1 KB) and margin. Declared as a heap contribution so the
+# kernel rounds the effective pool up to it without overriding an
+# application's own CONFIG_HEAP_MEM_POOL_SIZE (which stays in charge when
+# larger). lib/build_asserts.c enforces the floor on the effective size.
+config HEAP_MEM_POOL_ADD_SIZE_SOFTSIM
+    int "Heap memory pool contribution of SoftSIM"
     default 24000
 
 config LOG_DEFAULT_LEVEL

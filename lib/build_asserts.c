@@ -18,7 +18,10 @@
 BUILD_ASSERT(2 * KEY_SIZE <= A001_LEN, "SoftSIM: A001 layout changed");
 BUILD_ASSERT(A004_HEADER_SIZE + 2 * KEY_SIZE <= A004_LEN, "SoftSIM: A004 layout changed");
 
-BUILD_ASSERT(CONFIG_HEAP_MEM_POOL_SIZE >= EXPECTED_MIN_HEAP_SIZE,
+/* K_HEAP_MEM_POOL_SIZE is the effective pool: the application's
+ * CONFIG_HEAP_MEM_POOL_SIZE rounded up to the sum of all
+ * HEAP_MEM_POOL_ADD_SIZE_* contributions (ours included). */
+BUILD_ASSERT(K_HEAP_MEM_POOL_SIZE >= EXPECTED_MIN_HEAP_SIZE,
 	     "SoftSIM: "
 	     "Heap memory pool size is not valid. "
 	     "Please reconfigure the project.");
