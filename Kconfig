@@ -113,6 +113,27 @@ config SOFTSIM_UICC_BUILD_LIB_ONLY
     bool "Build libraries only in onomondo-uicc"
     default y
 
+config SOFTSIM_UICC_FS_CHG_MAX_FILES
+    int "Files budgeted in the REFRESH changed-file list"
+    default 20
+    range 1 65535
+    help
+        Sizes the buffer recording which files remote management changed, so
+        the next REFRESH can name them to the modem. Costs 10 bytes per file
+        and exists twice per SIM session. On overflow the change is logged
+        and left out of the REFRESH file list. Upstream defaults to 100; 20
+        comfortably covers the shipped file tree's real paths.
+
+config SOFTSIM_UICC_SMS_RX_MAX_PARTS
+    int "Concatenated-SMS parts accepted for reassembly"
+    default 5
+    range 1 255
+    help
+        Incoming concatenated SMS claiming more parts than this are refused
+        instead of buffered. Each part costs heap while reassembly is in
+        flight; OTA remote-management commands fit well within 5 parts.
+        Upstream defaults to 255, the TS 23.040 maximum.
+
 endmenu
 
 endif #SOFTSIM

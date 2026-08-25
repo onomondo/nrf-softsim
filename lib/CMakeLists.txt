@@ -94,6 +94,22 @@ foreach(_t IN LISTS _softsim_libs)
   target_link_libraries(${ZEPHYR_CURRENT_LIBRARY} PRIVATE ${_t})
 endforeach()
 
+# Port sizing for the SIM core. SS_FS_CHG_PATH_MAXLEN=10 is the deepest
+# standard path (MF/DF/DF/EF plus terminator, TS 102 223 clause 8.18); the
+# shipped file tree needs 8. The counts come from Kconfig (defaults in a
+# non-Zephyr consumer's build).
+if(NOT DEFINED CONFIG_SOFTSIM_UICC_FS_CHG_MAX_FILES)
+  set(CONFIG_SOFTSIM_UICC_FS_CHG_MAX_FILES 20)
+endif()
+if(NOT DEFINED CONFIG_SOFTSIM_UICC_SMS_RX_MAX_PARTS)
+  set(CONFIG_SOFTSIM_UICC_SMS_RX_MAX_PARTS 5)
+endif()
+target_compile_definitions(uicc PRIVATE
+  SS_FS_CHG_PATH_MAXLEN=10
+  SS_FS_CHG_MAX_FILES=${CONFIG_SOFTSIM_UICC_FS_CHG_MAX_FILES}
+  SS_SMS_RX_MAX_PARTS=${CONFIG_SOFTSIM_UICC_SMS_RX_MAX_PARTS}
+)
+
 zephyr_include_directories(include)
 zephyr_include_directories(onomondo-uicc/include)
 
