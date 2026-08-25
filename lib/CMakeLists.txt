@@ -30,8 +30,10 @@ function(_softsim_default_bool opt default doc)
   endif()
 endfunction()
 
+# Zephyr only exports set Kconfig bools to CMake, so inside a Zephyr build
+# (CONFIG_SOFTSIM guards this directory) an undefined symbol means =n.
 function(_softsim_set_uicc_bool uicc_opt softsim_opt default doc)
-  if(DEFINED ${softsim_opt})
+  if(DEFINED ${softsim_opt} OR DEFINED CONFIG_SOFTSIM)
     if("${${softsim_opt}}" STREQUAL "y")
       set(${uicc_opt} ON CACHE BOOL "${doc}" FORCE)
     else()
