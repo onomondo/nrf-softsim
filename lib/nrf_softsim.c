@@ -148,6 +148,7 @@ int nrf_softsim_provision(uint8_t *profile_r, size_t len)
 	    is_all_zero(&profile._3F00_A004[A004_HEADER_SIZE], KEY_SIZE) ||            /* KIC */
 	    is_all_zero(&profile._3F00_A004[A004_HEADER_SIZE + KEY_SIZE], KEY_SIZE)) { /* KID */
 		LOG_ERR("SoftSIM profile missing required field(s)");
+		ss_profile_wipe(&profile);
 		return -1;
 	}
 
@@ -159,6 +160,9 @@ int nrf_softsim_provision(uint8_t *profile_r, size_t len)
 	LOG_INF("SoftSIM keys written to KMU");
 
 	int status = port_provision(&profile);
+
+	/* The decoded profile holds K/KIC/KID; scrub it before the frame dies. */
+	ss_profile_wipe(&profile);
 
 	if (status != 0) {
 		LOG_ERR("SoftSIM failed to update profile");
