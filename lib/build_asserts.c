@@ -21,10 +21,9 @@ BUILD_ASSERT(A004_HEADER_SIZE + 2 * KEY_SIZE <= A004_LEN, "SoftSIM: A004 layout 
 /* K_HEAP_MEM_POOL_SIZE is the effective pool: the application's
  * CONFIG_HEAP_MEM_POOL_SIZE rounded up to the sum of all
  * HEAP_MEM_POOL_ADD_SIZE_* contributions (ours included). */
-BUILD_ASSERT(K_HEAP_MEM_POOL_SIZE >= EXPECTED_MIN_HEAP_SIZE,
-	     "SoftSIM: "
-	     "Heap memory pool size is not valid. "
-	     "Please reconfigure the project.");
+BUILD_ASSERT(K_HEAP_MEM_POOL_SIZE >= EXPECTED_MIN_HEAP_SIZE, "SoftSIM: "
+							     "Heap memory pool size is not valid. "
+							     "Please reconfigure the project.");
 
 /* In NCS, when NVS backend for Settings is chosen, `nvs_partition` partition is not included by
  * the Partition Manager.
