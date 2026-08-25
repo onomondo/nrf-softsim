@@ -10,7 +10,7 @@
 #include <onomondo/utils/ss_profile.h>
 
 #define EXPECTED_PARTITION_SIZE 0x8000
-#define EXPECTED_MIN_HEAP_SIZE  30000
+#define EXPECTED_MIN_HEAP_SIZE  24000
 
 /* nrf_softsim_provision() validates the parsed profile by indexing the KI/OPc pair in
  * A001 and the KIC/KID pair in A004. Pin those layouts so a submodule bump that moves

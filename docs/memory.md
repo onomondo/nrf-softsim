@@ -16,7 +16,7 @@ The nRF9151 has 256 KB of SRAM, split three ways before the application sees any
 | Modem shared memory | 17.4 KB | `nrf_modem_lib` control (1,256 B) + TX (8,320 B) + RX (8,192 B) heaps, NCS defaults. RX has a hard floor of 2,616 B on this SoC; TX can go down to 1,024 B if your application's traffic allows. Trace is off. |
 | Application | 190.6 KB | Everything else, including this module. |
 
-The sample uses **~73.5 KB** of the application region at defaults (*measured*), of which
+The sample uses **~63.5 KB** of the application region at defaults (*measured*), of which
 the SoftSIM module itself accounts for roughly 15 KB of static RAM plus its share of the
 system heap (below). Flash is not a constraint: the sample image is ~148 KB of the 864 KB
 application partition, of which the SIM core and glue are ~65 KB.
@@ -27,11 +27,11 @@ Static:
 
 | Item | Size | Knob |
 |---|---|---|
-| Work-queue thread stack | 10,000 B | `CONFIG_SOFTSIM_STACK_SIZE`. Deliberately generous; measure before lowering (see below). |
+| Work-queue thread stack | 6,000 B | `CONFIG_SOFTSIM_STACK_SIZE`. High-water mark *measured* at 2,200 B across provisioning, attach and 12 re-attach cycles with debug logs on; the default keeps ~2.7x that for OTA/SMS paths the measurement did not exercise. |
 | Log-formatting buffers in the SIM core | 5,125 B | Compiled in unconditionally by the vendored SIM-core revision; once the submodule updates past its logging rework, `CONFIG_SOFTSIM_UICC_USE_LOGS=n` removes them along with ~25 KB of flash-resident log strings. |
 | Work queue object, FIFO, filesystem bookkeeping | ~450 B | — |
 
-Heap, drawn from the Zephyr system heap (`CONFIG_HEAP_MEM_POOL_SIZE`, default 30,000 B —
+Heap, drawn from the Zephyr system heap (`CONFIG_HEAP_MEM_POOL_SIZE`, default 24,000 B —
 a build assert enforces the floor because every SIM operation allocates from it):
 
 | Item | Size | When |
@@ -43,14 +43,15 @@ a build assert enforces the floor because every SIM operation allocates from it)
 | APDU transactions | ~1.1 KB | Two live command/response pairs; three during a `6Cxx`/`61xx` retry. |
 | OTA (remote file management) response | 4.1 KB | Peak, per OTA command. |
 
-Steady state lands around 15–18 KB of the 30 KB pool; the headroom exists for OTA peaks
-and fragmentation.
+Steady state lands around 15–16 KB; the *measured* peak is 17,856 B across provisioning,
+LTE attach and 12 re-attach cycles. The 24 KB default keeps that peak plus a worst-case
+OTA response and margin for fragmentation.
 
 ## Sizing knobs
 
 - `CONFIG_SOFTSIM_STACK_SIZE` — the dedicated thread that runs all SIM processing.
 - `CONFIG_MAIN_STACK_SIZE` (default 5000) and `CONFIG_HEAP_MEM_POOL_SIZE` (default
-  30000) — SoftSIM raises these via Kconfig defaults, so an application `prj.conf` can
+  24000) — SoftSIM raises these via Kconfig defaults, so an application `prj.conf` can
   override them. The main-stack demand comes from the provisioning path, which builds
   the decoded profile (~1 KB of locals) on the caller's stack.
 - `CONFIG_SOFTSIM_NRF_DEBUG_LOGS` / `CONFIG_SOFTSIM_LIBS_DEBUG_LOGS` (default off) —

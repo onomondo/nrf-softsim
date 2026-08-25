@@ -145,12 +145,14 @@ endmenu
 # CONFIG_SOFTSIM — same reason the log-level symbols below live here.
 config SOFTSIM_STACK_SIZE
     int "SoftSIM work-queue thread stack size"
-    default 10000
+    default 6000
     help
         Stack size of the dedicated work-queue thread that runs all SoftSIM
         processing (ATR, APDU transactions, filesystem and crypto). The
-        default is deliberately generous; measure the high-water mark with
-        CONFIG_THREAD_ANALYZER before lowering it in a product build.
+        default keeps ~2.7x the high-water mark measured on an nRF9151-DK
+        (2200 bytes across provisioning, LTE attach and 12 re-attach cycles
+        with debug logs on); measure with CONFIG_THREAD_ANALYZER before
+        lowering it further in a product build.
 
 # Conditional defaults for per-layer log levels — placed BEFORE each template
 # source so they win over the template's `default LOG_DEFAULT_LEVEL` fallback
@@ -180,8 +182,11 @@ if SOFTSIM
 config MAIN_STACK_SIZE
     default 5000
 
+# Measured on an nRF9151-DK: 17856-byte peak across provisioning, LTE attach
+# and 12 re-attach cycles, plus headroom for a worst-case OTA response
+# allocation (~4.1 KB) and margin. lib/build_asserts.c enforces the floor.
 config HEAP_MEM_POOL_SIZE
-    default 30000
+    default 24000
 
 config LOG_DEFAULT_LEVEL
     default 1
