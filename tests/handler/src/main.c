@@ -651,3 +651,44 @@ ZTEST(softsim_provision, test_known_tag_with_the_wrong_length_is_rejected)
 	zassert_equal(port_provision_fake.call_count, 0);
 	zassert_equal(key_setup.count, 0);
 }
+
+/* Copy the TS.48 vector into dst and append a trailing CRC32 record carrying
+ * the given value. Returns the new length. dst must hold at least
+ * sizeof(ts48_profile) + 12 chars. */
+static size_t with_crc_record(uint32_t crc, char *dst)
+{
+	size_t len = sizeof(ts48_profile) - 1;
+
+	memcpy(dst, ts48_profile, len);
+	return len + (size_t)snprintk(&dst[len], 13, "%02x%02x%08x", CRC32_TAG, CRC32_LEN, crc);
+}
+
+/*
+ * The optional trailing CRC32 record comes with the parser; its algorithm and
+ * edge cases are pinned upstream (onomondo-uicc tests/utils). These two pin
+ * the glue: a profile whose record matches provisions as usual, and a mismatch
+ * fails the provisioning before anything reaches the KMU or the filesystem.
+ * The record is built from ss_profile_crc32() itself, so the pair stays valid
+ * if the algorithm ever changes -- what it pins is match vs. mismatch.
+ */
+ZTEST(softsim_provision, test_profile_with_matching_crc_provisions)
+{
+	char buf[sizeof(ts48_profile) + 12];
+	size_t len = with_crc_record(ss_profile_crc32(ts48_profile, sizeof(ts48_profile) - 1), buf);
+
+	zassert_ok(nrf_softsim_provision((uint8_t *)buf, len));
+	zassert_equal(port_provision_fake.call_count, 1);
+	zassert_equal(key_setup.count, 3);
+}
+
+ZTEST(softsim_provision, test_profile_with_bad_crc_is_rejected)
+{
+	char buf[sizeof(ts48_profile) + 12];
+	size_t len =
+		with_crc_record(ss_profile_crc32(ts48_profile, sizeof(ts48_profile) - 1) ^ 1, buf);
+
+	zassert_true(nrf_softsim_provision((uint8_t *)buf, len) != 0,
+		     "a profile with a mismatching CRC32 record was accepted");
+	zassert_equal(port_provision_fake.call_count, 0);
+	zassert_equal(key_setup.count, 0);
+}
