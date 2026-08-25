@@ -11,7 +11,11 @@
 
 /* Flag masks for ss_dir_entry.flags, i.e. the HIGH byte of the DIR id
  * ((id & 0xFF00) >> 8): a mask here must fit uint8_t. FS_READ_ONLY
- * corresponds to raw-id bit 8. */
+ * corresponds to raw-id bit 8.
+ * The id doubles as the NVS key, so a key's high byte IS its flag byte: bit 8
+ * set marks the file read-only, and 0x81xx silently disables a close-commit.
+ * The template generator must keep plain files out of the flagged ranges
+ * (pinned by tests/apdu's read-only tripwire). */
 #define FS_READ_ONLY       (1U << 0) /* Never commit to NVS on close */
 #define FS_COMMIT_ON_CLOSE (1U << 7) /* Commit changes to NVS on close */
 
