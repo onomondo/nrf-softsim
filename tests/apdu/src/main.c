@@ -20,12 +20,16 @@
 
 #include <zephyr/drivers/flash.h>
 #include <zephyr/kernel.h>
+#include <zephyr/kvss/nvs.h>
 #include <zephyr/logging/log.h>
 #include <zephyr/storage/flash_map.h>
 #include <zephyr/ztest.h>
 
 #include <nrf_softsim.h>
+#include <onomondo/softsim/mem.h>
 #include <onomondo/softsim/softsim.h>
+
+#include "ss_cache.h"
 
 /* ss_fs.c does LOG_MODULE_DECLARE(softsim, ...); register it once here.
  * (The UICC core logs through its own softsim_uicc module.) */
@@ -284,4 +288,49 @@ ZTEST(softsim_apdu, test_authenticate_rejects_a_forged_mac)
 	len = transact(authenticate, sizeof(authenticate), rsp);
 	expect_sw(rsp, len, 0x9862, "AUTHENTICATE with a forged MAC");
 	zassert_equal(len, 2, "a rejected AUTHENTICATE must carry no response data");
+}
+
+/*
+ * DIR ids carry their flags in the high byte, and FS_READ_ONLY is live since
+ * its repair -- a template key allocated in 0x01xx would silently make that
+ * file read-only, its writes never committing on close. The template
+ * generator lives outside this repository, so the invariant is pinned on the
+ * artifact it ships: no file in template.bin may decode as read-only. The
+ * commit-on-close count proves the walk saw real flag bytes rather than a
+ * vacuously empty decode. The table build also refuses two paths that share a
+ * hash, so a negative return pins the shipped template collision-free.
+ */
+ZTEST(softsim_apdu, test_template_marks_no_file_read_only)
+{
+	static uint8_t blob[2048];
+	struct nvs_fs dir_fs = {
+		.flash_device = PARTITION_DEVICE(nvs_storage),
+		.sector_size = 0x1000,
+		.sector_count = PARTITION_SIZE(nvs_storage) / 0x1000,
+		.offset = PARTITION_OFFSET(nvs_storage),
+	};
+	struct ss_dir_entry *dir;
+	size_t commit_on_close = 0;
+	ssize_t len;
+
+	zassert_ok(nvs_mount(&dir_fs), "could not mount the seeded partition");
+	len = nvs_read(&dir_fs, 1, blob, sizeof(blob)); /* DIR_ID in ss_fs.c */
+	zassert_true(len > 0 && len <= (ssize_t)sizeof(blob), "DIR blob read failed (%d)",
+		     (int)len);
+
+	int n = ss_dir_table_from_blob(blob, (size_t)len, &dir);
+
+	zassert_true(n > 0,
+		     "the template DIR did not decode (%d): empty, or two paths share a hash", n);
+
+	for (int i = 0; i < n; i++) {
+		zassert_false(dir[i].flags & FS_READ_ONLY,
+			      "entry %d (key 0x%04x) decodes as read-only", i, dir[i].key);
+		if (dir[i].flags & FS_COMMIT_ON_CLOSE) {
+			commit_on_close++;
+		}
+	}
+	zassert_true(commit_on_close > 0, "no COMMIT_ON_CLOSE file: flag decoding is broken");
+
+	SS_FREE(dir);
 }
