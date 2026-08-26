@@ -20,10 +20,19 @@ characters — `LEN` counts hex characters, not bytes):
 | `07` | SMSP | SMS parameters (optional) |
 | `08`–`0b` | PIN1, PIN2, ADM, PUK | PIN values |
 | `0c` | SMSC | SMS service-center address (optional) |
+| `fe` | CRC32 | Integrity check over everything before it (optional, must be last) |
 
 The full tag list and the decoder (`ss_profile_from_string()`) live in onomondo-uicc, in
 [`ss_profile.h`](https://github.com/onomondo/onomondo-uicc/blob/master/include/onomondo/utils/ss_profile.h)
 and [`utils/ss_profile.c`](https://github.com/onomondo/onomondo-uicc/blob/master/utils/ss_profile.c).
+
+The CRC32 record carries the CRC-32/ISO-HDLC (zlib) checksum of every preceding character
+as 8 hex chars, computed after lowercasing so a transport that re-cases the string does
+not invalidate it. When the record is present, provisioning verifies it and
+`nrf_softsim_provision()` fails on a mismatch — before any key or file is written; a
+profile without the record provisions as before, so existing profiles keep working. The
+[onomondo-softsim-cli](https://github.com/onomondo/onomondo-softsim-cli) appends the
+record by default.
 
 The sample's [`prj.conf`](../samples/softsim_external_profile/prj.conf) carries the GSMA
 TS.48 standard USIM test profile in a comment. It lets the SIM initialize and is useful

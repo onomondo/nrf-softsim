@@ -133,7 +133,12 @@ int nrf_softsim_provision(uint8_t *profile_r, size_t len)
 	uint8_t decode_err =
 		ss_profile_from_string((uint16_t)len, (const char *)profile_r, &profile);
 	if (decode_err != 0) {
-		LOG_ERR("SoftSIM profile decode failed (err %u)", decode_err);
+		/* 18 and 19 are the CRC32 record errors -- see ss_profile.h. */
+		if (decode_err == 18 || decode_err == 19) {
+			LOG_ERR("SoftSIM profile failed its CRC32 check (err %u)", decode_err);
+		} else {
+			LOG_ERR("SoftSIM profile decode failed (err %u)", decode_err);
+		}
 		return -1;
 	}
 
