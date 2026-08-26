@@ -2,10 +2,11 @@ name: Firmware Footprint
 
 # Report the flash/RAM footprint delta of a pull request against its base
 # branch as a sticky PR comment. Builds the softsim_external_profile sample
-# ELF for both the base and the PR head, computes the flash/RAM headline from
-# the ELF program headers and the attribution detail with Bloaty and the
-# symbol tables. Scoped to one board (nrf9151dk) -- the primary target -- to
-# bound the cost of building twice per PR.
+# ELF for both the base and the PR head, and computes the flash/RAM headline
+# plus the section- and symbol-level attribution detail, all from the ELF
+# program headers, section headers and symbol tables via readelf. Scoped to
+# one board (nrf9151dk) -- the primary target -- to bound the cost of
+# building twice per PR.
 #
 # Measures the default (external-profile) build only. Code gated off by
 # default Kconfig (e.g. SOFTSIM_STATIC_PROFILE_ENABLE) contributes nothing to
@@ -80,9 +81,9 @@ jobs:
         run: |
           build=modules/lib/onomondo-softsim/samples/softsim_external_profile/build
           cp "$build"/softsim_external_profile/zephyr/zephyr.elf ${{ matrix.ref }}.elf
-          # Drop DWARF so the bloaty section diff only shows loadable
-          # sections instead of a wall of .debug_* rows; .symtab stays for
-          # the symbol-level diff. Also shrinks the artifact ~10x. The cross
+          # Drop DWARF so the section diff only shows loadable sections
+          # instead of a wall of .debug_* rows; .symtab stays for the
+          # symbol-level diff. Also shrinks the artifact ~10x. The cross
           # strip lives next to the compiler the build used.
           cc=$(sed -n 's/^CMAKE_C_COMPILER:[^=]*=//p' "$build"/softsim_external_profile/CMakeCache.txt)
           "${cc%gcc}strip" --strip-debug ${{ matrix.ref }}.elf
@@ -174,7 +175,6 @@ jobs:
             cat secdiff.txt
             echo 'SECS_EOF'
           } >> "$GITHUB_OUTPUT"
-
 
       - name: Diff symbols
         id: symbols
