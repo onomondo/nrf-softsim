@@ -1,0 +1,226 @@
+name: Firmware Footprint
+
+# Report the flash/RAM footprint delta of a pull request against its base
+# branch as a sticky PR comment. Builds the softsim_external_profile sample
+# ELF for both the base and the PR head, computes the flash/RAM headline from
+# the ELF program headers and the attribution detail with Bloaty and the
+# symbol tables. Scoped to one board (nrf9151dk) -- the primary target -- to
+# bound the cost of building twice per PR.
+#
+# Measures the default (external-profile) build only. Code gated off by
+# default Kconfig (e.g. SOFTSIM_STATIC_PROFILE_ENABLE) contributes nothing to
+# this image, so a PR touching only such code reports a zero delta; if that
+# becomes a recurring blind spot, mirror this build with
+# -DEXTRA_CONF_FILE=overlay-static.conf on both refs when the PR touches
+# static-profile code.
+on:
+  pull_request:
+    paths:
+      - '**.c'
+      - '**.h'
+      - '**.conf'
+      - '**.overlay'
+      - '**.dtsi'
+      - '**/Kconfig*'
+      - '**/CMakeLists.txt'
+      - 'west.yml'
+      - 'lib/onomondo-uicc'
+      - '.github/workflows/footprint.yml'
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  build-elf:
+    name: build ELF (${{ matrix.ref }})
+    runs-on: ubuntu-24.04
+    timeout-minutes: 60
+    container: ghcr.io/nrfconnect/sdk-nrf-toolchain:v3.4.0@sha256:f1dca44678dae83e37404e33f369786f5b2ffe2ed497eec1815f66c3a868bace
+    defaults:
+      run:
+        # Bash shell is needed to set toolchain related environment variables in docker container
+        # It is a workaround for GitHub Actions limitation https://github.com/actions/runner/issues/1964
+        shell: bash
+
+    strategy:
+      fail-fast: false
+      matrix:
+        ref: [base, pr]
+
+    steps:
+      # Same init-then-checkout dance as the build workflow: west.yml sets
+      # self.path to modules/lib/onomondo-softsim, which `west init -l` does
+      # not honor, so init from the manifest URL and let the checkout replace
+      # the cloned tree with the ref under test.
+      - name: Initialize workspace
+        run: |
+          west init -m https://github.com/${GITHUB_REPOSITORY}
+
+      - name: Checkout ${{ matrix.ref }}
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+        with:
+          path: modules/lib/onomondo-softsim
+          submodules: true
+          ref: ${{ matrix.ref == 'base' && github.event.pull_request.base.sha || github.event.pull_request.head.sha }}
+
+      - name: Fetch nRF and Zephyr workspaces and dependencies
+        run: |
+          west update -o=--depth=1 --narrow
+
+      - name: Build firmware (nrf9151dk)
+        working-directory: modules/lib/onomondo-softsim/samples/softsim_external_profile
+        run: |
+          west build --sysbuild --pristine=always --board nrf9151dk/nrf9151/ns
+
+      - name: Stage ELF
+        run: |
+          build=modules/lib/onomondo-softsim/samples/softsim_external_profile/build
+          cp "$build"/softsim_external_profile/zephyr/zephyr.elf ${{ matrix.ref }}.elf
+          # Drop DWARF so the bloaty section diff only shows loadable
+          # sections instead of a wall of .debug_* rows; .symtab stays for
+          # the symbol-level diff. Also shrinks the artifact ~10x. The cross
+          # strip lives next to the compiler the build used.
+          cc=$(sed -n 's/^CMAKE_C_COMPILER:[^=]*=//p' "$build"/softsim_external_profile/CMakeCache.txt)
+          "${cc%gcc}strip" --strip-debug ${{ matrix.ref }}.elf
+
+      - name: Upload ELF
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: elf-${{ matrix.ref }}
+          path: ${{ matrix.ref }}.elf
+          if-no-files-found: error
+
+  footprint:
+    name: footprint delta
+    needs: build-elf
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    permissions:
+      contents: read
+      pull-requests: write
+    steps:
+      - name: Download base ELF
+        uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8.0.1
+        with:
+          name: elf-base
+
+      - name: Download PR ELF
+        uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8.0.1
+        with:
+          name: elf-pr
+
+      # Flash/RAM from the ELF program headers: every LOAD segment's file
+      # size is flash-resident image content (including the load copy of
+      # initialized data); a segment's memory size counts toward RAM when
+      # its VMA is in SRAM (0x20000000+ on the nRF9151, the only board this
+      # workflow builds). Bloaty's FILE/VM section totals can't give this
+      # split -- VM SIZE mixes XIP code into "memory", and Berkeley `size`
+      # misbuckets Zephyr's rodata as data. GNU readelf is target-agnostic,
+      # so the stock one handles the Arm ELF.
+      - name: Compute flash/RAM headline
+        id: mem
+        run: |
+          mem() {
+            local flash=0 ram=0 vaddr filesz memsz
+            while read -r _ _ vaddr _ filesz memsz _; do
+              flash=$((flash + filesz))
+              if ((vaddr >= 0x20000000)); then ram=$((ram + memsz)); fi
+            done < <(readelf -lW "$1" | grep -E '^ +LOAD')
+            echo "$flash $ram"
+          }
+          read -r bflash bram < <(mem base.elf)
+          read -r pflash pram < <(mem pr.elf)
+          # errexit can't propagate out of the process substitutions above, so
+          # a missing/corrupt ELF would otherwise render as a silent 0.0 KiB.
+          ((bflash > 0 && pflash > 0))
+          row() {
+            awk -v l="$1" -v b="$2" -v p="$3" 'BEGIN {
+              printf "| %s | %.1f KiB | %.1f KiB | **%+d B** |\n", l, b / 1024, p / 1024, p - b
+            }'
+          }
+          {
+            echo 'table<<TABLE_EOF'
+            echo '| Memory | base | PR | Δ |'
+            echo '|---|---:|---:|---:|'
+            row Flash "$bflash" "$pflash"
+            row RAM "$bram" "$pram"
+            echo 'TABLE_EOF'
+          } >> "$GITHUB_OUTPUT"
+
+      # Bloaty would be the usual tool here, but its packaged GitHub action is
+      # abandoned, it is not in the Ubuntu archive, and `bloaty -d symbols`
+      # chokes on Zephyr images anyway ("Can't translate VM pointer to file",
+      # caused by the zero-FileSiz LOAD segments) -- so both attribution
+      # tables come from readelf, which the headline already depends on.
+      - name: Diff sections
+        id: sections
+        run: |
+          secs() {
+            # gawk, not awk: the runner's default mawk has no strtonum for the
+            # hex sizes readelf -S always prints.
+            readelf -SW "$1" \
+              | gawk '/^ *\[ *[0-9]+\]/ { sub(/^[^]]*\] */, ""); sz = strtonum("0x" $5); if ($2 != "NULL" && sz > 0) print $1, sz }' \
+              | sort -k1,1
+          }
+          join -a1 -a2 -e 0 -o 0,1.2,2.2 <(secs pr.elf) <(secs base.elf) \
+            | awk '{ d = $2 - $3; if (d != 0) printf "%+8d B  %-20s (%d -> %d)\n", d, $1, $3, $2 }' > secdiff.txt
+          [ -s secdiff.txt ] || echo '(no section size changes)' > secdiff.txt
+          {
+            echo 'diff<<SECS_EOF'
+            cat secdiff.txt
+            echo 'SECS_EOF'
+          } >> "$GITHUB_OUTPUT"
+
+
+      - name: Diff symbols
+        id: symbols
+        run: |
+          syms() {
+            # --sym-base=10: readelf prints sizes >99999 in hex by default,
+            # which the $3 + 0 filter below would silently drop.
+            readelf -sW --sym-base=10 "$1" \
+              | awk '$4 ~ /^(FUNC|OBJECT)$/ && $3 + 0 > 0 { sz[$8] += $3 } END { for (s in sz) print s, sz[s] }' \
+              | sort -k1,1
+          }
+          join -a1 -a2 -e 0 -o 0,1.2,2.2 <(syms pr.elf) <(syms base.elf) \
+            | awk '{ d = $2 - $3; if (d != 0) printf "%d\t%+8d B  %s\n", (d < 0 ? -d : d), d, $1 }' \
+            | sort -rn -k1,1 | head -10 | cut -f2- > symdiff.txt
+          [ -s symdiff.txt ] || echo '(no symbol size changes)' > symdiff.txt
+          {
+            echo 'diff<<SYMS_EOF'
+            cat symdiff.txt
+            echo 'SYMS_EOF'
+          } >> "$GITHUB_OUTPUT"
+
+      - name: Post footprint comment
+        uses: marocchino/sticky-pull-request-comment@5770ad5eb8f42dd2c4f34da00c94c5381e49af88 # v3.0.5
+        with:
+          header: firmware-footprint
+          message: |
+            ### Firmware footprint delta — `nrf9151dk/nrf9151/ns`
+
+            softsim_external_profile app image, from the ELF program headers (flash = load image incl. initialized data, RAM = static SRAM use incl. `.bss`/`noinit`):
+
+            ${{ steps.mem.outputs.table }}
+
+            <details>
+            <summary>Section size changes (from the section headers)</summary>
+
+            ```
+            ${{ steps.sections.outputs.diff }}
+            ```
+            </details>
+
+            <details>
+            <summary>Top symbol changes (10 largest, from the symbol tables)</summary>
+
+            ```
+            ${{ steps.symbols.outputs.diff }}
+            ```
+            </details>
+
+            <sub>Soft report — informational only. Base `${{ github.event.pull_request.base.sha }}` vs PR head.</sub>
