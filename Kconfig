@@ -76,10 +76,6 @@ config SOFTSIM_UICC_ENABLE_SANITIZE
     bool "Enable sanitizers in onomondo-uicc"
     default n
 
-config SOFTSIM_UICC_USE_SYSTEM_HEAP
-    bool "Use system malloc/free in onomondo-uicc"
-    default n
-
 config SOFTSIM_UICC_USE_LOGS
     bool "Enable ss_logp logging in onomondo-uicc"
     default y

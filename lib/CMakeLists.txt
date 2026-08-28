@@ -55,6 +55,8 @@ file(MAKE_DIRECTORY ${_softsim_install_dir})
 
 # Set default option values in one place.
 _softsim_set_uicc_bool(CONFIG_ENABLE_SANITIZE CONFIG_SOFTSIM_UICC_ENABLE_SANITIZE OFF "Enable -fsanitize in onomondo-uicc build")
+# Pinned off: SoftSIM owns its heap (lib/ss_heap.c), so the core has to use
+# the port allocator. Deliberately no Kconfig symbol to flip it.
 _softsim_set_uicc_bool(CONFIG_USE_SYSTEM_HEAP CONFIG_SOFTSIM_UICC_USE_SYSTEM_HEAP OFF "Use system malloc/free in onomondo-uicc")
 _softsim_set_uicc_bool(CONFIG_USE_LOGS CONFIG_SOFTSIM_UICC_USE_LOGS ON "Enable ss_logp logging in onomondo-uicc")
 _softsim_set_uicc_bool(CONFIG_USE_EXPERIMENTAL_SUSPEND_COMMAND CONFIG_SOFTSIM_UICC_USE_EXPERIMENTAL_SUSPEND_COMMAND ON "Enable experimental suspend command in onomondo-uicc")
