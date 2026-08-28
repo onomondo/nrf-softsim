@@ -152,6 +152,24 @@ config SOFTSIM_STACK_SIZE
         default is deliberately generous; measure the high-water mark with
         CONFIG_THREAD_ANALYZER before lowering it in a product build.
 
+config SOFTSIM_HEAP_SIZE
+    int "SoftSIM heap size"
+    range 30000 131072
+    default 30000
+    help
+        Usable bytes in SoftSIM's private heap. Every SoftSIM allocation --
+        SIM context, directory table, file cache, APDU transactions, TLV
+        decode trees, OTA responses -- comes from here and from nowhere else,
+        so an application cannot consume it and SoftSIM cannot consume the
+        application's. As far as this module is concerned
+        CONFIG_HEAP_MEM_POOL_SIZE may be 0.
+
+        The floor is not slack: steady state on the shipped profile is
+        11.5-13 kB and the RFM/OTA path peaks about 10 kB above that (a 4 kB
+        response held live while all 31 concatenated-SMS parts are queued).
+        Do not lower it without a measured high-water mark that covers an
+        RFM/OTA exchange -- see CONFIG_SOFTSIM_HEAP_STATS.
+
 # Conditional defaults for per-layer log levels — placed BEFORE each template
 # source so they win over the template's `default LOG_DEFAULT_LEVEL` fallback
 # (Kconfig: first matching default wins).
@@ -173,12 +191,6 @@ source "${ZEPHYR_BASE}/subsys/logging/Kconfig.template.log_config"
 # bumps them; otherwise the production-friendly sizing applies. These are
 # `default` directives so any explicit value in a prj.conf or overlay wins.
 if SOFTSIM
-
-# Heap contribution, summed into K_HEAP_MEM_POOL_SIZE: raises a smaller
-# application heap instead of losing to it like a plain `default` would.
-config HEAP_MEM_POOL_ADD_SIZE_SOFTSIM
-    int
-    default 30000
 
 config LOG_DEFAULT_LEVEL
     default 1
