@@ -22,6 +22,7 @@
 #include <zephyr/ztest.h>
 
 #include <nrf_modem_softsim.h>
+#include <onomondo/softsim/mem.h>
 #include <onomondo/softsim/softsim.h>
 #include <onomondo/utils/ss_profile.h>
 
@@ -54,6 +55,18 @@ FAKE_VALUE_FUNC(int, ss_deinit_fs);
 FAKE_VALUE_FUNC(int, port_provision, struct ss_profile *);
 FAKE_VALUE_FUNC(int, port_check_provisioned);
 FAKE_VALUE_FUNC(int, ss_utils_check_key_existence, enum key_identifier_base);
+
+/* The allocator port (lib/ss_heap.c) is not compiled here. Route to the kernel
+ * heap so allocation stays real and the balance tests keep their meaning. */
+void *port_malloc(size_t size)
+{
+	return k_malloc(size);
+}
+
+void port_free(void *ptr)
+{
+	k_free(ptr);
+}
 
 /*
  * ss_utils_setup_key is declared with a VLA-style parameter, which FFF cannot
