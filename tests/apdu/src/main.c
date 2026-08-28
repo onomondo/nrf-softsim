@@ -287,9 +287,8 @@ ZTEST(softsim_apdu, test_authenticate_rejects_a_forged_mac)
 	zassert_equal(len, 2, "a rejected AUTHENTICATE must carry no response data");
 }
 
-/* The port allocator replaced k_malloc, which never passed a zero size on to
- * the allocator and tolerated a NULL free. A zero-length READ BINARY reaches
- * SS_ALLOC_N(0), so a plain k_heap_alloc would turn that into an error. */
+/* k_malloc never passed a zero size on and tolerated a NULL free. A zero-length
+ * READ BINARY reaches SS_ALLOC_N(0), which a plain k_heap_alloc would reject. */
 ZTEST(softsim_apdu, test_port_allocator_keeps_the_malloc_contract)
 {
 	void *zero = port_malloc(0);

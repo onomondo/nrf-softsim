@@ -81,12 +81,9 @@ jobs:
       # board-independent, so one board is enough. Runs after the archive so its
       # pristine rebuild doesn't clobber the archived (external) merged.hex.
       #
-      # overlay-heap-stats.conf rides along because this is the only build that
-      # links ss_heap.c and nrf_softsim.c together: the unit tests compile one or
-      # the other, so nothing else compiles the stats path at all. Both greps
-      # check what a compile cannot see -- that the option survived sysbuild's
-      # variable forwarding, and that the log level still lets the line be
-      # emitted (the module pins LOG_DEFAULT_LEVEL to ERR, which muted it once).
+      # overlay-heap-stats.conf rides along: the only build that links ss_heap.c
+      # and nrf_softsim.c, so nothing else compiles the stats path. The greps
+      # check what a compile cannot: the option and the log level survived.
       - name: Build firmware (static profile mode, compile check)
         if: matrix.board == 'nrf9151dk/nrf9151/ns'
         working-directory: modules/lib/onomondo-softsim/samples/softsim_external_profile

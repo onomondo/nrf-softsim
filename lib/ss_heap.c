@@ -11,9 +11,8 @@
 
 #include "ss_heap.h"
 
-/* SoftSIM's own heap: the application cannot allocate from it, and SoftSIM does
- * not allocate from the application's. Wrapped like the kernel wraps the system
- * heap, so the Kconfig value means usable bytes. */
+/* SoftSIM's own heap: neither side can allocate from the other's. Wrapped like
+ * the kernel wraps the system heap, so the Kconfig value means usable bytes. */
 K_HEAP_DEFINE(softsim_port_heap, Z_HEAP_MIN_SIZE_FOR(CONFIG_SOFTSIM_HEAP_SIZE));
 
 /**
@@ -25,8 +24,8 @@ K_HEAP_DEFINE(softsim_port_heap, Z_HEAP_MIN_SIZE_FOR(CONFIG_SOFTSIM_HEAP_SIZE));
  */
 void *port_malloc(size_t size)
 {
-	/* K_NO_WAIT: reachable from the modem request handler. size ? size : 1
-	 * keeps k_malloc's contract, which never passed a zero size on. */
+	/* K_NO_WAIT: runs in the modem request handler. size ? size : 1 keeps
+	 * k_malloc's contract of never passing a zero size on. */
 	return k_heap_alloc(&softsim_port_heap, size ? size : 1, K_NO_WAIT);
 }
 
@@ -57,8 +56,7 @@ void ss_heap_log_stats(uint8_t ins)
 	}
 	logged_peak = stats.max_allocated_bytes;
 
-	/* A high-water mark, not a largest-free-block: it does not show
-	 * fragmentation. INS 0x00 means the peak grew outside an APDU. */
+	/* A high-water mark, so it cannot show fragmentation. INS 0 = not an APDU. */
 	LOG_INF("SoftSIM heap: new peak %zu of %d configured, INS 0x%02x (%zu used, %zu free)",
 		stats.max_allocated_bytes, CONFIG_SOFTSIM_HEAP_SIZE, ins, stats.allocated_bytes,
 		stats.free_bytes);

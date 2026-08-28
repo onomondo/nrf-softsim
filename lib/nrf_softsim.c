@@ -228,8 +228,7 @@ static void softsim_req_task(struct k_work *item)
 	struct softsim_req_node *s_req;
 
 	while ((s_req = k_fifo_get(&softsim_req_fifo, K_NO_WAIT))) {
-		/* Captured before the node is freed: names the command that drove a
-		 * new heap peak. */
+		/* Captured before the node is freed, to name the command in the peak log. */
 		uint8_t ins = 0;
 
 		if (s_req->req == NRF_MODEM_SOFTSIM_APDU && s_req->payload.data &&
