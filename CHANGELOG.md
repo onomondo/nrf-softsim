@@ -1,5 +1,21 @@
 # Changelog
 
+## [6.1.1](https://github.com/onomondo/nrf-softsim/compare/v6.1.0...v6.1.1) (2026-08-28)
+
+
+### Bug Fixes
+
+* answer unknown modem requests with an error ([#193](https://github.com/onomondo/nrf-softsim/issues/193)) ([68dc3fd](https://github.com/onomondo/nrf-softsim/commit/68dc3fd222b9e1c80a062ee418ff1012392c2c6f))
+* make REFRESH tracking and SMS reassembly sizing tunable ([#181](https://github.com/onomondo/nrf-softsim/issues/181)) ([358e9db](https://github.com/onomondo/nrf-softsim/commit/358e9dbb3915b8e80a967ad247425c504d5fa73a))
+* pass the logging switch to ss_profile.c ([#185](https://github.com/onomondo/nrf-softsim/issues/185)) ([967ebdb](https://github.com/onomondo/nrf-softsim/commit/967ebdb23fa6e2f5427cf0ef4839db57d1098e67))
+* pin the profile CRC32 verification during provisioning ([#189](https://github.com/onomondo/nrf-softsim/issues/189)) ([b120fbd](https://github.com/onomondo/nrf-softsim/commit/b120fbdf975977ce3f54fa7ceea6ff3fdced0241))
+* wipe the decoded profile after provisioning ([#182](https://github.com/onomondo/nrf-softsim/issues/182)) ([e7c466f](https://github.com/onomondo/nrf-softsim/commit/e7c466fed07df4f154acca165b36c58403fca2c0))
+
+
+### Performance Improvements
+
+* size SS_STORAGE_PATH_MAX to the real profile paths ([#192](https://github.com/onomondo/nrf-softsim/issues/192)) ([fb6a07e](https://github.com/onomondo/nrf-softsim/commit/fb6a07e60c1a49af40f28e5e8874e35c65a7e745))
+
 ## [6.1.0](https://github.com/onomondo/nrf-softsim/compare/v6.0.0...v6.1.0) (2026-08-25)
 
 
