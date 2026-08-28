@@ -20,4 +20,3 @@ jobs:
         with:
           release-type: simple
           target-branch: master
-          manifest-file: .github/.release-please-manifest.json
