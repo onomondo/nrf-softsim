@@ -208,14 +208,14 @@ To upgrade firmware while keeping the profile, either:
 
 | Resource | Requirement |
 |---|---|
-| Heap | `CONFIG_HEAP_MEM_POOL_SIZE` ≥ 30000 (build assert). The filesystem cache and working buffers come from the kernel heap; budget on top of your application's own use. |
-| SoftSIM thread | 10 kB stack (`SOFTSIM_STACK_SIZE`). |
+| Heap | SoftSIM allocates from its own heap, `CONFIG_SOFTSIM_HEAP_SIZE` (30000 by default, and its floor). Nothing to budget on top: your `CONFIG_HEAP_MEM_POOL_SIZE` is yours alone, and may be 0 if your application never calls `k_malloc`. |
+| SoftSIM thread | 10 kB stack (`CONFIG_SOFTSIM_STACK_SIZE`). |
 | Flash | 32 kB `nvs_storage` + the TF-M secure region, sized by the devicetree `slot0_s_partition` node: 0x18000 (96 kB) on both nRF91 DK layouts, 0x14000 (80 kB) on Thingy:91, 0x20000 (128 kB) on Thingy:91 X. Large applications may need features trimmed to fit — the linker reports overflow. The same applies to RAM. |
 | TF-M | `CONFIG_BUILD_WITH_TFM=y` is a hard dependency (PSA crypto). The sample shows how to keep it small (`CONFIG_TFM_PARTITION_PROTECTED_STORAGE=n`, `CONFIG_PSA_CRYPTO_DRIVER_CC3XX=n`). |
 
-The build asserts in [`lib/build_asserts.c`](../lib/build_asserts.c) catch the heap floor,
-the partition size and the Settings clash with an explanatory message, so you will be told
-rather than debug it. Two of them need context:
+The build asserts in [`lib/build_asserts.c`](../lib/build_asserts.c) catch the partition
+size and the Settings clash with an explanatory message, so you will be told rather than
+debug it. Two of them need context:
 
 - **Zephyr Settings.** `CONFIG_SETTINGS_NVS` is rejected — the SoftSIM needs the
   `nvs_storage` partition. Switching to `CONFIG_SETTINGS_FCB=y` (or ZMS) is not enough on
@@ -224,6 +224,27 @@ rather than debug it. Two of them need context:
 - **MCUboot on the DKs.** Enabling it without switching to the MCUboot partition layout
   leaves the devicetree with no `boot_partition`; add the overlay
   [above](#flash-partitioning).
+
+### Migrating from 6.1.0 and earlier
+
+SoftSIM used to set `CONFIG_HEAP_MEM_POOL_SIZE=30000` in `overlay-softsim.conf`, so
+applying the overlay handed your application a 30 kB kernel heap it could allocate from.
+SoftSIM now allocates from its own heap and no longer sets yours.
+
+If your application calls `k_malloc` — directly, or through a library such as nRF Cloud,
+nRF Provisioning or FOTA — declare your own `CONFIG_HEAP_MEM_POOL_SIZE`. The symptom of
+missing this is an allocation that used to succeed returning NULL, often inside library
+code rather than your own. [`samples/softsim_external_profile/prj.conf`](../samples/softsim_external_profile/prj.conf)
+shows the one-line declaration.
+
+### Measuring the heap
+
+Build with `CONFIG_SOFTSIM_HEAP_STATS=y` and SoftSIM logs how much of
+`CONFIG_SOFTSIM_HEAP_SIZE` it has used whenever the modem deinitialises the SIM. Exercise
+an RFM/OTA exchange that returns a large response before trusting a peak: that path alone
+allocates about 10 kB more than steady state, and provisioning plus attach never reaches
+it. The figure is a high-water mark, not a largest-free-block, so it says nothing about
+fragmentation.
 
 Two more that no assert catches: some applications (e.g. `modem_shell`) fail to link with
 `... uses VFP register arguments` — add `CONFIG_FP_SOFTABI=y`. And the crypto port needs
@@ -240,9 +261,11 @@ Two more that no assert catches: some applications (e.g. `modem_shell`) fail to 
   the profile. Plan the address to be stable across your product's DFU history — the
   shipped layouts are address-compatible with older Partition Manager releases for exactly
   this reason.
-- **Memory**: `port_malloc`/`port_free` map to `k_malloc`/`k_free`. Point them at a
-  dedicated `k_heap` to isolate the SoftSIM's ~30 kB from your application's heap
-  accounting.
+- **Memory**: `port_malloc`/`port_free` own a private `k_heap` sized by
+  `CONFIG_SOFTSIM_HEAP_SIZE`, which is what keeps SoftSIM's memory and the application's
+  from reaching each other. A port must stay non-blocking (the modem request handler calls
+  it) and must keep `malloc`'s contract of returning a usable pointer for a zero-length
+  request.
 
 Three hazards worth knowing:
 
