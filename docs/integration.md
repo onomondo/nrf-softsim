@@ -239,12 +239,15 @@ shows the one-line declaration.
 
 ### Measuring the heap
 
-Build with `CONFIG_SOFTSIM_HEAP_STATS=y` and SoftSIM logs how much of
-`CONFIG_SOFTSIM_HEAP_SIZE` it has used whenever the modem deinitialises the SIM. Exercise
-an RFM/OTA exchange that returns a large response before trusting a peak: that path alone
+Build with `CONFIG_SOFTSIM_HEAP_STATS=y` — the sample carries
+[`overlay-heap-stats.conf`](../samples/softsim_external_profile/overlay-heap-stats.conf)
+for this — and SoftSIM logs its high-water mark each time it grows, naming the INS byte
+of the APDU that caused it (`INS 0x00` means the peak grew outside an APDU). Exercise an
+RFM/OTA exchange that returns a large response before trusting a peak: that path alone
 allocates about 10 kB more than steady state, and provisioning plus attach never reaches
 it. The figure is a high-water mark, not a largest-free-block, so it says nothing about
-fragmentation.
+fragmentation, and because it only reports on growth a leak stays invisible until it
+exceeds the peak.
 
 Two more that no assert catches: some applications (e.g. `modem_shell`) fail to link with
 `... uses VFP register arguments` — add `CONFIG_FP_SOFTABI=y`. And the crypto port needs
