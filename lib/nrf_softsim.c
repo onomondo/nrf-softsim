@@ -17,6 +17,7 @@
 #include <onomondo/softsim/softsim.h>
 #include <onomondo/softsim/utils.h>
 #include <onomondo/softsim/fs.h>
+#include <onomondo/softsim/mem.h>
 #include <onomondo/utils/ss_profile.h>
 
 /* Logging */
@@ -309,7 +310,7 @@ static void softsim_req_task(struct k_work *item)
 		}
 
 		/* Free the request node */
-		k_free(s_req);
+		port_free(s_req);
 	}
 }
 
@@ -318,7 +319,7 @@ void nrf_modem_softsim_req_handler(enum nrf_modem_softsim_cmd req, uint16_t req_
 {
 	struct softsim_req_node *req_node = NULL;
 
-	req_node = k_malloc(sizeof(struct softsim_req_node));
+	req_node = port_malloc(sizeof(struct softsim_req_node));
 
 	if (!req_node) {
 		LOG_ERR("SoftSIM req_node allocation failed");
