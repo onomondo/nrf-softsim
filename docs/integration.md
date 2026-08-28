@@ -225,17 +225,24 @@ debug it. Two of them need context:
   leaves the devicetree with no `boot_partition`; add the overlay
   [above](#flash-partitioning).
 
-### Migrating from 6.1.0 and earlier
+### Migrating from 6.1.1 and earlier
 
 SoftSIM used to set `CONFIG_HEAP_MEM_POOL_SIZE=30000` in `overlay-softsim.conf`, so
-applying the overlay handed your application a 30 kB kernel heap it could allocate from.
-SoftSIM now allocates from its own heap and no longer sets yours.
+applying the overlay handed your application a 30 kB kernel heap it could allocate from,
+and a build assert required that value even if you set it yourself. SoftSIM now allocates
+from its own heap and no longer sets or requires yours. Two things to check:
 
-If your application calls `k_malloc` — directly, or through a library such as nRF Cloud,
-nRF Provisioning or FOTA — declare your own `CONFIG_HEAP_MEM_POOL_SIZE`. The symptom of
-missing this is an allocation that used to succeed returning NULL, often inside library
-code rather than your own. [`samples/softsim_external_profile/prj.conf`](../samples/softsim_external_profile/prj.conf)
-shows the one-line declaration.
+- **Do you still need a kernel heap?** If your application calls `k_malloc` — directly, or
+  through a library such as nRF Cloud, nRF Provisioning or FOTA — declare your own
+  `CONFIG_HEAP_MEM_POOL_SIZE`, sized for your use rather than SoftSIM's.
+  [`samples/softsim_external_profile/prj.conf`](../samples/softsim_external_profile/prj.conf)
+  shows the one-line declaration. The symptom of missing this is an allocation that used to
+  succeed returning NULL, often inside library code rather than your own. Zephyr defaults
+  the pool to 0, so nothing warns you.
+- **Is the value you have left over from SoftSIM?** CMake warns at configure time when
+  `CONFIG_HEAP_MEM_POOL_SIZE` is 30000 or more, since that is almost always the old
+  mandated value rather than a measured one. Delete it, or lower it to what your
+  application actually allocates — the private heap is charged on top of it.
 
 ### Measuring the heap
 
