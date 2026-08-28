@@ -228,6 +228,15 @@ static void softsim_req_task(struct k_work *item)
 	struct softsim_req_node *s_req;
 
 	while ((s_req = k_fifo_get(&softsim_req_fifo, K_NO_WAIT))) {
+		/* Captured before the node is freed: names the command that drove a
+		 * new heap peak. */
+		uint8_t ins = 0;
+
+		if (s_req->req == NRF_MODEM_SOFTSIM_APDU && s_req->payload.data &&
+		    s_req->payload.data_len > 1) {
+			ins = ((const uint8_t *)s_req->payload.data)[1];
+		}
+
 		switch (s_req->req) {
 		case NRF_MODEM_SOFTSIM_INIT: {
 			LOG_DBG("SoftSIM INIT REQ");
@@ -281,8 +290,6 @@ static void softsim_req_task(struct k_work *item)
 				LOG_DBG("SoftSIM suspended. Keeping context.");
 			}
 
-			ss_heap_log_stats();
-
 			err = nrf_modem_softsim_res(s_req->req, s_req->req_id, NULL, 0);
 			if (err) {
 				LOG_ERR("SoftSIM DEINIT response failed with err: %d", err);
@@ -316,6 +323,8 @@ static void softsim_req_task(struct k_work *item)
 
 		/* Free the request node */
 		port_free(s_req);
+
+		ss_heap_log_stats(ins);
 	}
 }
 
