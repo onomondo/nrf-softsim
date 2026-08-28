@@ -101,9 +101,6 @@ int nrf_softsim_init(void)
 	k_work_queue_start(&softsim_work_q, softsim_stack_area,
 			   K_THREAD_STACK_SIZEOF(softsim_stack_area), SOFTSIM_PRIORITY, NULL);
 
-	/* The SIM context (~5 KB of heap) is allocated lazily by the
-	 * NRF_MODEM_SOFTSIM_INIT request, not here. */
-
 	LOG_INF("SoftSIM initialized");
 	return 0;
 }
