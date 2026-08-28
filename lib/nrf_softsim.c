@@ -10,6 +10,7 @@
 #include <zephyr/logging/log.h>
 
 #include "ss_crypto.h"
+#include "ss_heap.h"
 #include <nrf_softsim.h>
 #include <nrf_modem_at.h>
 #include <nrf_modem_softsim.h>
@@ -279,6 +280,8 @@ static void softsim_req_task(struct k_work *item)
 			} else {
 				LOG_DBG("SoftSIM suspended. Keeping context.");
 			}
+
+			ss_heap_log_stats();
 
 			err = nrf_modem_softsim_res(s_req->req, s_req->req_id, NULL, 0);
 			if (err) {
