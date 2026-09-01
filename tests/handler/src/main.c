@@ -155,8 +155,9 @@ static void data_free_real(void *data)
 	k_free(data);
 }
 
-/* nrf_softsim_provision() hands port_provision a pointer to a stack-local
- * struct; keep a deep copy, the pointer is dangling by assert time. */
+/* nrf_softsim_provision() hands port_provision a pointer to a struct it wipes
+ * and frees before returning; keep a deep copy, the pointer is dead by assert
+ * time. */
 static struct ss_profile captured_profile;
 
 static int capture_profile(struct ss_profile *profile)
