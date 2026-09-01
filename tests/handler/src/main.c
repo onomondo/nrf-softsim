@@ -206,6 +206,22 @@ static int completions(void)
 	return nrf_modem_softsim_res_fake.call_count + nrf_modem_softsim_err_fake.call_count;
 }
 
+/* The real nrf_modem_softsim_res() copies the response during the call (the
+ * handler may answer out of stack memory), so a test that wants the bytes must
+ * snapshot them at call time instead of dereferencing arg2_val afterwards. */
+static uint8_t res_snapshot[260]; /* SIM_HAL_MAX_LE in nrf_softsim.c */
+static uint16_t res_snapshot_len;
+
+static int res_snapshot_fake(enum nrf_modem_softsim_cmd cmd, uint16_t req_id, const void *data,
+			     uint16_t len)
+{
+	res_snapshot_len = len;
+	if (data && len <= sizeof(res_snapshot)) {
+		memcpy(res_snapshot, data, len);
+	}
+	return 0;
+}
+
 /* The work queue is a real thread; wait for it rather than sleeping blindly. */
 static void wait_for_completions(int expected)
 {
@@ -247,24 +263,23 @@ ZTEST(softsim_handler, test_each_request_is_answered_exactly_once)
 }
 
 /*
- * The handler answers out of one static buffer for both the ATR and every APDU
- * response, and narrows the core's size_t length into the modem's uint16_t. That
- * plumbing is what the modem actually consumes, so pin the bytes and the length,
- * not just the call count.
+ * The handler answers the ATR and every APDU response out of a buffer on its
+ * own work-queue stack, and narrows the core's size_t length into the modem's
+ * uint16_t. That plumbing is what the modem actually consumes, so pin the
+ * bytes and the length via a call-time snapshot, not just the call count.
  */
 ZTEST(softsim_handler, test_answers_carry_the_core_response_bytes)
 {
-	const uint8_t *out;
+	nrf_modem_softsim_res_fake.custom_fake = res_snapshot_fake;
 
 	submit(NRF_MODEM_SOFTSIM_INIT, 1, NULL, 0);
 	wait_for_completions(1);
 
 	/* atr_ok() fills 8 bytes of 0x3b and returns 8. */
-	zassert_equal(nrf_modem_softsim_res_fake.arg3_val, 8, "ATR length was not passed through");
-	out = nrf_modem_softsim_res_fake.arg2_val;
-	zassert_not_null(out, "INIT must answer with the ATR buffer");
+	zassert_equal(res_snapshot_len, 8, "ATR length was not passed through");
 	for (int i = 0; i < 8; i++) {
-		zassert_equal(out[i], 0x3b, "ATR byte %d differs from what the core produced", i);
+		zassert_equal(res_snapshot[i], 0x3b,
+			      "ATR byte %d differs from what the core produced", i);
 	}
 
 	uint8_t *apdu = k_malloc(4);
@@ -275,12 +290,9 @@ ZTEST(softsim_handler, test_answers_carry_the_core_response_bytes)
 	wait_for_completions(2);
 
 	/* apdu_ok() fills 2 bytes of 0x90 and returns 2. */
-	zassert_equal(nrf_modem_softsim_res_fake.arg3_val, 2,
-		      "APDU response length was not passed through");
-	out = nrf_modem_softsim_res_fake.arg2_val;
-	zassert_not_null(out, "APDU must answer with the response buffer");
-	zassert_equal(out[0], 0x90, "APDU response byte 0 differs");
-	zassert_equal(out[1], 0x90, "APDU response byte 1 differs");
+	zassert_equal(res_snapshot_len, 2, "APDU response length was not passed through");
+	zassert_equal(res_snapshot[0], 0x90, "APDU response byte 0 differs");
+	zassert_equal(res_snapshot[1], 0x90, "APDU response byte 1 differs");
 
 	/* DEINIT has nothing to say and must not point the modem at the buffer. */
 	submit(NRF_MODEM_SOFTSIM_DEINIT, 3, NULL, 0);
@@ -428,14 +440,13 @@ ZTEST(softsim_handler, test_an_unknown_command_is_still_answered)
 }
 
 /*
- * Known defect. DEINIT clears ctx and guards its own use of it, but the RESET
- * case calls ss_reset(ctx) unguarded -- and the modem sends RESET exactly when
- * a request has become unresponsive, which is when ordering is least
- * predictable. On target ss_reset() dereferences immediately.
+ * The modem sends RESET exactly when a request has become unresponsive, which
+ * is when ordering is least predictable -- so a RESET (or APDU) arriving
+ * without a context must be answered with an error, never handed to
+ * ss_reset(), which dereferences immediately on target.
  *
  * Asserted against the fake's recorded argument rather than by letting it
- * crash, so the suite reports the defect instead of taking the process down.
- * Expected to fail until RESET gets the same NULL guard DEINIT already has.
+ * crash, so the suite reports a regression instead of taking the process down.
  */
 ZTEST(softsim_handler, test_reset_never_receives_a_null_context)
 {
@@ -459,13 +470,11 @@ ZTEST(softsim_handler, test_reset_never_receives_a_null_context)
 				 "ss_reset() call %u received a NULL context", i);
 	}
 }
-ZTEST_EXPECT_FAIL(softsim_handler, test_reset_never_receives_a_null_context);
 
 /*
  * Same class, different entry point: ss_new_ctx() returns NULL when the heap is
- * exhausted, and ss_is_suspended(NULL) deliberately answers 0, so the guard in
- * the INIT case passes and ss_reset(NULL) runs. Expected to fail until INIT
- * checks the allocation.
+ * exhausted, and ss_is_suspended(NULL) deliberately answers 0 -- so INIT must
+ * check the allocation itself before the reset path runs.
  */
 ZTEST(softsim_handler, test_init_handles_context_allocation_failure)
 {
@@ -478,7 +487,6 @@ ZTEST(softsim_handler, test_init_handles_context_allocation_failure)
 	zassert_equal(ss_reset_fake.call_count, 0,
 		      "a failed context allocation must not reach ss_reset()");
 }
-ZTEST_EXPECT_FAIL(softsim_handler, test_init_handles_context_allocation_failure);
 
 /* ===========================================================================
  * nrf_softsim_provision(): the validation layer over the profile parser.
