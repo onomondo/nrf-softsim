@@ -428,14 +428,13 @@ ZTEST(softsim_handler, test_an_unknown_command_is_still_answered)
 }
 
 /*
- * Known defect. DEINIT clears ctx and guards its own use of it, but the RESET
- * case calls ss_reset(ctx) unguarded -- and the modem sends RESET exactly when
- * a request has become unresponsive, which is when ordering is least
- * predictable. On target ss_reset() dereferences immediately.
+ * The modem sends RESET exactly when a request has become unresponsive, which
+ * is when ordering is least predictable -- so a RESET (or APDU) arriving
+ * without a context must be answered with an error, never handed to
+ * ss_reset(), which dereferences immediately on target.
  *
  * Asserted against the fake's recorded argument rather than by letting it
- * crash, so the suite reports the defect instead of taking the process down.
- * Expected to fail until RESET gets the same NULL guard DEINIT already has.
+ * crash, so the suite reports a regression instead of taking the process down.
  */
 ZTEST(softsim_handler, test_reset_never_receives_a_null_context)
 {
@@ -459,13 +458,11 @@ ZTEST(softsim_handler, test_reset_never_receives_a_null_context)
 				 "ss_reset() call %u received a NULL context", i);
 	}
 }
-ZTEST_EXPECT_FAIL(softsim_handler, test_reset_never_receives_a_null_context);
 
 /*
  * Same class, different entry point: ss_new_ctx() returns NULL when the heap is
- * exhausted, and ss_is_suspended(NULL) deliberately answers 0, so the guard in
- * the INIT case passes and ss_reset(NULL) runs. Expected to fail until INIT
- * checks the allocation.
+ * exhausted, and ss_is_suspended(NULL) deliberately answers 0 -- so INIT must
+ * check the allocation itself before the reset path runs.
  */
 ZTEST(softsim_handler, test_init_handles_context_allocation_failure)
 {
@@ -478,7 +475,6 @@ ZTEST(softsim_handler, test_init_handles_context_allocation_failure)
 	zassert_equal(ss_reset_fake.call_count, 0,
 		      "a failed context allocation must not reach ss_reset()");
 }
-ZTEST_EXPECT_FAIL(softsim_handler, test_init_handles_context_allocation_failure);
 
 /* ===========================================================================
  * nrf_softsim_provision(): the validation layer over the profile parser.
