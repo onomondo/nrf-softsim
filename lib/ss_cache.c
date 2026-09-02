@@ -86,9 +86,9 @@ int ss_dir_table_from_blob(const uint8_t *blob, size_t size, struct ss_dir_entry
 	for (size_t i = 1; i < count; i++) {
 		for (size_t j = 0; j < i; j++) {
 			if (dir[i].hash == dir[j].hash) {
-				LOG_ERR("DIR paths %u and %u share hash 0x%08x; "
-					"refusing the table",
-					(unsigned)j, (unsigned)i, dir[i].hash);
+				LOG_ERR("DIR entries with NVS keys 0x%04x and 0x%04x share hash "
+					"0x%08x; refusing the table",
+					dir[j].key, dir[i].key, dir[i].hash);
 				SS_FREE(dir);
 				return -1;
 			}
