@@ -58,7 +58,7 @@ a change to the port implementations: `west twister -T tests/`.
 ## Options worth commenting on
 
 Every symbol is documented in [`Kconfig`](../Kconfig); the ones under "Options for the
-onomondo-uicc submodule" map 1:1 onto that submodule's CMake options. Only these four
+onomondo-uicc submodule" map 1:1 onto that submodule's CMake options. Only these five
 behave in ways the help text can't fully convey:
 
 - **`SOFTSIM_AUTO_INIT`** (default `y`) — setting it to `n` compiles out *two* things:
@@ -76,6 +76,14 @@ behave in ways the help text can't fully convey:
   prevents registration. So this raises the console to
   `SOFTSIM_LOG_IMMEDIATE_MODE_BAUD` (1000000) at boot — **reconnect your terminal at
   that rate**. SEGGER RTT avoids the UART bottleneck entirely. Debug only.
+- **`SOFTSIM_UICC_DISABLE_OTA`** / **`SOFTSIM_UICC_DISABLE_SMS`** — compile the core without
+  RFM/OTA remote file management (and the REFRESH that reports its changes), or without SMS
+  altogether, which selects the former since OTA arrives over SMS. Both lower the default
+  and floor of `CONFIG_SOFTSIM_HEAP_SIZE` from 30000 to 20000: the ~10 kB RFM/OTA response
+  peak is the only thing the budget loses. The card still answers — an OTA SMS-PP DOWNLOAD
+  gets 6F00 with OTA out, any SMS-PP DOWNLOAD gets 6A81 with SMS out, each with an error log
+  naming the fix. Pair SMS-off with a profile that clears EF.UST service 28, so the modem
+  never offers SMS-PP downloads to the card in the first place.
 
 ## Flash partitioning
 
@@ -208,7 +216,7 @@ To upgrade firmware while keeping the profile, either:
 
 | Resource | Requirement |
 |---|---|
-| Heap | SoftSIM allocates from its own heap, `CONFIG_SOFTSIM_HEAP_SIZE` (30000 by default, and its floor). Nothing to budget on top: your `CONFIG_HEAP_MEM_POOL_SIZE` is yours alone, and may be 0 if your application never calls `k_malloc`. |
+| Heap | SoftSIM allocates from its own heap, `CONFIG_SOFTSIM_HEAP_SIZE` (30000 by default and its floor; 20000 when `SOFTSIM_UICC_DISABLE_OTA` compiles OTA out). Nothing to budget on top: your `CONFIG_HEAP_MEM_POOL_SIZE` is yours alone, and may be 0 if your application never calls `k_malloc`. |
 | SoftSIM thread | 10 kB stack (`CONFIG_SOFTSIM_STACK_SIZE`). |
 | Flash | 32 kB `nvs_storage` + the TF-M secure region, sized by the devicetree `slot0_s_partition` node: 0x18000 (96 kB) on both nRF91 DK layouts, 0x14000 (80 kB) on Thingy:91, 0x20000 (128 kB) on Thingy:91 X. Large applications may need features trimmed to fit — the linker reports overflow. The same applies to RAM. |
 | TF-M | `CONFIG_BUILD_WITH_TFM=y` is a hard dependency (PSA crypto). The sample shows how to keep it small (`CONFIG_TFM_PARTITION_PROTECTED_STORAGE=n`, `CONFIG_PSA_CRYPTO_DRIVER_CC3XX=n`). |
@@ -249,12 +257,12 @@ from its own heap and no longer sets or requires yours. Two things to check:
 Build with `CONFIG_SOFTSIM_HEAP_STATS=y` — the sample carries
 [`overlay-heap-stats.conf`](../samples/softsim_external_profile/overlay-heap-stats.conf)
 for this — and SoftSIM logs its high-water mark each time it grows, naming the INS byte
-of the APDU that caused it (`INS 0x00` means the peak grew outside an APDU). Exercise an
-RFM/OTA exchange that returns a large response before trusting a peak: that path alone
-allocates about 10 kB more than steady state, and provisioning plus attach never reaches
-it. The figure is a high-water mark, not a largest-free-block, so it says nothing about
-fragmentation, and because it only reports on growth a leak stays invisible until it
-exceeds the peak.
+of the APDU that caused it (`INS 0x00` means the peak grew outside an APDU). Unless OTA is
+compiled out, exercise an RFM/OTA exchange that returns a large response before trusting a
+peak: that path alone allocates about 10 kB more than steady state, and provisioning plus
+attach never reaches it. The figure is a high-water mark, not a largest-free-block, so it
+says nothing about fragmentation, and because it only reports on growth a leak stays
+invisible until it exceeds the peak.
 
 Two more that no assert catches: some applications (e.g. `modem_shell`) fail to link with
 `... uses VFP register arguments` — add `CONFIG_FP_SOFTABI=y`. And the crypto port needs
