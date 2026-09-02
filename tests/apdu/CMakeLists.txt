@@ -19,6 +19,13 @@ set(CONFIG_NO_DEFAULT_IMPL ON CACHE BOOL "" FORCE)
 set(CONFIG_COMPACT_STORAGE ON CACHE BOOL "" FORCE)
 set(CONFIG_BUILD_LIB_ONLY ON CACHE BOOL "" FORCE)
 set(CONFIG_USE_EXPERIMENTAL_SUSPEND_COMMAND ON CACHE BOOL "" FORCE)
+# Twister passes these as plain -D variables; a CONFIG_ prefix would be read
+# as a Kconfig assignment.
+foreach(_gate DISABLE_OTA DISABLE_SMS)
+  if(SOFTSIM_UICC_${_gate})
+    set(CONFIG_${_gate} ON CACHE BOOL "" FORCE)
+  endif()
+endforeach()
 add_subdirectory(${SOFTSIM_LIB}/onomondo-uicc onomondo-uicc)
 
 # Same propagation lib/CMakeLists.txt does for firmware: the subproject
