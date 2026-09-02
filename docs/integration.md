@@ -78,8 +78,7 @@ behave in ways the help text can't fully convey:
   that rate**. SEGGER RTT avoids the UART bottleneck entirely. Debug only.
 - **`SOFTSIM_UICC_DISABLE_SMS`** — compiles the core without SMS, and with it RFM/OTA remote
   file management (OTA arrives over SMS); `CONFIG_SOFTSIM_HEAP_SIZE` defaults to 15000. The
-  card still answers SMS-PP DOWNLOAD with 6A81 and an error log; pair it with a profile that
-  clears EF.UST service 28 so the modem never offers one.
+  card still answers an SMS-PP DOWNLOAD, with 6F00 and an error log.
 
 ## Flash partitioning
 
