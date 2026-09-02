@@ -80,12 +80,20 @@ jobs:
       # Compile-check the static-profile mode too. The static vs external delta is
       # board-independent, so one board is enough. Runs after the archive so its
       # pristine rebuild doesn't clobber the archived (external) merged.hex.
+      #
+      # overlay-heap-stats.conf rides along: the only build that links ss_heap.c
+      # and nrf_softsim.c, so nothing else compiles the stats path. The greps
+      # check what a compile cannot: the option and the log level survived.
       - name: Build firmware (static profile mode, compile check)
         if: matrix.board == 'nrf9151dk/nrf9151/ns'
         working-directory: modules/lib/onomondo-softsim/samples/softsim_external_profile
         run: |
           west build --sysbuild --pristine=always --board ${{ matrix.board }} \
-            -- -DEXTRA_CONF_FILE=overlay-static.conf
+            -- -DEXTRA_CONF_FILE="overlay-static.conf;overlay-heap-stats.conf"
+          grep -qx 'CONFIG_SOFTSIM_HEAP_STATS=y' \
+            build/softsim_external_profile/zephyr/.config
+          grep -qE '^CONFIG_SOFTSIM_NRF_LOG_LEVEL=[34]$' \
+            build/softsim_external_profile/zephyr/.config
 
       # The sysbuild hook runs for every sysbuild build in the workspace; hello_world
       # proves it works without the (deprecated, default-off) Partition Manager.

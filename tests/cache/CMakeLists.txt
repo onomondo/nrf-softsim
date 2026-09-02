@@ -25,6 +25,5 @@ target_include_directories(app PRIVATE
 # `if SOFTSIM`, so autoconf.h already defines them in any workspace build. This
 # -D only survives because 3 is exactly the value autoconf derives from
 # LOG_DEFAULT_LEVEL; a different value would be a macro-redefinition error.
-# The heap follows the production path (SS_ALLOC -> port_malloc -> k_malloc)
-# because ss_heap.c is compiled in above.
+# ss_heap.c is compiled in above, so the heap follows the production path.
 target_compile_definitions(app PRIVATE CONFIG_SOFTSIM_NRF_LOG_LEVEL=3)
