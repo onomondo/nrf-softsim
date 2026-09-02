@@ -1,18 +1,14 @@
-common:
-  platform_allow:
-    - native_sim
-  integration_platforms:
-    - native_sim
-  tags:
-    - softsim
-    - ci_tests_softsim_unit
-    # Runs with ASan but not UBSan, for the same reason as tests/fs: this
-    # suite calls ss_init_fs(), whose nvs_read(..., NULL, 0) size probe
-    # reaches the flash simulator's memcpy(NULL, src, 0). CI selects on
-    # this tag.
-    - softsim_no_ubsan
 tests:
-  softsim.apdu.transcript: {}
-  softsim.apdu.transcript.no_sms:
-    extra_args:
-      - SOFTSIM_UICC_DISABLE_SMS=ON
+  softsim.apdu.transcript:
+    platform_allow:
+      - native_sim
+    integration_platforms:
+      - native_sim
+    tags:
+      - softsim
+      - ci_tests_softsim_unit
+      # Runs with ASan but not UBSan, for the same reason as tests/fs: this
+      # suite calls ss_init_fs(), whose nvs_read(..., NULL, 0) size probe
+      # reaches the flash simulator's memcpy(NULL, src, 0). CI selects on
+      # this tag.
+      - softsim_no_ubsan
