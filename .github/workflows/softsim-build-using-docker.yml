@@ -95,23 +95,18 @@ jobs:
           grep -qE '^CONFIG_SOFTSIM_NRF_LOG_LEVEL=[34]$' \
             build/softsim_external_profile/zephyr/.config
 
-      # The opt-out reaches the submodule as a CMake option, so a passing build
-      # cannot tell whether it took effect: the link map has to lose the
-      # compiled-out objects (uicc_cat.c.obj stays in, as the positive control)
-      # and the private heap default has to follow.
+      # A build passes whether or not the option reached the submodule, so
+      # check the link map (uicc_cat.c.obj stays, as the positive control).
       - name: Build firmware (SMS and OTA compiled out)
         if: matrix.board == 'nrf9151dk/nrf9151/ns'
         working-directory: modules/lib/onomondo-softsim/samples/softsim_external_profile
         run: |
           west build --sysbuild --pristine=always --board ${{ matrix.board }} \
             -- -DCONFIG_SOFTSIM_UICC_DISABLE_SMS=y
-          cfg=build/softsim_external_profile/zephyr/.config
           map=build/softsim_external_profile/zephyr/zephyr.map
-          grep -qx 'CONFIG_SOFTSIM_UICC_DISABLE_SMS=y' "$cfg"
-          grep -qx 'CONFIG_SOFTSIM_HEAP_SIZE=15000' "$cfg"
+          grep -qx 'CONFIG_SOFTSIM_HEAP_SIZE=15000' build/softsim_external_profile/zephyr/.config
           grep -q 'uicc_cat\.c\.obj' "$map"
-          if grep -q 'uicc_remote_cmd\.c\.obj' "$map"; then exit 1; fi
-          if grep -q 'uicc_sms_rx\.c\.obj' "$map"; then exit 1; fi
+          if grep -qE 'uicc_(remote_cmd|sms_rx)\.c\.obj' "$map"; then exit 1; fi
 
       # The sysbuild hook runs for every sysbuild build in the workspace; hello_world
       # proves it works without the (deprecated, default-off) Partition Manager.

@@ -113,13 +113,10 @@ config SOFTSIM_UICC_DISABLE_SMS
     bool "Compile out SMS handling"
     help
         Drops SMS-PP download and SMS-MO handling, and with it RFM/OTA remote
-        file management (OTA arrives over SMS) -- the submodule compiles both
-        out together. An ENVELOPE (SMS-PP DOWNLOAD) is answered 6A81 and
-        logged; pair with a profile that clears EF.UST service 28 so the
-        modem never sends one. CAT itself (TERMINAL PROFILE, FETCH, polling)
-        stays. A DK run through a completed LTE attach with this option on
-        peaked at 11,592 B, so CONFIG_SOFTSIM_HEAP_SIZE defaults to 15000
-        instead of 30000.
+        file management (OTA arrives over SMS). CAT stays. An ENVELOPE
+        (SMS-PP DOWNLOAD) is answered 6A81 and logged; pair with a profile
+        that clears EF.UST service 28 so the modem never sends one.
+        CONFIG_SOFTSIM_HEAP_SIZE defaults to 15000 instead of 30000.
 
 config SOFTSIM_UICC_FS_CHG_MAX_FILES
     int "Files budgeted in the REFRESH changed-file list"
@@ -177,16 +174,12 @@ config SOFTSIM_HEAP_SIZE
         The floor is not slack: steady state on the shipped profile is
         11.5-13 kB and the RFM/OTA path peaks about 10 kB above that (a 4 kB
         response held live while all 31 concatenated-SMS parts are queued).
-        Do not lower it further without a measured high-water mark, covering
-        an RFM/OTA exchange when SMS is compiled in -- see
-        CONFIG_SOFTSIM_HEAP_STATS.
+        Do not lower it without a measured high-water mark that covers an
+        RFM/OTA exchange -- see CONFIG_SOFTSIM_HEAP_STATS.
 
-        With CONFIG_SOFTSIM_UICC_DISABLE_SMS that path does not exist, and a
-        DK run through a completed LTE attach on the shipped profile (SMS and
-        OTA both compiled out) peaked at 11,592 B, so the floor drops to
-        15000 -- about 3.4 kB of headroom over that measured peak. Do not
-        lower this further without a fresh measured peak of your own profile:
-        this number covers one profile on one attach.
+        With CONFIG_SOFTSIM_UICC_DISABLE_SMS that path does not exist; a
+        completed LTE attach on the shipped profile peaked at 11,592 B, so
+        the floor is 15000. Measure your own profile before lowering it.
 
 config SOFTSIM_HEAP_STATS
     bool "Log SoftSIM heap usage"
