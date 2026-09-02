@@ -109,6 +109,23 @@ config SOFTSIM_UICC_BUILD_LIB_ONLY
     bool "Build libraries only in onomondo-uicc"
     default y
 
+config SOFTSIM_UICC_DISABLE_OTA
+    bool "Compile out OTA remote file management"
+    help
+        Drops the RFM/OTA command handler, the 3DES helpers and the REFRESH
+        that reports remotely changed files. An OTA SMS-PP DOWNLOAD is then
+        answered 6F00 and logged. With the ~10 kB OTA response peak gone,
+        CONFIG_SOFTSIM_HEAP_SIZE defaults to 20000 instead of 30000.
+
+config SOFTSIM_UICC_DISABLE_SMS
+    bool "Compile out SMS handling"
+    select SOFTSIM_UICC_DISABLE_OTA
+    help
+        Drops SMS-PP download and SMS-MO handling, and with it OTA. An
+        ENVELOPE (SMS-PP DOWNLOAD) is answered 6A81 and logged; pair with a
+        profile that clears EF.UST service 28 so the modem never sends one.
+        CAT itself (TERMINAL PROFILE, FETCH, polling) stays.
+
 config SOFTSIM_UICC_FS_CHG_MAX_FILES
     int "Files budgeted in the REFRESH changed-file list"
     default 20
@@ -150,7 +167,9 @@ config SOFTSIM_STACK_SIZE
 
 config SOFTSIM_HEAP_SIZE
     int "SoftSIM heap size"
+    range 20000 131072 if SOFTSIM_UICC_DISABLE_OTA
     range 30000 131072
+    default 20000 if SOFTSIM_UICC_DISABLE_OTA
     default 30000
     help
         Usable bytes in SoftSIM's private heap. Every SoftSIM allocation --
@@ -163,8 +182,10 @@ config SOFTSIM_HEAP_SIZE
         The floor is not slack: steady state on the shipped profile is
         11.5-13 kB and the RFM/OTA path peaks about 10 kB above that (a 4 kB
         response held live while all 31 concatenated-SMS parts are queued).
-        Do not lower it without a measured high-water mark that covers an
-        RFM/OTA exchange -- see CONFIG_SOFTSIM_HEAP_STATS.
+        With CONFIG_SOFTSIM_UICC_DISABLE_OTA that path does not exist, so the
+        default and floor drop by exactly that 10 kB. Do not lower it further
+        without a measured high-water mark, covering an RFM/OTA exchange when
+        OTA is compiled in -- see CONFIG_SOFTSIM_HEAP_STATS.
 
 config SOFTSIM_HEAP_STATS
     bool "Log SoftSIM heap usage"
@@ -173,9 +194,9 @@ config SOFTSIM_HEAP_STATS
         Log the SoftSIM heap high-water mark each time it grows, naming the
         INS byte of the APDU that caused it. This is the only SoftSIM-only
         heap figure available: the kernel pool mixes every k_malloc caller in
-        the image. Exercise an RFM/OTA exchange before trusting a peak.
-        Raises CONFIG_SOFTSIM_NRF_LOG_LEVEL to INF, or the line cannot
-        be emitted.
+        the image. Exercise an RFM/OTA exchange before trusting a peak,
+        unless OTA is compiled out. Raises CONFIG_SOFTSIM_NRF_LOG_LEVEL to
+        INF, or the line cannot be emitted.
 
 # Conditional defaults for per-layer log levels — placed BEFORE each template
 # source so they win over the template's `default LOG_DEFAULT_LEVEL` fallback
