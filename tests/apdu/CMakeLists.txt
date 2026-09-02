@@ -19,8 +19,7 @@ set(CONFIG_NO_DEFAULT_IMPL ON CACHE BOOL "" FORCE)
 set(CONFIG_COMPACT_STORAGE ON CACHE BOOL "" FORCE)
 set(CONFIG_BUILD_LIB_ONLY ON CACHE BOOL "" FORCE)
 set(CONFIG_USE_EXPERIMENTAL_SUSPEND_COMMAND ON CACHE BOOL "" FORCE)
-# Twister passes this as a plain -D variable; a CONFIG_ prefix would be read
-# as a Kconfig assignment. The submodule forces CONFIG_DISABLE_OTA on too.
+# Plain -D from twister: a CONFIG_ prefix would be read as a Kconfig assignment.
 if(SOFTSIM_UICC_DISABLE_SMS)
   set(CONFIG_DISABLE_SMS ON CACHE BOOL "" FORCE)
 endif()
