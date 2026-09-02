@@ -79,10 +79,10 @@ behave in ways the help text can't fully convey:
 - **`SOFTSIM_UICC_DISABLE_SMS`** — compile the core without SMS altogether, which also drops
   RFM/OTA remote file management (and the REFRESH that reports its changes), since OTA
   arrives over SMS. Lowers the default and floor of `CONFIG_SOFTSIM_HEAP_SIZE` from 30000 to
-  20000: the ~10 kB RFM/OTA response peak is the only thing the budget loses. The card still
-  answers — any SMS-PP DOWNLOAD gets 6A81, with an error log naming the fix. Pair it with a
-  profile that clears EF.UST service 28, so the modem never offers SMS-PP downloads to the
-  card in the first place.
+  15000, a measured completed-attach peak of 11,592 B plus headroom, not just the ~10 kB
+  RFM/OTA response the budget loses. The card still answers — any SMS-PP DOWNLOAD gets 6A81,
+  with an error log naming the fix. Pair it with a profile that clears EF.UST service 28, so
+  the modem never offers SMS-PP downloads to the card in the first place.
 
 ## Flash partitioning
 
@@ -215,7 +215,7 @@ To upgrade firmware while keeping the profile, either:
 
 | Resource | Requirement |
 |---|---|
-| Heap | SoftSIM allocates from its own heap, `CONFIG_SOFTSIM_HEAP_SIZE` (30000 by default and its floor; 20000 when `SOFTSIM_UICC_DISABLE_SMS` compiles SMS and OTA out). Nothing to budget on top: your `CONFIG_HEAP_MEM_POOL_SIZE` is yours alone, and may be 0 if your application never calls `k_malloc`. |
+| Heap | SoftSIM allocates from its own heap, `CONFIG_SOFTSIM_HEAP_SIZE` (30000 by default and its floor; 15000 when `SOFTSIM_UICC_DISABLE_SMS` compiles SMS and OTA out). Nothing to budget on top: your `CONFIG_HEAP_MEM_POOL_SIZE` is yours alone, and may be 0 if your application never calls `k_malloc`. |
 | SoftSIM thread | 10 kB stack (`CONFIG_SOFTSIM_STACK_SIZE`). |
 | Flash | 32 kB `nvs_storage` + the TF-M secure region, sized by the devicetree `slot0_s_partition` node: 0x18000 (96 kB) on both nRF91 DK layouts, 0x14000 (80 kB) on Thingy:91, 0x20000 (128 kB) on Thingy:91 X. Large applications may need features trimmed to fit — the linker reports overflow. The same applies to RAM. |
 | TF-M | `CONFIG_BUILD_WITH_TFM=y` is a hard dependency (PSA crypto). The sample shows how to keep it small (`CONFIG_TFM_PARTITION_PROTECTED_STORAGE=n`, `CONFIG_PSA_CRYPTO_DRIVER_CC3XX=n`). |
