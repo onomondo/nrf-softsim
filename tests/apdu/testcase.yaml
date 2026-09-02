@@ -13,8 +13,6 @@ common:
     - softsim_no_ubsan
 tests:
   softsim.apdu.transcript: {}
-  # The same transcript against a core with SMS (and OTA/RFM) compiled out;
-  # the variable reaches the submodule through CMakeLists.txt.
   softsim.apdu.transcript.no_sms:
     extra_args:
       - SOFTSIM_UICC_DISABLE_SMS=ON

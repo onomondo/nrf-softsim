@@ -76,13 +76,10 @@ behave in ways the help text can't fully convey:
   prevents registration. So this raises the console to
   `SOFTSIM_LOG_IMMEDIATE_MODE_BAUD` (1000000) at boot — **reconnect your terminal at
   that rate**. SEGGER RTT avoids the UART bottleneck entirely. Debug only.
-- **`SOFTSIM_UICC_DISABLE_SMS`** — compile the core without SMS altogether, which also drops
-  RFM/OTA remote file management (and the REFRESH that reports its changes), since OTA
-  arrives over SMS. Lowers the default and floor of `CONFIG_SOFTSIM_HEAP_SIZE` from 30000 to
-  15000, a measured completed-attach peak of 11,592 B plus headroom, not just the ~10 kB
-  RFM/OTA response the budget loses. The card still answers — any SMS-PP DOWNLOAD gets 6A81,
-  with an error log naming the fix. Pair it with a profile that clears EF.UST service 28, so
-  the modem never offers SMS-PP downloads to the card in the first place.
+- **`SOFTSIM_UICC_DISABLE_SMS`** — compiles the core without SMS, and with it RFM/OTA remote
+  file management (OTA arrives over SMS); `CONFIG_SOFTSIM_HEAP_SIZE` defaults to 15000. The
+  card still answers SMS-PP DOWNLOAD with 6A81 and an error log; pair it with a profile that
+  clears EF.UST service 28 so the modem never offers one.
 
 ## Flash partitioning
 
