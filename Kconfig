@@ -117,8 +117,9 @@ config SOFTSIM_UICC_DISABLE_SMS
         out together. An ENVELOPE (SMS-PP DOWNLOAD) is answered 6A81 and
         logged; pair with a profile that clears EF.UST service 28 so the
         modem never sends one. CAT itself (TERMINAL PROFILE, FETCH, polling)
-        stays. With the ~10 kB OTA response peak gone, CONFIG_SOFTSIM_HEAP_SIZE
-        defaults to 20000 instead of 30000.
+        stays. A DK run through a completed LTE attach with this option on
+        peaked at 11,592 B, so CONFIG_SOFTSIM_HEAP_SIZE defaults to 15000
+        instead of 30000.
 
 config SOFTSIM_UICC_FS_CHG_MAX_FILES
     int "Files budgeted in the REFRESH changed-file list"
@@ -161,9 +162,9 @@ config SOFTSIM_STACK_SIZE
 
 config SOFTSIM_HEAP_SIZE
     int "SoftSIM heap size"
-    range 20000 131072 if SOFTSIM_UICC_DISABLE_SMS
+    range 15000 131072 if SOFTSIM_UICC_DISABLE_SMS
     range 30000 131072
-    default 20000 if SOFTSIM_UICC_DISABLE_SMS
+    default 15000 if SOFTSIM_UICC_DISABLE_SMS
     default 30000
     help
         Usable bytes in SoftSIM's private heap. Every SoftSIM allocation --
@@ -176,10 +177,16 @@ config SOFTSIM_HEAP_SIZE
         The floor is not slack: steady state on the shipped profile is
         11.5-13 kB and the RFM/OTA path peaks about 10 kB above that (a 4 kB
         response held live while all 31 concatenated-SMS parts are queued).
-        With CONFIG_SOFTSIM_UICC_DISABLE_SMS that path does not exist, so the
-        default and floor drop by exactly that 10 kB. Do not lower it further
-        without a measured high-water mark, covering an RFM/OTA exchange when
-        SMS is compiled in -- see CONFIG_SOFTSIM_HEAP_STATS.
+        Do not lower it further without a measured high-water mark, covering
+        an RFM/OTA exchange when SMS is compiled in -- see
+        CONFIG_SOFTSIM_HEAP_STATS.
+
+        With CONFIG_SOFTSIM_UICC_DISABLE_SMS that path does not exist, and a
+        DK run through a completed LTE attach on the shipped profile (SMS and
+        OTA both compiled out) peaked at 11,592 B, so the floor drops to
+        15000 -- about 3.4 kB of headroom over that measured peak. Do not
+        lower this further without a fresh measured peak of your own profile:
+        this number covers one profile on one attach.
 
 config SOFTSIM_HEAP_STATS
     bool "Log SoftSIM heap usage"

@@ -108,7 +108,7 @@ jobs:
           cfg=build/softsim_external_profile/zephyr/.config
           map=build/softsim_external_profile/zephyr/zephyr.map
           grep -qx 'CONFIG_SOFTSIM_UICC_DISABLE_SMS=y' "$cfg"
-          grep -qx 'CONFIG_SOFTSIM_HEAP_SIZE=20000' "$cfg"
+          grep -qx 'CONFIG_SOFTSIM_HEAP_SIZE=15000' "$cfg"
           grep -q 'uicc_cat\.c\.obj' "$map"
           if grep -q 'uicc_remote_cmd\.c\.obj' "$map"; then exit 1; fi
           if grep -q 'uicc_sms_rx\.c\.obj' "$map"; then exit 1; fi
