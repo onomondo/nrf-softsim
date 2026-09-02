@@ -15,6 +15,7 @@
  */
 
 #include <stdint.h>
+#include <errno.h>
 #include <string.h>
 
 #include <zephyr/kernel.h>
@@ -71,6 +72,16 @@ int port_check_provisioned(void);
 #define GROW_ID       0x0050
 #define GROW_PATH     "/3f00/g000"
 
+/* Deletion targets. They are the last three records in the DIR blob, in this
+ * order: the delete test needs TAIL to be the final record and DEL_A to come
+ * before it. */
+#define DEL_A_ID   0x0060
+#define DEL_A_PATH "/3f00/dela"
+#define DEL_B_ID   0x0061
+#define DEL_B_PATH "/3f00/delb"
+#define TAIL_ID    0x0062
+#define TAIL_PATH  "/3f00/tail"
+
 /* The four EFs port_provision() writes. The paths are the ones ss_fs.c looks up
  * by name; the keys are this suite's own. */
 #define IMSI_PROV_ID    0x0040
@@ -86,6 +97,8 @@ static const uint8_t plain_content[] = {0x98, 0x00, 0x10, 0x32, 0x54, 0x76, 0x98
 static const uint8_t commit_content[] = {1, 2, 3, 4, 5, 6, 7, 8};
 static const uint8_t patch_content[] = {0x11, 0x22, 0x33, 0x44, 0x55, 0x66, 0x77, 0x88};
 static const uint8_t deinit_content[] = {0xd0, 0xd1, 0xd2, 0xd3, 0xd4, 0xd5, 0xd6, 0xd7};
+static const uint8_t delete_content[] = {0xda, 0xdb, 0xdc, 0xdd, 0xde, 0xdf, 0xe0, 0xe1};
+static const uint8_t tail_content[] = {0x7a, 0x7b, 0x7c, 0x7d, 0x7e, 0x7f, 0x80, 0x81};
 
 /* default_imsi in ss_fs.c: what an unprovisioned card carries, and what
  * port_check_provisioned() compares the stored IMSI against. */
@@ -176,6 +189,11 @@ static void seed_nvs(void)
 		len = put_record(blob, len, (uint16_t)(EVICT_BASE_ID + i), path);
 	}
 
+	/* Keep these last: the delete test relies on their order. */
+	len = put_record(blob, len, DEL_A_ID, DEL_A_PATH);
+	len = put_record(blob, len, DEL_B_ID, DEL_B_PATH);
+	len = put_record(blob, len, TAIL_ID, TAIL_PATH);
+
 	zassume_true(nvs_write(&seed, DIR_ID, blob, len) > 0, "DIR write failed");
 	zassume_true(nvs_write(&seed, PLAIN_ID, plain_content, sizeof(plain_content)) > 0,
 		     "seeding %s failed", PLAIN_PATH);
@@ -202,6 +220,13 @@ static void seed_nvs(void)
 			nvs_write(&seed, (uint16_t)(EVICT_BASE_ID + i), content, evict_size(i)) > 0,
 			"seeding eviction file %u failed", i);
 	}
+
+	zassume_true(nvs_write(&seed, DEL_A_ID, delete_content, sizeof(delete_content)) > 0,
+		     "seeding %s failed", DEL_A_PATH);
+	zassume_true(nvs_write(&seed, DEL_B_ID, delete_content, sizeof(delete_content)) > 0,
+		     "seeding %s failed", DEL_B_PATH);
+	zassume_true(nvs_write(&seed, TAIL_ID, tail_content, sizeof(tail_content)) > 0,
+		     "seeding %s failed", TAIL_PATH);
 }
 
 static void *suite_setup(void)
@@ -432,6 +457,102 @@ ZTEST(softsim_fs, test_deinit_commits_what_close_did_not)
 	zassert_mem_equal(buf + 1, deinit_content + 1, sizeof(deinit_content) - 1,
 			  "the rest of the record did not survive the remount");
 	ss_fclose(f);
+}
+
+/* --- deletion --------------------------------------------------------------- */
+
+/*
+ * ss_delete_file() is what the core's DELETE FILE handler reaches through
+ * ss_storage_delete(). It has two jobs this test tells apart: forget the file
+ * (lookups fail, the NVS record is gone) and leave every other file's cached
+ * state intact -- above all a file whose buffer holds an uncommitted write.
+ * DEL_A, DEL_B and TAIL are the last records of the DIR blob in that order, so
+ * deleting DEL_A while TAIL is buffered makes the port close the gap in its
+ * directory behind a live buffer.
+ *
+ * The cache is emptied first. A buffer left attached to the wrong directory
+ * entry can still be written back under the right key if it happens to be the
+ * next eviction victim, and a broken directory would then pass the re-open
+ * check below by luck; from an empty cache the re-open takes a free slot and
+ * the comparison means what it says.
+ */
+ZTEST(softsim_fs, test_delete_file_removes_it_and_leaves_its_neighbours_intact)
+{
+	const uint8_t marker = 0xd7;
+	uint8_t buf[sizeof(tail_content)];
+	ss_FILE f;
+
+	zassert_ok(ss_deinit_fs(), "ss_deinit_fs() failed");
+	zassert_ok(ss_init_fs(), "the filesystem did not come back up");
+
+	/* TAIL: buffered and dirty; no flag byte, so ss_fclose() commits nothing. */
+	f = ss_fopen(TAIL_PATH, "r+");
+	zassert_not_null(f, "%s did not open", TAIL_PATH);
+	zassert_equal(ss_fwrite(&marker, 1, 1, f), 1);
+	ss_fclose(f);
+
+	zassert_ok(ss_delete_file(DEL_A_PATH), "deleting %s failed", DEL_A_PATH);
+	zassert_is_null(ss_fopen(DEL_A_PATH, "r"), "a deleted file must not open");
+	zassert_equal(ss_file_size(DEL_A_PATH), -1, "a deleted file must have no size");
+	zassert_equal(read_flash_record(DEL_A_ID, buf, sizeof(buf)), -ENOENT,
+		      "the deleted record is still in NVS");
+
+	/* The buffered neighbour must still be served from its buffer: the marker
+	 * exists only there, flash still holds the seed byte. */
+	f = ss_fopen(TAIL_PATH, "r");
+	zassert_not_null(f, "%s did not open after a neighbour was deleted", TAIL_PATH);
+	zassert_equal(ss_fread(buf, 1, sizeof(buf), f), sizeof(buf));
+	zassert_equal(buf[0], marker, "%s lost its uncommitted write", TAIL_PATH);
+	zassert_mem_equal(buf + 1, tail_content + 1, sizeof(buf) - 1,
+			  "%s came back with foreign content", TAIL_PATH);
+	ss_fclose(f);
+	zassert_equal(read_flash_record(TAIL_ID, buf, sizeof(buf)), sizeof(tail_content));
+	zassert_equal(buf[0], tail_content[0], "re-opening a buffered file wrote to flash");
+
+	/* Delete a file while its buffer is live and dirty: the buffer dies with
+	 * it and nothing of it reaches flash. */
+	f = ss_fopen(DEL_B_PATH, "r+");
+	zassert_not_null(f, "%s did not open", DEL_B_PATH);
+	zassert_equal(ss_fwrite(&marker, 1, 1, f), 1);
+	ss_fclose(f);
+	zassert_ok(ss_delete_file(DEL_B_PATH), "deleting %s failed", DEL_B_PATH);
+	zassert_is_null(ss_fopen(DEL_B_PATH, "r"), "a deleted buffered file must not open");
+	zassert_equal(ss_file_size(DEL_B_PATH), -1);
+	zassert_equal(read_flash_record(DEL_B_ID, buf, sizeof(buf)), -ENOENT,
+		      "the deleted buffered record is still in NVS");
+
+	zassert_equal(ss_delete_file("/3f00/dead"), -1, "deleting an unknown path must fail");
+
+	/* Shutdown flushes TAIL's dirty buffer under TAIL's key. The DIR blob is
+	 * never rewritten, so the remount brings the deleted paths back as records
+	 * whose NVS keys are gone: they must read as absent and must not stop the
+	 * filesystem from coming up. */
+	zassert_ok(ss_deinit_fs(), "ss_deinit_fs() failed");
+	zassert_equal(read_flash_record(TAIL_ID, buf, sizeof(buf)), sizeof(tail_content));
+	zassert_equal(buf[0], marker, "the flush did not reach %s", TAIL_PATH);
+
+	zassert_ok(ss_init_fs(), "the filesystem did not come back up after the deletions");
+	f = ss_fopen(TAIL_PATH, "r");
+	zassert_not_null(f, "%s did not open after the remount", TAIL_PATH);
+	zassert_equal(ss_fread(buf, 1, sizeof(buf), f), sizeof(buf));
+	zassert_equal(buf[0], marker, "the committed byte did not survive the remount");
+	ss_fclose(f);
+	zassert_is_null(ss_fopen(DEL_A_PATH, "r"), "%s came back after the remount", DEL_A_PATH);
+	zassert_is_null(ss_fopen(DEL_B_PATH, "r"), "%s came back after the remount", DEL_B_PATH);
+	zassert_equal(ss_file_size(DEL_A_PATH), -1);
+}
+
+/*
+ * The core's storage backend also calls ss_delete_dir() and ss_create_dir().
+ * Directories have no storage of their own in this port, so both are no-ops
+ * that report success; what this pins is that the symbols resolve at all. They
+ * are weak declarations in the core, and an undefined one is a call to address
+ * zero.
+ */
+ZTEST(softsim_fs, test_directory_hooks_are_harmless_no_ops)
+{
+	zassert_ok(ss_delete_dir("/3f00/7ff0"), "ss_delete_dir must report success");
+	zassert_ok(ss_create_dir("/3f00/7ff1", 0700), "ss_create_dir must report success");
 }
 
 /*
