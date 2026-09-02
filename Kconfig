@@ -114,8 +114,7 @@ config SOFTSIM_UICC_DISABLE_SMS
     help
         Drops SMS-PP download and SMS-MO handling, and with it RFM/OTA remote
         file management (OTA arrives over SMS). CAT stays. An ENVELOPE
-        (SMS-PP DOWNLOAD) is answered 6A81 and logged; pair with a profile
-        that clears EF.UST service 28 so the modem never sends one.
+        (SMS-PP DOWNLOAD) is answered 6F00 and logged at error level.
         CONFIG_SOFTSIM_HEAP_SIZE defaults to 15000 instead of 30000.
 
 config SOFTSIM_UICC_FS_CHG_MAX_FILES
