@@ -64,8 +64,10 @@ _softsim_set_uicc_bool(CONFIG_USE_UTILS CONFIG_SOFTSIM_UICC_USE_UTILS OFF "Build
 _softsim_set_uicc_bool(CONFIG_NO_DEFAULT_IMPL CONFIG_SOFTSIM_UICC_NO_DEFAULT_IMPL ON "Build onomondo-uicc with no default impl")
 _softsim_set_uicc_bool(CONFIG_COMPACT_STORAGE CONFIG_SOFTSIM_UICC_COMPACT_STORAGE ON "Build with compact storage implementation")
 _softsim_set_uicc_bool(CONFIG_BUILD_LIB_ONLY CONFIG_SOFTSIM_UICC_BUILD_LIB_ONLY ON "Only build libraries in onomondo-uicc")
-_softsim_set_uicc_bool(CONFIG_DISABLE_OTA CONFIG_SOFTSIM_UICC_DISABLE_OTA OFF "Compile out OTA/RFM and REFRESH in onomondo-uicc")
-_softsim_set_uicc_bool(CONFIG_DISABLE_SMS CONFIG_SOFTSIM_UICC_DISABLE_SMS OFF "Compile out SMS in onomondo-uicc")
+# The submodule's own CMakeLists.txt forces CONFIG_DISABLE_OTA on whenever
+# CONFIG_DISABLE_SMS is on (OTA arrives over SMS), so forwarding this one
+# symbol is enough.
+_softsim_set_uicc_bool(CONFIG_DISABLE_SMS CONFIG_SOFTSIM_UICC_DISABLE_SMS OFF "Compile out SMS (and OTA/RFM) in onomondo-uicc")
 
 # Detect uninitialized git submodule early and emit an actionable error.
 if(NOT EXISTS "${CMAKE_CURRENT_SOURCE_DIR}/onomondo-uicc/CMakeLists.txt")
