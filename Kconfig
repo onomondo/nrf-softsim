@@ -2,7 +2,7 @@ menu "Onomondo SoftSIM Options"
 
 config SOFTSIM
     bool "SoftSIM"
-    depends on NVS
+    depends on FILE_SYSTEM_LITTLEFS
     depends on FLASH
     depends on FLASH_MAP
     depends on FLASH_PAGE_LAYOUT
@@ -108,6 +108,16 @@ config SOFTSIM_UICC_NO_DEFAULT_IMPL
 config SOFTSIM_UICC_COMPACT_STORAGE
     bool "Use compact storage implementation in onomondo-uicc"
     default y
+
+config SOFTSIM_UICC_ALT_FILE_SEPARATOR
+    bool "Use flat, directory-less storage paths in onomondo-uicc"
+    default n
+    help
+        Joins each path's FID chain with "_" instead of "/" (e.g.
+        "_3f00_7ff0_6f07" instead of "/3f00/7ff0/6f07"), so every EF/DF
+        lands as a single flat entry with no real subdirectories. Match this
+        to how the bundled SoftSIM filesystem template was built -- a
+        template built with one setting isn't readable with the other.
 
 config SOFTSIM_UICC_BUILD_LIB_ONLY
     bool "Build libraries only in onomondo-uicc"

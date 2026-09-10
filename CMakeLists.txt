@@ -22,9 +22,9 @@ if(CONFIG_SOFTSIM AND NOT CONFIG_PARTITION_MANAGER_ENABLED)
     --input-target=binary
     --output-target=ihex
     --change-address ${_softsim_nvs_addr}
-    ${CMAKE_CURRENT_LIST_DIR}/lib/profile/template.bin
+    ${CMAKE_CURRENT_LIST_DIR}/lib/profile/lfs_uicc_opt.bin
     ${_softsim_template_hex}
-    DEPENDS ${CMAKE_CURRENT_LIST_DIR}/lib/profile/template.bin
+    DEPENDS ${CMAKE_CURRENT_LIST_DIR}/lib/profile/lfs_uicc_opt.bin
   )
   add_custom_target(onomondo_softsim_template ALL DEPENDS ${_softsim_template_hex})
 

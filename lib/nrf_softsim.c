@@ -87,7 +87,7 @@ int nrf_softsim_init(void)
 	}
 #endif
 
-	if (rc) {
+	if (rc < 0) {
 		LOG_ERR("FS failed to init..");
 		return -1;
 	}

@@ -28,7 +28,7 @@ if(SB_CONFIG_PARTITION_MANAGER)
     --input-target=binary
     --output-target=ihex
     --change-address ${ONOMONDO_SOFTSIM_BASE_ADDRESS}
-    ${CMAKE_CURRENT_LIST_DIR}/../lib/profile/template.bin
+    ${CMAKE_CURRENT_LIST_DIR}/../lib/profile/lfs_uicc_opt.bin
     ${ONOMONDO_SOFTSIM_TEMPLATE_OUTPUT}
     BYPRODUCTS ${ONOMONDO_SOFTSIM_TEMPLATE_OUTPUT} # This is needed for Ninja
   )

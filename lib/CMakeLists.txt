@@ -63,6 +63,7 @@ _softsim_set_uicc_bool(CONFIG_EXTERNAL_KEY_LOAD CONFIG_SOFTSIM_UICC_EXTERNAL_KEY
 _softsim_set_uicc_bool(CONFIG_USE_UTILS CONFIG_SOFTSIM_UICC_USE_UTILS OFF "Build onomondo-uicc utils target")
 _softsim_set_uicc_bool(CONFIG_NO_DEFAULT_IMPL CONFIG_SOFTSIM_UICC_NO_DEFAULT_IMPL ON "Build onomondo-uicc with no default impl")
 _softsim_set_uicc_bool(CONFIG_COMPACT_STORAGE CONFIG_SOFTSIM_UICC_COMPACT_STORAGE ON "Build with compact storage implementation")
+_softsim_set_uicc_bool(CONFIG_ALT_FILE_SEPARATOR CONFIG_SOFTSIM_UICC_ALT_FILE_SEPARATOR OFF "Use _ as file separator instead of /")
 _softsim_set_uicc_bool(CONFIG_BUILD_LIB_ONLY CONFIG_SOFTSIM_UICC_BUILD_LIB_ONLY ON "Only build libraries in onomondo-uicc")
 
 # Detect uninitialized git submodule early and emit an actionable error.
@@ -114,16 +115,24 @@ zephyr_include_directories(onomondo-uicc/include)
 
 zephyr_library_sources(
   nrf_softsim.c
-  ss_fs.c
+  # ss_fs.c
   onomondo-uicc/utils/ss_profile.c
-  ss_cache.c
+  # ss_cache.c
+  ss_fs_littlefs.c
   ss_heap.c
   ss_crypto.c
   ss_logp_zephyr.c
   build_asserts.c
 )
-
+target_link_libraries(${ZEPHYR_CURRENT_LIBRARY} PRIVATE LITTLEFS)
 target_compile_definitions(${ZEPHYR_CURRENT_LIBRARY} PRIVATE CONFIG_CUSTOM_HEAP)
+if(CONFIG_ALT_FILE_SEPARATOR)
+  # onomondo-uicc's own add_compile_definitions(CONFIG_ALT_FILE_SEPARATOR) is
+  # directory-scoped to its add_subdirectory() and doesn't reach this parent
+  # library, but ss_fs_littlefs.c needs the same macro to match the paths
+  # storage_compact.c builds (see storage.h's PATH_SEPARATOR).
+  target_compile_definitions(${ZEPHYR_CURRENT_LIBRARY} PRIVATE CONFIG_ALT_FILE_SEPARATOR)
+endif()
 # Keep the port's storage_path[] and path buffers the same size as the
 # submodule's (the header falls back to 100 when the define is absent).
 target_compile_definitions(${ZEPHYR_CURRENT_LIBRARY} PRIVATE SS_STORAGE_PATH_MAX=${CONFIG_SS_STORAGE_PATH_MAX})
