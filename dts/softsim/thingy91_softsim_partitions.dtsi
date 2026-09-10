@@ -83,7 +83,7 @@
 			};
 		};
 
-		nvs_storage: partition@60000 {
+		uicc_storage: partition@60000 {
 			compatible = "zephyr,mapped-partition";
 			label = "nvs-storage";
 			reg = <0x00060000 0x8000>;

@@ -17,6 +17,25 @@ config SOFTSIM_AUTO_INIT
     help
         Automatically initialize SoftSIM when the modem is powered on.
 
+choice SOFTSIM_STORAGE_BACKEND
+    prompt "SoftSIM storage backend"
+    default SOFTSIM_STORAGE_NVS
+    help
+        Selects which port sources (lib/CMakeLists.txt) and filesystem
+        template (lib/profile/) back the SoftSIM filesystem. The two
+        backends provide the same ss_init_fs()/ss_fopen()/etc. API and
+        cannot both be built at once.
+
+config SOFTSIM_STORAGE_NVS
+    bool "NVS-backed storage (ss_fs.c / ss_cache.c)"
+    depends on NVS
+
+config SOFTSIM_STORAGE_LITTLEFS
+    bool "LittleFS-backed storage (ss_fs_littlefs.c)"
+    depends on FILE_SYSTEM_LITTLEFS
+
+endchoice
+
 config SOFTSIM_FACTORY_RESET_ON_PROVISION
     bool "Perform modem factory reset after provisioning"
     default n

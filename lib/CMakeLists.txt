@@ -115,23 +115,41 @@ zephyr_include_directories(onomondo-uicc/include)
 
 zephyr_library_sources(
   nrf_softsim.c
-  # ss_fs.c
   onomondo-uicc/utils/ss_profile.c
-  # ss_cache.c
-  ss_fs_littlefs.c
   ss_heap.c
   ss_crypto.c
   ss_logp_zephyr.c
   build_asserts.c
 )
-target_link_libraries(${ZEPHYR_CURRENT_LIBRARY} PRIVATE LITTLEFS)
+# Storage backend: ss_fs.c/ss_cache.c (NVS) and ss_fs_littlefs.c (LittleFS)
+# both define file operation functions, one backend must be selected at a time.
+if(NOT CONFIG_SOFTSIM_STORAGE_NVS AND NOT CONFIG_SOFTSIM_STORAGE_LITTLEFS)
+  message(FATAL_ERROR
+    "SoftSIM: no storage backend selected. Enable exactly one of "
+    "CONFIG_SOFTSIM_STORAGE_NVS or CONFIG_SOFTSIM_STORAGE_LITTLEFS.")
+elseif(CONFIG_SOFTSIM_STORAGE_NVS AND CONFIG_SOFTSIM_STORAGE_LITTLEFS)
+  message(FATAL_ERROR
+    "SoftSIM: CONFIG_SOFTSIM_STORAGE_NVS and CONFIG_SOFTSIM_STORAGE_LITTLEFS "
+    "are mutually exclusive (both define file operation functions; enable "
+    "only one.")
+endif()
+zephyr_library_sources_ifdef(CONFIG_SOFTSIM_STORAGE_NVS
+  ss_fs.c
+  ss_cache.c
+)
+zephyr_library_sources_ifdef(CONFIG_SOFTSIM_STORAGE_LITTLEFS
+  ss_fs_littlefs.c
+)
 target_compile_definitions(${ZEPHYR_CURRENT_LIBRARY} PRIVATE CONFIG_CUSTOM_HEAP)
-if(CONFIG_ALT_FILE_SEPARATOR)
-  # onomondo-uicc's own add_compile_definitions(CONFIG_ALT_FILE_SEPARATOR) is
-  # directory-scoped to its add_subdirectory() and doesn't reach this parent
-  # library, but ss_fs_littlefs.c needs the same macro to match the paths
-  # storage_compact.c builds (see storage.h's PATH_SEPARATOR).
-  target_compile_definitions(${ZEPHYR_CURRENT_LIBRARY} PRIVATE CONFIG_ALT_FILE_SEPARATOR)
+if(CONFIG_SOFTSIM_STORAGE_LITTLEFS)
+  target_link_libraries(${ZEPHYR_CURRENT_LIBRARY} PRIVATE LITTLEFS)
+  if(CONFIG_ALT_FILE_SEPARATOR)
+    # onomondo-uicc's own add_compile_definitions(CONFIG_ALT_FILE_SEPARATOR) is
+    # directory-scoped to its add_subdirectory() and doesn't reach this parent
+    # library, but ss_fs_littlefs.c needs the same macro to match the paths
+    # storage_compact.c builds (see storage.h's PATH_SEPARATOR).
+    target_compile_definitions(${ZEPHYR_CURRENT_LIBRARY} PRIVATE CONFIG_ALT_FILE_SEPARATOR)
+  endif()
 endif()
 # Keep the port's storage_path[] and path buffers the same size as the
 # submodule's (the header falls back to 100 when the define is absent).

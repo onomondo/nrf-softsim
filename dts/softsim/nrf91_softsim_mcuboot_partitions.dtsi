@@ -67,7 +67,7 @@
 		/* The storage_partition label makes TF-M configure this range as
 		 * non-secure in the SPU; without it the application faults on the
 		 * first NVS write. */
-		storage_partition: nvs_storage: partition@f0000 {
+		storage_partition: uicc_storage: partition@f0000 {
 			compatible = "zephyr,mapped-partition";
 			label = "nvs-storage";
 			reg = <0x000f0000 0x8000>;

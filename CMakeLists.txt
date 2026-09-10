@@ -5,15 +5,28 @@ add_subdirectory_ifdef(CONFIG_SOFTSIM lib)
 
 if(CONFIG_SOFTSIM AND NOT CONFIG_PARTITION_MANAGER_ENABLED)
   # Devicetree partitioning: generate the template SoftSIM filesystem hex at
-  # the nvs_storage partition address. (With the deprecated Partition Manager
+  # the uicc_storage partition address. (With the deprecated Partition Manager
   # this is done in sysbuild/CMakeLists.txt from PM's computed address.)
-  dt_nodelabel(_softsim_nvs_path NODELABEL nvs_storage)
+  dt_nodelabel(_softsim_nvs_path NODELABEL uicc_storage)
   if(NOT _softsim_nvs_path)
-    message(FATAL_ERROR "SoftSIM: no nvs_storage partition in the devicetree. "
+    message(FATAL_ERROR "SoftSIM: no uicc_storage partition in the devicetree. "
       "Include a SoftSIM partition layout, e.g. "
       "#include <softsim/nrf91_softsim_partitions.dtsi> in your board overlay.")
   endif()
   dt_reg_addr(_softsim_nvs_addr PATH ${_softsim_nvs_path})
+
+  # Template image matches the selected storage backend (see the
+  # CONFIG_SOFTSIM_STORAGE_NVS / CONFIG_SOFTSIM_STORAGE_LITTLEFS guard in
+  # lib/CMakeLists.txt, which already ensures exactly one is set).
+  if(CONFIG_SOFTSIM_STORAGE_NVS)
+    set(_softsim_template_bin ${CMAKE_CURRENT_LIST_DIR}/lib/profile/template.bin)
+  elseif(CONFIG_SOFTSIM_STORAGE_LITTLEFS)
+    set(_softsim_template_bin ${CMAKE_CURRENT_LIST_DIR}/lib/profile/lfs_uicc_opt.bin)
+  else()
+    message(FATAL_ERROR
+      "SoftSIM: no storage backend selected. Enable exactly one of "
+      "CONFIG_SOFTSIM_STORAGE_NVS or CONFIG_SOFTSIM_STORAGE_LITTLEFS.")
+  endif()
 
   set(_softsim_template_hex ${CMAKE_BINARY_DIR}/onomondo-softsim/template.hex)
   add_custom_command(
@@ -22,9 +35,9 @@ if(CONFIG_SOFTSIM AND NOT CONFIG_PARTITION_MANAGER_ENABLED)
     --input-target=binary
     --output-target=ihex
     --change-address ${_softsim_nvs_addr}
-    ${CMAKE_CURRENT_LIST_DIR}/lib/profile/lfs_uicc_opt.bin
+    ${_softsim_template_bin}
     ${_softsim_template_hex}
-    DEPENDS ${CMAKE_CURRENT_LIST_DIR}/lib/profile/lfs_uicc_opt.bin
+    DEPENDS ${_softsim_template_bin}
   )
   add_custom_target(onomondo_softsim_template ALL DEPENDS ${_softsim_template_hex})
 

@@ -83,7 +83,7 @@
 		 * region did the same); without it the application faults on the
 		 * first NVS write. The settings storage_partition on the external
 		 * flash is renamed ext_storage_partition (see below). */
-		storage_partition: nvs_storage: partition@f0000 {
+		storage_partition: uicc_storage: partition@f0000 {
 			compatible = "zephyr,mapped-partition";
 			label = "nvs-storage";
 			reg = <0x000f0000 0x8000>;

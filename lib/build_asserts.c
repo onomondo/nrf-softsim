@@ -25,7 +25,7 @@ BUILD_ASSERT(CONFIG_HEAP_MEM_POOL_SIZE >= EXPECTED_MIN_HEAP_SIZE,
 
 /* In NCS, when NVS backend for Settings is chosen, `nvs_partition` partition is not included by
  * the Partition Manager.
- * `nvs_storage` partition is required by SoftSIM. FCB backend for Settings should be used instead
+ * `uicc_storage` partition is required by SoftSIM. FCB backend for Settings should be used instead
  * of NVS backend.
  */
 #if CONFIG_SETTINGS_NVS
@@ -36,17 +36,17 @@ BUILD_ASSERT(CONFIG_PM_PARTITION_SIZE_NVS_STORAGE == EXPECTED_PARTITION_SIZE,
 	     "nvs_partition size is not valid. "
 	     "Please reconfigure the project.");
 #else
-/* Devicetree partitioning: the nvs_storage partition must be declared, e.g. by
+/* Devicetree partitioning: the uicc_storage partition must be declared, e.g. by
  * including <softsim/nrf91_softsim_partitions.dtsi> from a board overlay.
  */
-BUILD_ASSERT(DT_NODE_EXISTS(DT_NODELABEL(nvs_storage)),
+BUILD_ASSERT(DT_NODE_EXISTS(DT_NODELABEL(uicc_storage)),
 	     "SoftSIM: "
-	     "No nvs_storage partition in the devicetree. "
+	     "No uicc_storage partition in the devicetree. "
 	     "Include a SoftSIM partition layout from your board overlay.");
-#if DT_NODE_EXISTS(DT_NODELABEL(nvs_storage))
-BUILD_ASSERT(DT_REG_SIZE(DT_NODELABEL(nvs_storage)) == EXPECTED_PARTITION_SIZE,
+#if DT_NODE_EXISTS(DT_NODELABEL(uicc_storage))
+BUILD_ASSERT(DT_REG_SIZE(DT_NODELABEL(uicc_storage)) == EXPECTED_PARTITION_SIZE,
 	     "SoftSIM: "
-	     "nvs_storage partition size is not valid. "
+	     "uicc_storage partition size is not valid. "
 	     "Please reconfigure the project.");
 #endif
 #if defined(CONFIG_BOOTLOADER_MCUBOOT)
