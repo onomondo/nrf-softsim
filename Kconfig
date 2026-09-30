@@ -109,6 +109,14 @@ config SOFTSIM_UICC_BUILD_LIB_ONLY
     bool "Build libraries only in onomondo-uicc"
     default y
 
+config SOFTSIM_UICC_DISABLE_SMS
+    bool "Compile out SMS handling"
+    help
+        Drops SMS-PP download and SMS-MO handling, and with it RFM/OTA remote
+        file management (OTA arrives over SMS). CAT stays. An ENVELOPE
+        (SMS-PP DOWNLOAD) is answered 6F00 and logged at error level.
+        CONFIG_SOFTSIM_HEAP_SIZE defaults to 15000 instead of 30000.
+
 config SOFTSIM_UICC_FS_CHG_MAX_FILES
     int "Files budgeted in the REFRESH changed-file list"
     default 20
@@ -150,7 +158,9 @@ config SOFTSIM_STACK_SIZE
 
 config SOFTSIM_HEAP_SIZE
     int "SoftSIM heap size"
+    range 15000 131072 if SOFTSIM_UICC_DISABLE_SMS
     range 30000 131072
+    default 15000 if SOFTSIM_UICC_DISABLE_SMS
     default 30000
     help
         Usable bytes in SoftSIM's private heap. Every SoftSIM allocation --
@@ -166,6 +176,10 @@ config SOFTSIM_HEAP_SIZE
         Do not lower it without a measured high-water mark that covers an
         RFM/OTA exchange -- see CONFIG_SOFTSIM_HEAP_STATS.
 
+        With CONFIG_SOFTSIM_UICC_DISABLE_SMS that path does not exist; a
+        completed LTE attach on the shipped profile peaked at 11,592 B, so
+        the floor is 15000. Measure your own profile before lowering it.
+
 config SOFTSIM_HEAP_STATS
     bool "Log SoftSIM heap usage"
     select SYS_HEAP_RUNTIME_STATS
@@ -173,9 +187,9 @@ config SOFTSIM_HEAP_STATS
         Log the SoftSIM heap high-water mark each time it grows, naming the
         INS byte of the APDU that caused it. This is the only SoftSIM-only
         heap figure available: the kernel pool mixes every k_malloc caller in
-        the image. Exercise an RFM/OTA exchange before trusting a peak.
-        Raises CONFIG_SOFTSIM_NRF_LOG_LEVEL to INF, or the line cannot
-        be emitted.
+        the image. Exercise an RFM/OTA exchange before trusting a peak,
+        unless SMS is compiled out. Raises CONFIG_SOFTSIM_NRF_LOG_LEVEL to
+        INF, or the line cannot be emitted.
 
 # Conditional defaults for per-layer log levels — placed BEFORE each template
 # source so they win over the template's `default LOG_DEFAULT_LEVEL` fallback
