@@ -10,6 +10,7 @@
 #include <zephyr/logging/log.h>
 
 #include "ss_crypto.h"
+#include "ss_heap.h"
 #include <nrf_softsim.h>
 #include <nrf_modem_at.h>
 #include <nrf_modem_softsim.h>
@@ -24,10 +25,9 @@
 LOG_MODULE_REGISTER(softsim, CONFIG_SOFTSIM_NRF_LOG_LEVEL);
 
 /* SoftSIM memory configuration */
-#define SOFTSIM_STACK_SIZE 10000 /* TODO: Figure out some more reasonable value. */
-#define SOFTSIM_PRIORITY   5     /* TODO: What is a good balance here? */
+#define SOFTSIM_PRIORITY 5 /* TODO: What is a good balance here? */
 
-K_THREAD_STACK_DEFINE(softsim_stack_area, SOFTSIM_STACK_SIZE);
+K_THREAD_STACK_DEFINE(softsim_stack_area, CONFIG_SOFTSIM_STACK_SIZE);
 
 #define SIM_HAL_MAX_LE 260
 
@@ -228,6 +228,14 @@ static void softsim_req_task(struct k_work *item)
 	struct softsim_req_node *s_req;
 
 	while ((s_req = k_fifo_get(&softsim_req_fifo, K_NO_WAIT))) {
+		/* Captured before the node is freed, to name the command in the peak log. */
+		uint8_t ins = 0;
+
+		if (s_req->req == NRF_MODEM_SOFTSIM_APDU && s_req->payload.data &&
+		    s_req->payload.data_len > 1) {
+			ins = ((const uint8_t *)s_req->payload.data)[1];
+		}
+
 		switch (s_req->req) {
 		case NRF_MODEM_SOFTSIM_INIT: {
 			LOG_DBG("SoftSIM INIT REQ");
@@ -314,6 +322,8 @@ static void softsim_req_task(struct k_work *item)
 
 		/* Free the request node */
 		port_free(s_req);
+
+		ss_heap_log_stats(ins);
 	}
 }
 

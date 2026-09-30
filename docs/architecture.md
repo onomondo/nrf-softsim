@@ -180,7 +180,7 @@ onomondo-uicc reaches the platform through four interfaces, declared in the subm
 |---|---|---|
 | Storage | `storage.h` (+ the `fs.h` shim) | [`ss_fs.c`](../lib/ss_fs.c) + [`ss_cache.c`](../lib/ss_cache.c): Zephyr NVS + RAM cache |
 | Crypto | `crypto.h` | [`ss_crypto.c`](../lib/ss_crypto.c): PSA Crypto, keys by reference (AES/AES-CMAC only — the 3DES entry points are stubs) |
-| Memory | `mem.h` | [`ss_heap.c`](../lib/ss_heap.c): `k_malloc()` / `k_free()` |
+| Memory | `mem.h` | [`ss_heap.c`](../lib/ss_heap.c): a private `k_heap`, sized by `CONFIG_SOFTSIM_HEAP_SIZE` |
 | Logging | `log.h` | [`ss_logp_zephyr.c`](../lib/ss_logp_zephyr.c): Zephyr log module |
 
 `CONFIG_SOFTSIM_UICC_EXTERNAL_CRYPTO_IMPL=y` (the nRF91 default) is what swaps the
@@ -195,7 +195,7 @@ Beyond the port implementations above and
 | Path | Contents |
 |---|---|
 | [`lib/include/nrf_softsim.h`](../lib/include/nrf_softsim.h) | The application API, documented at the source |
-| [`lib/build_asserts.c`](../lib/build_asserts.c) | Compile-time layout checks (32 kB `nvs_storage`, heap floor, settings-partition clash, A001/A004 layout) |
+| [`lib/build_asserts.c`](../lib/build_asserts.c) | Compile-time layout checks (32 kB `nvs_storage`, settings-partition clash, A001/A004 layout) |
 | [`dts/softsim/`](../dts/softsim) | Devicetree partition layouts |
 | [`sysbuild/`](../sysbuild) | Template-hex generation and merging |
 | [`samples/softsim_external_profile/`](../samples/softsim_external_profile) | The reference application |

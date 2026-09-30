@@ -3,6 +3,14 @@
 
 add_subdirectory_ifdef(CONFIG_SOFTSIM lib)
 
+# A kernel pool this large is usually left over from sizing it for SoftSIM.
+# Warn, not assert: an application may legitimately need that much itself.
+if(CONFIG_SOFTSIM AND CONFIG_HEAP_MEM_POOL_SIZE GREATER_EQUAL 30000)
+  message(WARNING "SoftSIM allocates from CONFIG_SOFTSIM_HEAP_SIZE, not the kernel heap. "
+    "CONFIG_HEAP_MEM_POOL_SIZE=${CONFIG_HEAP_MEM_POOL_SIZE} sizes your application's own "
+    "k_malloc use only -- see 'Migrating from 6.1.1 and earlier' in docs/integration.md.")
+endif()
+
 if(CONFIG_SOFTSIM AND NOT CONFIG_PARTITION_MANAGER_ENABLED)
   # Devicetree partitioning: generate the template SoftSIM filesystem hex at
   # the nvs_storage partition address. (With the deprecated Partition Manager

@@ -165,7 +165,11 @@ static int provision_softsim_from_serial(void)
 	}
 
 	char *profile = k_malloc(PROFILE_MAX_SIZE);
-	__ASSERT_NO_MSG(profile != NULL);
+
+	if (profile == NULL) {
+		LOG_ERR("Out of heap for the profile buffer; raise CONFIG_HEAP_MEM_POOL_SIZE");
+		return -1;
+	}
 
 	struct rx_buf_t rx = {
 		.buf = profile,

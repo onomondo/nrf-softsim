@@ -25,6 +25,7 @@
 #include <zephyr/ztest.h>
 
 #include <nrf_softsim.h>
+#include <onomondo/softsim/mem.h>
 #include <onomondo/softsim/softsim.h>
 
 /* ss_fs.c does LOG_MODULE_DECLARE(softsim, ...); register it once here.
@@ -284,4 +285,16 @@ ZTEST(softsim_apdu, test_authenticate_rejects_a_forged_mac)
 	len = transact(authenticate, sizeof(authenticate), rsp);
 	expect_sw(rsp, len, 0x9862, "AUTHENTICATE with a forged MAC");
 	zassert_equal(len, 2, "a rejected AUTHENTICATE must carry no response data");
+}
+
+/* k_malloc never passed a zero size on and tolerated a NULL free. A zero-length
+ * READ BINARY reaches SS_ALLOC_N(0), which a plain k_heap_alloc would reject. */
+ZTEST(softsim_apdu, test_port_allocator_keeps_the_malloc_contract)
+{
+	void *zero = port_malloc(0);
+
+	zassert_not_null(zero, "port_malloc(0) must not fail");
+	port_free(zero);
+
+	port_free(NULL);
 }
