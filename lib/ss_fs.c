@@ -436,23 +436,24 @@ int ss_access(const char *path, int amode)
 	return 0;
 }
 
-int ss_mkdir(const char *path, int mode)
+/* Strong definitions of the weak hooks declared in <onomondo/softsim/fs.h>;
+ * the core's compact storage backend reaches them through ss_storage_delete()
+ * and ss_storage_create_dir(). Directories have no storage of their own here:
+ * files carry their full path, so a directory exists once a file under it does. */
+int ss_create_dir(const char *path, uint32_t mode)
 {
-	/* We don't care. This is a virtual filesystem, so directories
-	 * are not really a thing. We just create files and directories are
-	 * implicitly created.
-	 */
-
 	return 0;
 }
 
-int ss_rmdir(const char *path)
+/* By the time this is called the core has already deleted the DF's own
+ * definition file, which leaves every child unselectable. Their records stay
+ * in NVS. */
+int ss_delete_dir(const char *path)
 {
-	/* TODO: Remove all entries with directory match */
 	return 0;
 }
 
-int ss_remove(const char *path)
+int ss_delete_file(const char *path)
 {
 	struct cache_entry *entry = f_cache_find_by_name(path, &fs_cache);
 
