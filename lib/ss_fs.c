@@ -13,7 +13,6 @@
 
 #include "ss_cache.h"
 #include <onomondo/softsim/fs.h>
-#include <onomondo/softsim/list.h>
 #include <onomondo/softsim/storage.h>
 #include <onomondo/softsim/utils.h>
 #include <onomondo/softsim/log.h>
@@ -63,7 +62,13 @@ LOG_MODULE_DECLARE(softsim, CONFIG_SOFTSIM_NRF_LOG_LEVEL);
 #endif
 
 static struct nvs_fs fs;
-static struct ss_list fs_cache;
+
+/* One 8-byte entry per file, in one allocation; the paths themselves live
+ * nowhere (lookups go through the hash). Content buffers are attached to the
+ * fixed slot table, never to the directory. */
+static struct ss_dir_entry *fs_dir;
+static size_t fs_dir_count;
+static struct ss_cache_slot fs_slots[SS_MAX_ENTRIES];
 
 static uint8_t fs_is_initialized = 0;
 static uint8_t default_imsi[] = {0x08, 0x09, 0x10, 0x10, 0x00, 0x00, 0x00, 0x00, 0x10};
@@ -76,17 +81,18 @@ static uint8_t default_imsi[] = {0x08, 0x09, 0x10, 0x10, 0x00, 0x00, 0x00, 0x00,
 char storage_path[SS_STORAGE_PATH_MAX] = "";
 
 /**
- * @brief Internal function to read NVS data into cache
+ * @brief Internal function to read NVS data into a cache slot
  *
- * @param entry Pointer to the cache entry to read data into
+ * @param dir_idx Directory index of the file to load
+ * @param len Length of the file in NVS
  *
- * This function reads the content of a cache entry from NVS and stores it in the
- * cache's buffer. If the buffer is already allocated, it reuses it if possible.
- * If not, it allocates a new buffer of the required size.
+ * Acquires a slot (evicting by the ss_slot_acquire() preference once the
+ * cache is full), writes a dirty victim back to NVS, reuses the victim's
+ * buffer when it is large enough, and reads the file content from NVS.
  *
- * It also handles writing dirty buffers back to NVS if necessary.
- * */
-static void ss_read_nvs_to_cache(struct cache_entry *entry);
+ * @return The slot holding the content, or NULL on allocation/NVS failure
+ */
+static struct ss_cache_slot *ss_load_to_slot(uint16_t dir_idx, uint16_t len);
 
 /* See <onomondo/softsim/fs.h> in the onomondo-uicc submodule */
 int ss_init_fs(void)
@@ -95,7 +101,6 @@ int ss_init_fs(void)
 		return 0; /* Already initialized */
 	}
 
-	ss_list_init(&fs_cache);
 	uint8_t *data = NULL;
 	size_t len = 0;
 
@@ -122,8 +127,8 @@ int ss_init_fs(void)
 	len = rc;
 
 	/* Read DIR_ENTRY from NVS
-	 * This is used to construct a linked list that
-	 * serves as a cache and lookup table for the filesystem
+	 * This is used to construct the directory table that serves as the
+	 * lookup table for the filesystem
 	 */
 	if (!data && rc) {
 		data = SS_ALLOC_N(len * sizeof(uint8_t));
@@ -131,47 +136,42 @@ int ss_init_fs(void)
 		__ASSERT_NO_MSG(rc == len);
 	}
 
-	ss_list_init(&fs_cache);
-	generate_dir_table_from_blob(&fs_cache, data, len);
+	memset(fs_slots, 0, sizeof(fs_slots));
+	rc = ss_dir_table_from_blob(data, data ? len : 0, &fs_dir);
+	fs_dir_count = rc > 0 ? (size_t)rc : 0;
 
-	if (ss_list_empty(&fs_cache)) {
-		goto out;
+	if (fs_dir_count > 0) {
+		fs_is_initialized++;
 	}
 
-	fs_is_initialized++;
-
-out:
 	SS_FREE(data);
-	return ss_list_empty(&fs_cache);
+	return fs_dir_count == 0;
 }
 
 /* See <onomondo/softsim/fs.h> in the onomondo-uicc submodule */
 int ss_deinit_fs(void)
 {
-	/* TODO: check if DIR entry is still valid. If not recreate and write.
-	 * Will NVS only commit if there are changes? If so, we can just recreate
-	 * and let NVS do the compare.
-	 */
+	/* Commit changes to NVS and free the cache buffers and the table */
+	for (size_t i = 0; i < SS_MAX_ENTRIES; i++) {
+		struct ss_cache_slot *slot = &fs_slots[i];
 
-	struct cache_entry *cursor, *pre_cursor;
-
-	/* Free all memory allocated by cache and commit changes to NVS */
-	SS_LIST_FOR_EACH_SAVE(&fs_cache, cursor, pre_cursor, struct cache_entry, list)
-	{
-		if (cursor->_b_dirty) {
-			LOG_INF("SoftSIM stop - committing %s to NVS", cursor->name);
-			nvs_write(&fs, cursor->key, cursor->buf, cursor->_l);
+		if (!slot->buf) {
+			continue;
 		}
 
-		ss_list_remove(&cursor->list);
-
-		if (cursor->buf) {
-			SS_FREE(cursor->buf);
+		if (slot->_b_dirty) {
+			LOG_INF("SoftSIM stop - committing key 0x%04x to NVS",
+				fs_dir[slot->dir_idx].key);
+			nvs_write(&fs, fs_dir[slot->dir_idx].key, slot->buf, slot->_l);
 		}
-		SS_FREE(cursor->name);
-		SS_FREE(cursor);
+
+		SS_FREE(slot->buf);
 	}
 
+	memset(fs_slots, 0, sizeof(fs_slots));
+	SS_FREE(fs_dir);
+	fs_dir = NULL;
+	fs_dir_count = 0;
 	fs_is_initialized = 0;
 
 	return 0;
@@ -180,38 +180,34 @@ int ss_deinit_fs(void)
 /* See <onomondo/softsim/fs.h> in the onomondo-uicc submodule */
 ss_FILE ss_fopen(char *path, char *mode)
 {
-	struct cache_entry *cursor = NULL;
-	int rc = 0;
+	int dir_idx = ss_dir_find(fs_dir, fs_dir_count, path);
 
-	cursor = f_cache_find_by_name(path, &fs_cache);
-	if (!cursor) {
+	if (dir_idx < 0) {
 		return NULL;
 	}
 
-	/* Currently not used.
-	 * Could potentially be used in the future to re-arrange order.
-	 * Initial order is ordered by frequency already so not big optimizations can
-	 * be achieved.
-	 */
-	if (cursor->_cache_hits < 0xFF) {
-		cursor->_cache_hits++;
+	/* Currently only used to bias eviction towards rarely-opened files. */
+	if (fs_dir[dir_idx].hits < 0xFF) {
+		fs_dir[dir_idx].hits++;
 	}
 
-	if (!cursor->_l) {
-		rc = nvs_read(&fs, cursor->key, NULL, 0);
-		if (rc < 0) {
-			return NULL; /* TODO: This can not happen */
-		} else {
-			cursor->_l = rc;
-		}
+	int slot_idx = ss_slot_find(fs_slots, SS_MAX_ENTRIES, (uint16_t)dir_idx);
+
+	if (slot_idx >= 0) {
+		/* Reset internal read/write pointer */
+		fs_slots[slot_idx]._p = 0;
+		return &fs_slots[slot_idx];
 	}
 
-	/* Reset internal read/write pointer */
-	cursor->_p = 0;
+	int rc = nvs_read(&fs, fs_dir[dir_idx].key, NULL, 0);
 
-	/* Guarantee buffer contains valid data */
-	ss_read_nvs_to_cache(cursor);
-	return (void *)cursor;
+	if (rc < 0) {
+		return NULL;
+	}
+
+	/* NULL on allocation or NVS failure: fail closed rather than hand out
+	 * a handle without content behind it. */
+	return ss_load_to_slot((uint16_t)dir_idx, (uint16_t)rc);
 }
 
 /* Strong override of the weak ss_file_size declared in
@@ -221,22 +217,21 @@ ss_FILE ss_fopen(char *path, char *mode)
  * nrf-softsim cache layer instead. */
 int ss_file_size(const char *path)
 {
-	struct cache_entry *entry = f_cache_find_by_name(path, &fs_cache);
+	int dir_idx = ss_dir_find(fs_dir, fs_dir_count, path);
 
-	if (!entry) {
+	if (dir_idx < 0) {
 		return -1;
 	}
 
-	if (!entry->_l) {
-		int rc = nvs_read(&fs, entry->key, NULL, 0);
+	int slot_idx = ss_slot_find(fs_slots, SS_MAX_ENTRIES, (uint16_t)dir_idx);
 
-		if (rc < 0) {
-			return -1;
-		}
-		entry->_l = rc;
+	if (slot_idx >= 0) {
+		return (int)fs_slots[slot_idx]._l;
 	}
 
-	return (int)entry->_l;
+	int rc = nvs_read(&fs, fs_dir[dir_idx].key, NULL, 0);
+
+	return rc < 0 ? -1 : rc;
 }
 
 /* See <onomondo/softsim/fs.h> in the onomondo-uicc submodule */
@@ -246,92 +241,97 @@ size_t ss_fread(void *ptr, size_t size, size_t nmemb, ss_FILE fp)
 		return 0;
 	}
 
-	struct cache_entry *entry = (struct cache_entry *)fp;
-	size_t max_element_to_return = (entry->_l - entry->_p) / size;
+	struct ss_cache_slot *slot = (struct ss_cache_slot *)fp;
+	size_t max_element_to_return = (slot->_l - slot->_p) / size;
 	size_t element_to_return = nmemb > max_element_to_return ? max_element_to_return : nmemb;
 
 	/* Copy data from cache to user buffer */
-	memcpy(ptr, entry->buf + entry->_p, element_to_return * size);
+	memcpy(ptr, slot->buf + slot->_p, element_to_return * size);
 	/* Update internal read/write pointer */
-	entry->_p += element_to_return * size;
+	slot->_p += element_to_return * size;
 
 	return element_to_return;
 }
 
-void ss_read_nvs_to_cache(struct cache_entry *entry)
+struct ss_cache_slot *ss_load_to_slot(uint16_t dir_idx, uint16_t len)
 {
-	struct cache_entry *tmp;
+	int idx = ss_slot_acquire(fs_dir, fs_slots, SS_MAX_ENTRIES, len);
 
-	if (entry->buf) {
-		return;
+	if (idx < 0) {
+		return NULL;
 	}
 
-	tmp = f_cache_find_buffer(entry, &fs_cache);
-
+	struct ss_cache_slot *slot = &fs_slots[idx];
 	uint8_t *buffer_to_use = NULL;
 	size_t buffer_size = 0;
 
-	if (tmp) {
-		if (tmp->_b_dirty) {
-			LOG_DBG("Cache entry %s is dirty, writing to NVS", tmp->name);
-			nvs_write(&fs, tmp->key, tmp->buf, tmp->_l);
+	if (slot->buf) {
+		if (slot->_b_dirty) {
+			LOG_DBG("Cache slot for key 0x%04x is dirty, writing to NVS",
+				fs_dir[slot->dir_idx].key);
+			nvs_write(&fs, fs_dir[slot->dir_idx].key, slot->buf, slot->_l);
 		}
 
-		if (entry->_l > tmp->_b_size) {
-			SS_FREE(tmp->buf);
+		if (len > slot->_b_size) {
+			SS_FREE(slot->buf);
 		} else {
-			buffer_size = tmp->_b_size;
-			buffer_to_use = tmp->buf;
+			buffer_size = slot->_b_size;
+			buffer_to_use = slot->buf;
 			memset(buffer_to_use, 0, buffer_size);
 		}
 
-		tmp->buf = NULL;
-		tmp->_b_size = 0;
-		tmp->_b_dirty = 0;
+		slot->buf = NULL;
+		slot->_b_size = 0;
+		slot->_b_dirty = 0;
 	}
 
 	if (!buffer_to_use) {
-		buffer_size = entry->_l;
+		buffer_size = len;
 		LOG_DBG("Allocating buffer of size %d", buffer_size);
 		buffer_to_use = SS_ALLOC_N(buffer_size * sizeof(uint8_t));
 	}
 
 	if (!buffer_to_use) {
 		LOG_ERR("Failed to allocate buffer of size %d", buffer_size);
-		return;
+		return NULL;
 	}
 
-	int rc = nvs_read(&fs, entry->key, buffer_to_use, entry->_l);
+	int rc = nvs_read(&fs, fs_dir[dir_idx].key, buffer_to_use, len);
 	if (rc < 0) {
 		LOG_ERR("NVS read failed: %d", rc);
 		SS_FREE(buffer_to_use);
-		return;
+		return NULL;
 	}
 
-	entry->buf = buffer_to_use;
-	entry->_b_size = buffer_size;
-	entry->_b_dirty = 0;
+	slot->buf = buffer_to_use;
+	slot->dir_idx = dir_idx;
+	slot->_p = 0;
+	slot->_l = len;
+	slot->_b_size = buffer_size;
+	slot->_b_dirty = 0;
+
+	return slot;
 }
 
 char *ss_fgets(char *str, int n, ss_FILE fp)
 {
-	struct cache_entry *entry = (struct cache_entry *)fp;
+	struct ss_cache_slot *slot = (struct ss_cache_slot *)fp;
 
-	if (!entry) {
+	if (!slot) {
 		LOG_ERR("Invalid file pointer, ss_fgets failed");
 		return NULL;
 	}
 
-	if (entry->_p >= entry->_l) {
+	if (slot->_p >= slot->_l) {
 		/* No more data to read */
 		return NULL;
 	}
 
 	int idx = 0; /* Destination buffer index */
 
-	while (entry->_p < entry->_l && idx < n - 1 && entry->buf[entry->_p] != '\0' &&
-	       entry->buf[entry->_p] != '\n') {
-		str[idx++] = entry->buf[entry->_p++];
+	while (slot->_p < slot->_l && idx < n - 1 && slot->buf[slot->_p] != '\0' &&
+	       slot->buf[slot->_p] != '\n') {
+		str[idx++] = slot->buf[slot->_p++];
 	}
 
 	str[idx] = '\0';
@@ -340,47 +340,49 @@ char *ss_fgets(char *str, int n, ss_FILE fp)
 
 int ss_fclose(ss_FILE fp)
 {
-	struct cache_entry *entry = (struct cache_entry *)fp;
+	struct ss_cache_slot *slot = (struct ss_cache_slot *)fp;
 
-	if (!entry) {
+	if (!slot) {
 		LOG_ERR("Invalid file pointer, ss_fclose failed");
 		return -1;
 	}
 
-	if (entry->_flags & FS_READ_ONLY) {
+	uint8_t flags = fs_dir[slot->dir_idx].flags;
+
+	if (flags & FS_READ_ONLY) {
 		goto out;
 	}
 
-	if (entry->_flags & FS_COMMIT_ON_CLOSE) {
-		if (entry->_b_dirty) {
-			nvs_write(&fs, entry->key, entry->buf, entry->_l);
+	if (flags & FS_COMMIT_ON_CLOSE) {
+		if (slot->_b_dirty) {
+			nvs_write(&fs, fs_dir[slot->dir_idx].key, slot->buf, slot->_l);
 		}
-		entry->_b_dirty = 0;
+		slot->_b_dirty = 0;
 	}
 
 out:
-	entry->_p = 0; /* TODO: Resetting internal read/write pointer not needed? */
+	slot->_p = 0; /* TODO: Resetting internal read/write pointer not needed? */
 	return 0;
 }
 
 int ss_fseek(ss_FILE fp, long offset, int whence)
 {
-	struct cache_entry *entry = (struct cache_entry *)fp;
+	struct ss_cache_slot *slot = (struct ss_cache_slot *)fp;
 
-	if (!entry) {
+	if (!slot) {
 		LOG_ERR("Invalid file pointer, ss_fseek failed");
 		return -1;
 	}
 
 	if (whence == SEEK_SET) {
-		entry->_p = offset;
+		slot->_p = offset;
 	} else if (whence == SEEK_CUR) {
-		entry->_p += offset;
-		if (entry->_p >= entry->_l) {
-			entry->_p = entry->_l - 1;
+		slot->_p += offset;
+		if (slot->_p >= slot->_l) {
+			slot->_p = slot->_l - 1;
 		}
 	} else if (whence == SEEK_END) {
-		entry->_p = entry->_l - offset;
+		slot->_p = slot->_l - offset;
 	}
 
 	return 0;
@@ -388,41 +390,42 @@ int ss_fseek(ss_FILE fp, long offset, int whence)
 
 long ss_ftell(ss_FILE fp)
 {
-	struct cache_entry *entry = (struct cache_entry *)fp;
+	struct ss_cache_slot *slot = (struct ss_cache_slot *)fp;
 
-	if (!entry) {
+	if (!slot) {
 		return -1;
 	}
 
-	return entry->_p;
+	return slot->_p;
 }
 
 int ss_fputc(int c, ss_FILE fp)
 {
-	struct cache_entry *entry = (struct cache_entry *)fp;
+	struct ss_cache_slot *slot = (struct ss_cache_slot *)fp;
 
-	if (!entry) {
+	if (!slot) {
 		return -1;
 	}
 
-	if (entry->_p >= entry->_b_size) {
-		uint8_t *old_buffer = entry->buf;
-		size_t old_size = entry->_b_size;
-		entry->buf = SS_ALLOC_N(entry->_b_size + 20);
+	if (slot->_p >= slot->_b_size) {
+		uint8_t *old_buffer = slot->buf;
+		size_t old_size = slot->_b_size;
 
-		if (!entry->buf) {
-			entry->buf = old_buffer;
+		slot->buf = SS_ALLOC_N(slot->_b_size + 20);
+
+		if (!slot->buf) {
+			slot->buf = old_buffer;
 			return -1;
 		}
 
-		memcpy(entry->buf, old_buffer, old_size);
+		memcpy(slot->buf, old_buffer, old_size);
 		SS_FREE(old_buffer);
-		entry->_b_size += 20;
+		slot->_b_size += 20;
 	}
 
-	entry->buf[entry->_p++] = (uint8_t)c;
-	entry->_b_dirty = 1;
-	entry->_l = entry->_l >= entry->_p ? entry->_l : entry->_p;
+	slot->buf[slot->_p++] = (uint8_t)c;
+	slot->_b_dirty = 1;
+	slot->_l = slot->_l >= slot->_p ? slot->_l : slot->_p;
 
 	return c;
 }
@@ -454,63 +457,77 @@ int ss_rmdir(const char *path)
 
 int ss_remove(const char *path)
 {
-	struct cache_entry *entry = f_cache_find_by_name(path, &fs_cache);
+	int dir_idx = ss_dir_find(fs_dir, fs_dir_count, path);
 
-	if (!entry) {
+	if (dir_idx < 0) {
 		return -1;
 	}
 
-	ss_list_remove(&entry->list);
-	nvs_delete(&fs, entry->key);
+	int slot_idx = ss_slot_find(fs_slots, SS_MAX_ENTRIES, (uint16_t)dir_idx);
 
-	if (entry->buf) {
-		SS_FREE(entry->buf);
+	if (slot_idx >= 0) {
+		/* The file is going away; its buffer dies with it, dirty or not. */
+		SS_FREE(fs_slots[slot_idx].buf);
+		memset(&fs_slots[slot_idx], 0, sizeof(fs_slots[slot_idx]));
 	}
 
-	SS_FREE(entry->name);
-	SS_FREE(entry);
+	nvs_delete(&fs, fs_dir[dir_idx].key);
+
+	/* Close the hole with the last entry, re-pointing its slot if buffered. */
+	size_t last = fs_dir_count - 1;
+
+	if ((size_t)dir_idx != last) {
+		fs_dir[dir_idx] = fs_dir[last];
+
+		int moved = ss_slot_find(fs_slots, SS_MAX_ENTRIES, (uint16_t)last);
+
+		if (moved >= 0) {
+			fs_slots[moved].dir_idx = (uint16_t)dir_idx;
+		}
+	}
+	fs_dir_count--;
 
 	return 0;
 }
 
 size_t ss_fwrite(const void *ptr, size_t size, size_t count, ss_FILE fp)
 {
-	struct cache_entry *entry = (struct cache_entry *)fp;
+	struct ss_cache_slot *slot = (struct ss_cache_slot *)fp;
 
-	if (!entry) {
+	if (!slot) {
 		return -1;
 	}
 
-	const size_t requiredBufferSize = entry->_p + size * count;
+	const size_t requiredBufferSize = slot->_p + size * count;
 
-	if (requiredBufferSize > entry->_b_size) {
-		uint8_t *oldBuffer = entry->buf;
-		const size_t oldSize = entry->_b_size;
+	if (requiredBufferSize > slot->_b_size) {
+		uint8_t *oldBuffer = slot->buf;
+		const size_t oldSize = slot->_b_size;
 
-		entry->buf = SS_ALLOC_N(requiredBufferSize);
+		slot->buf = SS_ALLOC_N(requiredBufferSize);
 
-		if (!entry->buf) {
-			entry->buf = oldBuffer;
+		if (!slot->buf) {
+			slot->buf = oldBuffer;
 			return -1;
 		} else {
-			entry->_b_size = requiredBufferSize;
+			slot->_b_size = requiredBufferSize;
 		}
 
-		memcpy(entry->buf, oldBuffer, oldSize);
+		memcpy(slot->buf, oldBuffer, oldSize);
 		SS_FREE(oldBuffer);
 	}
 
-	const size_t buffer_left = entry->_b_size - entry->_p;
+	const size_t buffer_left = slot->_b_size - slot->_p;
 	const size_t elements_to_copy = buffer_left > size * count ? count : buffer_left / size;
 
 	const uint8_t content_is_different =
-		memcmp(entry->buf + entry->_p, ptr, size * elements_to_copy);
+		memcmp(slot->buf + slot->_p, ptr, size * elements_to_copy);
 
 	if (content_is_different) {
-		memcpy(entry->buf + entry->_p, ptr, size * elements_to_copy);
-		entry->_b_dirty = 1;
+		memcpy(slot->buf + slot->_p, ptr, size * elements_to_copy);
+		slot->_b_dirty = 1;
 	}
-	entry->_p += size * elements_to_copy;
+	slot->_p += size * elements_to_copy;
 
 	return elements_to_copy;
 }
@@ -524,14 +541,14 @@ int port_check_provisioned(void)
 {
 	int ret;
 	uint8_t buffer[IMSI_BIN_LEN] = {0};
-	struct cache_entry *entry =
-		(struct cache_entry *)f_cache_find_by_name(IMSI_PATH, &fs_cache);
-	if (!entry) {
+	int dir_idx = ss_dir_find(fs_dir, fs_dir_count, IMSI_PATH);
+
+	if (dir_idx < 0) {
 		LOG_DBG("IMSI EF not in filesystem cache => not provisioned");
 		return 0;
 	}
 
-	ret = nvs_read(&fs, entry->key, buffer, IMSI_BIN_LEN);
+	ret = nvs_read(&fs, fs_dir[dir_idx].key, buffer, IMSI_BIN_LEN);
 	if (ret < 0) {
 		return 0;
 	}
@@ -587,51 +604,51 @@ int port_provision(struct ss_profile *profile)
 	a004[header_size] = KIC_TAG;
 	a004[header_size + KEY_BIN_LEN] = KID_TAG;
 
-	struct cache_entry *entry =
-		(struct cache_entry *)f_cache_find_by_name(IMSI_PATH, &fs_cache);
-	if (!entry) {
+	int dir_idx = ss_dir_find(fs_dir, fs_dir_count, IMSI_PATH);
+
+	if (dir_idx < 0) {
 		LOG_ERR("EF IMSI not in filesystem cache");
 		goto out_err;
 	}
 
 	LOG_INF("Provisioning SoftSIM 1/4");
-	if (nvs_write(&fs, entry->key, imsi, IMSI_BIN_LEN) < 0) {
+	if (nvs_write(&fs, fs_dir[dir_idx].key, imsi, IMSI_BIN_LEN) < 0) {
 		goto out_err;
 	}
-	entry->_flags = 0;
+	fs_dir[dir_idx].flags = 0;
 
 	LOG_INF("Provisioning SoftSIM 2/4");
-	entry = (struct cache_entry *)f_cache_find_by_name(ICCID_PATH, &fs_cache);
-	if (!entry) {
+	dir_idx = ss_dir_find(fs_dir, fs_dir_count, ICCID_PATH);
+	if (dir_idx < 0) {
 		LOG_ERR("EF ICCID not in filesystem cache");
 		goto out_err;
 	}
-	if (nvs_write(&fs, entry->key, iccid, ICCID_BIN_LEN) < 0) {
+	if (nvs_write(&fs, fs_dir[dir_idx].key, iccid, ICCID_BIN_LEN) < 0) {
 		goto out_err;
 	}
-	entry->_flags = 0;
+	fs_dir[dir_idx].flags = 0;
 
 	LOG_INF("Provisioning SoftSIM 3/4");
-	entry = (struct cache_entry *)f_cache_find_by_name(A001_PATH, &fs_cache);
-	if (!entry) {
+	dir_idx = ss_dir_find(fs_dir, fs_dir_count, A001_PATH);
+	if (dir_idx < 0) {
 		LOG_ERR("EF A001 not in filesystem cache");
 		goto out_err;
 	}
-	if (nvs_write(&fs, entry->key, a001, sizeof(a001)) < 0) {
+	if (nvs_write(&fs, fs_dir[dir_idx].key, a001, sizeof(a001)) < 0) {
 		goto out_err;
 	}
-	entry->_flags = 0;
+	fs_dir[dir_idx].flags = 0;
 
 	LOG_INF("Provisioning SoftSIM 4/4");
-	entry = (struct cache_entry *)f_cache_find_by_name(A004_PATH, &fs_cache);
-	if (!entry) {
+	dir_idx = ss_dir_find(fs_dir, fs_dir_count, A004_PATH);
+	if (dir_idx < 0) {
 		LOG_ERR("EF A004 not in filesystem cache");
 		goto out_err;
 	}
-	if (nvs_write(&fs, entry->key, a004, sizeof(a004)) < 0) {
+	if (nvs_write(&fs, fs_dir[dir_idx].key, a004, sizeof(a004)) < 0) {
 		goto out_err;
 	}
-	entry->_flags = 0;
+	fs_dir[dir_idx].flags = 0;
 
 	/* Optionally provision EF.SMSP. The profile may carry the SMS-parameter
 	 * record (profile->SMSP) and/or just the service-centre address
@@ -645,19 +662,19 @@ int port_provision(struct ss_profile *profile)
 
 	if (have_smsp || have_smsc) {
 		LOG_INF("Provisioning SoftSIM EF.SMSP");
-		entry = (struct cache_entry *)f_cache_find_by_name(SMSP_PATH, &fs_cache);
-		if (!entry) {
+		dir_idx = ss_dir_find(fs_dir, fs_dir_count, SMSP_PATH);
+		if (dir_idx < 0) {
 			LOG_ERR("EF.SMSP not in filesystem cache");
 			goto out_err;
 		}
 
 		uint8_t smsp[SMSP_RECORD_SIZE * 2]; /* 104: holds a 2-record EF.SMSP */
-		int ef_len = nvs_read(&fs, entry->key, NULL, 0);
+		int ef_len = nvs_read(&fs, fs_dir[dir_idx].key, NULL, 0);
 		if (ef_len < SMSC_REC_OFFSET + (int)(SMSC_LEN / 2) || ef_len > (int)sizeof(smsp)) {
 			LOG_ERR("Unexpected EF.SMSP length: %d", ef_len);
 			goto out_err;
 		}
-		if (nvs_read(&fs, entry->key, smsp, ef_len) != ef_len) {
+		if (nvs_read(&fs, fs_dir[dir_idx].key, smsp, ef_len) != ef_len) {
 			LOG_ERR("Failed to read EF.SMSP");
 			goto out_err;
 		}
@@ -672,10 +689,10 @@ int port_provision(struct ss_profile *profile)
 				sizeof(smsp) - SMSC_REC_OFFSET);
 		}
 
-		if (nvs_write(&fs, entry->key, smsp, ef_len) < 0) {
+		if (nvs_write(&fs, fs_dir[dir_idx].key, smsp, ef_len) < 0) {
 			goto out_err;
 		}
-		entry->_flags = 0;
+		fs_dir[dir_idx].flags = 0;
 	}
 
 	LOG_INF("SoftSIM provisioned");
