@@ -460,6 +460,10 @@ int ss_delete_file(const char *path)
 		return -1;
 	}
 
+	if (nvs_delete(&fs, fs_dir[dir_idx].key) < 0) {
+		return -1;
+	}
+
 	int slot_idx = ss_slot_find(fs_slots, SS_MAX_ENTRIES, (uint16_t)dir_idx);
 
 	if (slot_idx >= 0) {
@@ -467,8 +471,6 @@ int ss_delete_file(const char *path)
 		SS_FREE(fs_slots[slot_idx].buf);
 		memset(&fs_slots[slot_idx], 0, sizeof(fs_slots[slot_idx]));
 	}
-
-	nvs_delete(&fs, fs_dir[dir_idx].key);
 
 	/* Close the hole with the last entry, re-pointing its slot if buffered. */
 	size_t last = fs_dir_count - 1;
