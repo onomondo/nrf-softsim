@@ -72,9 +72,6 @@ int port_check_provisioned(void);
 #define GROW_ID       0x0050
 #define GROW_PATH     "/3f00/g000"
 
-/* Deletion targets. They are the last three records in the DIR blob, in this
- * order: the delete test needs TAIL to be the final record and DEL_A to come
- * before it. */
 #define DEL_A_ID   0x0060
 #define DEL_A_PATH "/3f00/dela"
 #define DEL_B_ID   0x0061
@@ -461,21 +458,8 @@ ZTEST(softsim_fs, test_deinit_commits_what_close_did_not)
 
 /* --- deletion --------------------------------------------------------------- */
 
-/*
- * ss_delete_file() is what the core's DELETE FILE handler reaches through
- * ss_storage_delete(). It has two jobs this test tells apart: forget the file
- * (lookups fail, the NVS record is gone) and leave every other file's cached
- * state intact -- above all a file whose buffer holds an uncommitted write.
- * DEL_A, DEL_B and TAIL are the last records of the DIR blob in that order, so
- * deleting DEL_A while TAIL is buffered makes the port close the gap in its
- * directory behind a live buffer.
- *
- * The cache is emptied first. A buffer left attached to the wrong directory
- * entry can still be written back under the right key if it happens to be the
- * next eviction victim, and a broken directory would then pass the re-open
- * check below by luck; from an empty cache the re-open takes a free slot and
- * the comparison means what it says.
- */
+/* Deleting DEL_A moves TAIL's entry under its live dirty buffer. Starts from an
+ * empty cache so a stale slot cannot pass the re-open check by luck. */
 ZTEST(softsim_fs, test_delete_file_removes_it_and_leaves_its_neighbours_intact)
 {
 	const uint8_t marker = 0xd7;
@@ -523,10 +507,8 @@ ZTEST(softsim_fs, test_delete_file_removes_it_and_leaves_its_neighbours_intact)
 
 	zassert_equal(ss_delete_file("/3f00/dead"), -1, "deleting an unknown path must fail");
 
-	/* Shutdown flushes TAIL's dirty buffer under TAIL's key. The DIR blob is
-	 * never rewritten, so the remount brings the deleted paths back as records
-	 * whose NVS keys are gone: they must read as absent and must not stop the
-	 * filesystem from coming up. */
+	/* Deinit flushes TAIL under its own key; the DIR blob is never rewritten, so the
+	 * deleted paths come back as keyless records that must read as absent. */
 	zassert_ok(ss_deinit_fs(), "ss_deinit_fs() failed");
 	zassert_equal(read_flash_record(TAIL_ID, buf, sizeof(buf)), sizeof(tail_content));
 	zassert_equal(buf[0], marker, "the flush did not reach %s", TAIL_PATH);
