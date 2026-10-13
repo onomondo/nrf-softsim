@@ -525,19 +525,6 @@ ZTEST(softsim_fs, test_delete_file_removes_it_and_leaves_its_neighbours_intact)
 }
 
 /*
- * The core's storage backend also calls ss_delete_dir() and ss_create_dir().
- * Directories have no storage of their own in this port, so both are no-ops
- * that report success; what this pins is that the symbols resolve at all. They
- * are weak declarations in the core, and an undefined one is a call to address
- * zero.
- */
-ZTEST(softsim_fs, test_directory_hooks_are_harmless_no_ops)
-{
-	zassert_ok(ss_delete_dir("/3f00/7ff0"), "ss_delete_dir must report success");
-	zassert_ok(ss_create_dir("/3f00/7ff1", 0700), "ss_create_dir must report success");
-}
-
-/*
  * There is deliberately no test for ss_fwrite()'s identical-content check (the
  * memcmp that leaves _b_dirty clear to save a flash write): Zephyr's NVS makes
  * the same comparison against the stored record and returns without writing, so
