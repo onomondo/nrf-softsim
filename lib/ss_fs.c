@@ -439,18 +439,14 @@ int ss_access(const char *path, int amode)
 	return 0;
 }
 
-/* Strong definitions of the weak hooks declared in <onomondo/softsim/fs.h>;
- * the core's compact storage backend reaches them through ss_storage_delete()
- * and ss_storage_create_dir(). Directories have no storage of their own here:
- * files carry their full path, so a directory exists once a file under it does. */
+/* Directories have no storage here; ss_access() reports every one as present. */
 int ss_create_dir(const char *path, uint32_t mode)
 {
 	return 0;
 }
 
-/* By the time this is called the core has already deleted the DF's own
- * definition file, which leaves every child unselectable. Their records stay
- * in NVS. */
+/* No-op: the core has already deleted the DF's .def, so its children are unreachable;
+ * their records stay in NVS (the table keeps only path hashes). */
 int ss_delete_dir(const char *path)
 {
 	return 0;
