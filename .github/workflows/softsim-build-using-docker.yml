@@ -47,6 +47,14 @@ jobs:
           path: modules/lib/onomondo-softsim
           submodules: true
 
+      # A toolchain image that differs from west.yml's sdk-nrf still builds green.
+      - name: Check toolchain image matches west.yml
+        working-directory: modules/lib/onomondo-softsim
+        run: |
+          ncs=$(awk '/name: sdk-nrf/{f=1} f&&/revision:/{print $2; exit}' west.yml)
+          refs=$(sed -n 's|^ *container: ghcr.io/nrfconnect/sdk-nrf-toolchain:\([^@]*\)@.*|\1|p' .github/workflows/*.yml | sort -u)
+          [ "$refs" = "$ncs" ] || { echo "toolchain image ($refs) != west.yml sdk-nrf ($ncs)"; exit 1; }
+
       # Update dependencies and submodules using west
       - name: Fetch nRF and Zephyr workspaces and dependencies
         run: |
