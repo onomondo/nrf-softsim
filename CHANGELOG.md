@@ -1,5 +1,26 @@
 # Changelog
 
+## [7.0.0](https://github.com/onomondo/nrf-softsim/compare/v6.1.1...v7.0.0) (2026-10-14)
+
+
+### ⚠ BREAKING CHANGES
+
+* give SoftSIM its own heap ([#198](https://github.com/onomondo/nrf-softsim/issues/198))
+
+### Features
+
+* give SoftSIM its own heap ([#198](https://github.com/onomondo/nrf-softsim/issues/198)) ([ec86509](https://github.com/onomondo/nrf-softsim/commit/ec865098a3658db2e4607b39aa9f93287c48fa4e))
+
+
+### Bug Fixes
+
+* drop trailing slash from west manifest url ([#207](https://github.com/onomondo/nrf-softsim/issues/207)) ([e7d359b](https://github.com/onomondo/nrf-softsim/commit/e7d359b9b185a55588d36a768316ea27162a9804))
+
+
+### Performance Improvements
+
+* replace the per-file cache entries with a compact dir table ([#197](https://github.com/onomondo/nrf-softsim/issues/197)) ([5b8ecd7](https://github.com/onomondo/nrf-softsim/commit/5b8ecd7c110141e658666ea725cc8d4610413033))
+
 ## [6.1.1](https://github.com/onomondo/nrf-softsim/compare/v6.1.0...v6.1.1) (2026-08-28)
 
 
