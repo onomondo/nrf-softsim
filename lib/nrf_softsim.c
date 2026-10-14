@@ -130,9 +130,16 @@ int nrf_softsim_provision(uint8_t *profile_r, size_t len)
 		return -1;
 	}
 
-	struct ss_profile profile = {0};
+	/* Heap-held for the provisioning window only: the decoded profile is the
+	 * largest single frame contributor on the main stack. */
+	struct ss_profile *profile = k_calloc(1, sizeof(*profile));
+	if (profile == NULL) {
+		LOG_ERR("SoftSIM profile allocation failed");
+		return -1;
+	}
+
 	uint8_t decode_err =
-		ss_profile_from_string((uint16_t)len, (const char *)profile_r, &profile);
+		ss_profile_from_string((uint16_t)len, (const char *)profile_r, profile);
 	if (decode_err != 0) {
 		/* 18 and 19 are the CRC32 record errors -- see ss_profile.h. */
 		if (decode_err == 18 || decode_err == 19) {
@@ -140,6 +147,8 @@ int nrf_softsim_provision(uint8_t *profile_r, size_t len)
 		} else {
 			LOG_ERR("SoftSIM profile decode failed (err %u)", decode_err);
 		}
+		/* ss_profile_from_string() wipes the struct on decode failure. */
+		k_free(profile);
 		return -1;
 	}
 
@@ -147,28 +156,30 @@ int nrf_softsim_provision(uint8_t *profile_r, size_t len)
 	 * OPc, KIC, KID. Checked on the hex-ASCII fields the parser fills, not on the
 	 * decoded keys: a legitimately zero-valued key is '0' characters, not NUL --
 	 * the GSMA TS.48 test profile has exactly that for OPc. */
-	if (is_all_zero(profile._3F00_7ff0_6f07, IMSI_LEN) ||                          /* IMSI */
-	    is_all_zero(profile._3F00_2FE2, ICCID_LEN) ||                              /* ICCID */
-	    is_all_zero(&profile._3F00_A001[0], KEY_SIZE) ||                           /* KI */
-	    is_all_zero(&profile._3F00_A001[KEY_SIZE], KEY_SIZE) ||                    /* OPc */
-	    is_all_zero(&profile._3F00_A004[A004_HEADER_SIZE], KEY_SIZE) ||            /* KIC */
-	    is_all_zero(&profile._3F00_A004[A004_HEADER_SIZE + KEY_SIZE], KEY_SIZE)) { /* KID */
+	if (is_all_zero(profile->_3F00_7ff0_6f07, IMSI_LEN) ||                          /* IMSI */
+	    is_all_zero(profile->_3F00_2FE2, ICCID_LEN) ||                              /* ICCID */
+	    is_all_zero(&profile->_3F00_A001[0], KEY_SIZE) ||                           /* KI */
+	    is_all_zero(&profile->_3F00_A001[KEY_SIZE], KEY_SIZE) ||                    /* OPc */
+	    is_all_zero(&profile->_3F00_A004[A004_HEADER_SIZE], KEY_SIZE) ||            /* KIC */
+	    is_all_zero(&profile->_3F00_A004[A004_HEADER_SIZE + KEY_SIZE], KEY_SIZE)) { /* KID */
 		LOG_ERR("SoftSIM profile missing required field(s)");
-		ss_profile_wipe(&profile);
+		ss_profile_wipe(profile);
+		k_free(profile);
 		return -1;
 	}
 
 	/* Import to psa_crypto */
-	ss_utils_setup_key(KMU_KEY_SIZE, profile.k, KEY_ID_KI);
-	ss_utils_setup_key(KMU_KEY_SIZE, profile.kic, KEY_ID_KIC);
-	ss_utils_setup_key(KMU_KEY_SIZE, profile.kid, KEY_ID_KID);
+	ss_utils_setup_key(KMU_KEY_SIZE, profile->k, KEY_ID_KI);
+	ss_utils_setup_key(KMU_KEY_SIZE, profile->kic, KEY_ID_KIC);
+	ss_utils_setup_key(KMU_KEY_SIZE, profile->kid, KEY_ID_KID);
 
 	LOG_INF("SoftSIM keys written to KMU");
 
-	int status = port_provision(&profile);
+	int status = port_provision(profile);
 
-	/* The decoded profile holds K/KIC/KID; scrub it before the frame dies. */
-	ss_profile_wipe(&profile);
+	/* The decoded profile holds K/KIC/KID; scrub it before the buffer dies. */
+	ss_profile_wipe(profile);
+	k_free(profile);
 
 	if (status != 0) {
 		LOG_ERR("SoftSIM failed to update profile");
