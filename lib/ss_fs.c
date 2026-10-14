@@ -439,27 +439,28 @@ int ss_access(const char *path, int amode)
 	return 0;
 }
 
-int ss_mkdir(const char *path, int mode)
+/* Directories have no storage here; ss_access() reports every one as present. */
+int ss_create_dir(const char *path, uint32_t mode)
 {
-	/* We don't care. This is a virtual filesystem, so directories
-	 * are not really a thing. We just create files and directories are
-	 * implicitly created.
-	 */
-
 	return 0;
 }
 
-int ss_rmdir(const char *path)
+/* No-op: the core has already deleted the DF's .def, so its children are unreachable;
+ * their records stay in NVS (the table keeps only path hashes). */
+int ss_delete_dir(const char *path)
 {
-	/* TODO: Remove all entries with directory match */
 	return 0;
 }
 
-int ss_remove(const char *path)
+int ss_delete_file(const char *path)
 {
 	int dir_idx = ss_dir_find(fs_dir, fs_dir_count, path);
 
 	if (dir_idx < 0) {
+		return -1;
+	}
+
+	if (nvs_delete(&fs, fs_dir[dir_idx].key) < 0) {
 		return -1;
 	}
 
@@ -470,8 +471,6 @@ int ss_remove(const char *path)
 		SS_FREE(fs_slots[slot_idx].buf);
 		memset(&fs_slots[slot_idx], 0, sizeof(fs_slots[slot_idx]));
 	}
-
-	nvs_delete(&fs, fs_dir[dir_idx].key);
 
 	/* Close the hole with the last entry, re-pointing its slot if buffered. */
 	size_t last = fs_dir_count - 1;
