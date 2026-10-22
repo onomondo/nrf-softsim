@@ -165,12 +165,33 @@ static int capture_profile(struct ss_profile *profile)
 	return 0;
 }
 
+/* The handler answers out of its own stack and the modem copies during the call,
+ * so snapshot the bytes then. FFF bumps call_count before a custom fake runs, so
+ * a reader must wait on res_snapshot_taken, not on the count. */
+static uint8_t res_snapshot[260]; /* SIM_HAL_MAX_LE in nrf_softsim.c */
+static uint16_t res_snapshot_len;
+static K_SEM_DEFINE(res_snapshot_taken, 0, K_SEM_MAX_LIMIT);
+
+static int res_snapshot_fake(enum nrf_modem_softsim_cmd cmd, uint16_t req_id, const void *data,
+			     uint16_t len)
+{
+	if (data) {
+		memcpy(res_snapshot, data, MIN(len, sizeof(res_snapshot)));
+	}
+	res_snapshot_len = len;
+	k_sem_give(&res_snapshot_taken);
+	return 0;
+}
+
 static void reset_all_fakes(void)
 {
 	ALL_FAKES(RESET_FAKE)
 	FFF_RESET_HISTORY();
 	memset(&key_setup, 0, sizeof(key_setup));
 	memset(&captured_profile, 0, sizeof(captured_profile));
+	memset(res_snapshot, 0, sizeof(res_snapshot));
+	res_snapshot_len = 0;
+	k_sem_reset(&res_snapshot_taken);
 
 	nrf_modem_softsim_req_handler_set_fake.custom_fake = capture_handler;
 	ss_new_ctx_fake.custom_fake = new_ctx_ok;
@@ -204,22 +225,6 @@ ZTEST_SUITE(softsim_handler, NULL, suite_setup, test_before, NULL, NULL);
 static int completions(void)
 {
 	return nrf_modem_softsim_res_fake.call_count + nrf_modem_softsim_err_fake.call_count;
-}
-
-/* The real nrf_modem_softsim_res() copies the response during the call (the
- * handler may answer out of stack memory), so a test that wants the bytes must
- * snapshot them at call time instead of dereferencing arg2_val afterwards. */
-static uint8_t res_snapshot[260]; /* SIM_HAL_MAX_LE in nrf_softsim.c */
-static uint16_t res_snapshot_len;
-
-static int res_snapshot_fake(enum nrf_modem_softsim_cmd cmd, uint16_t req_id, const void *data,
-			     uint16_t len)
-{
-	res_snapshot_len = len;
-	if (data && len <= sizeof(res_snapshot)) {
-		memcpy(res_snapshot, data, len);
-	}
-	return 0;
 }
 
 /* The work queue is a real thread; wait for it rather than sleeping blindly. */
@@ -273,9 +278,11 @@ ZTEST(softsim_handler, test_answers_carry_the_core_response_bytes)
 	nrf_modem_softsim_res_fake.custom_fake = res_snapshot_fake;
 
 	submit(NRF_MODEM_SOFTSIM_INIT, 1, NULL, 0);
-	wait_for_completions(1);
+	zassert_ok(k_sem_take(&res_snapshot_taken, K_SECONDS(2)), "INIT was not answered");
 
 	/* atr_ok() fills 8 bytes of 0x3b and returns 8. */
+	zassert_not_null(nrf_modem_softsim_res_fake.arg2_val,
+			 "INIT must answer with the ATR buffer");
 	zassert_equal(res_snapshot_len, 8, "ATR length was not passed through");
 	for (int i = 0; i < 8; i++) {
 		zassert_equal(res_snapshot[i], 0x3b,
@@ -287,9 +294,11 @@ ZTEST(softsim_handler, test_answers_carry_the_core_response_bytes)
 	zassert_not_null(apdu);
 	memcpy(apdu, "\x00\xa4\x00\x0c", 4);
 	submit(NRF_MODEM_SOFTSIM_APDU, 2, apdu, 4);
-	wait_for_completions(2);
+	zassert_ok(k_sem_take(&res_snapshot_taken, K_SECONDS(2)), "APDU was not answered");
 
 	/* apdu_ok() fills 2 bytes of 0x90 and returns 2. */
+	zassert_not_null(nrf_modem_softsim_res_fake.arg2_val,
+			 "APDU must answer with the response buffer");
 	zassert_equal(res_snapshot_len, 2, "APDU response length was not passed through");
 	zassert_equal(res_snapshot[0], 0x90, "APDU response byte 0 differs");
 	zassert_equal(res_snapshot[1], 0x90, "APDU response byte 1 differs");
