@@ -445,11 +445,11 @@ int ss_create_dir(const char *path, uint32_t mode)
 	return 0;
 }
 
-/* No-op: the core has already deleted the DF's .def, so its children are unreachable;
- * their records stay in NVS (the table keeps only path hashes). */
+/* Fails only for a path still stored as a file, so a failed content delete is reported.
+ * A DF has no record; its children's stay in NVS (the table keeps only path hashes). */
 int ss_delete_dir(const char *path)
 {
-	return 0;
+	return ss_dir_find(fs_dir, fs_dir_count, path) >= 0 ? -1 : 0;
 }
 
 int ss_delete_file(const char *path)

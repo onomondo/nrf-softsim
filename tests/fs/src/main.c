@@ -507,6 +507,10 @@ ZTEST(softsim_fs, test_delete_file_removes_it_and_leaves_its_neighbours_intact)
 
 	zassert_equal(ss_delete_file("/3f00/dead"), -1, "deleting an unknown path must fail");
 
+	/* The core falls back to ss_delete_dir() when a content delete fails. */
+	zassert_equal(ss_delete_dir(TAIL_PATH), -1, "a stored file must not delete as a directory");
+	zassert_ok(ss_delete_dir("/3f00/dead"), "a path with no record is a directory");
+
 	/* Deinit flushes TAIL under its own key; the DIR blob is never rewritten, so the
 	 * deleted paths come back as keyless records that must read as absent. */
 	zassert_ok(ss_deinit_fs(), "ss_deinit_fs() failed");
