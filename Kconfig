@@ -151,7 +151,8 @@ config SOFTSIM_STACK_SIZE
 config SOFTSIM_THREAD_PRIORITY
     int "SoftSIM work-queue thread priority"
     default 5
-    range 0 NUM_PREEMPT_PRIORITIES
+    # sysbuild evaluates this in the MCUboot image too, where MULTITHREADING=n.
+    range 0 NUM_PREEMPT_PRIORITIES if MULTITHREADING
     help
         Priority of the preemptible work-queue thread that answers the
         modem's SIM requests. Threads at a higher priority that hog the CPU
