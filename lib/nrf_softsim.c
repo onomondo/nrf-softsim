@@ -25,8 +25,6 @@
 LOG_MODULE_REGISTER(softsim, CONFIG_SOFTSIM_NRF_LOG_LEVEL);
 
 /* SoftSIM memory configuration */
-#define SOFTSIM_PRIORITY 5 /* TODO: What is a good balance here? */
-
 K_THREAD_STACK_DEFINE(softsim_stack_area, CONFIG_SOFTSIM_STACK_SIZE);
 
 #define SIM_HAL_MAX_LE 260
@@ -100,7 +98,8 @@ int nrf_softsim_init(void)
 	k_work_queue_init(&softsim_work_q);
 
 	k_work_queue_start(&softsim_work_q, softsim_stack_area,
-			   K_THREAD_STACK_SIZEOF(softsim_stack_area), SOFTSIM_PRIORITY, NULL);
+			   K_THREAD_STACK_SIZEOF(softsim_stack_area),
+			   CONFIG_SOFTSIM_THREAD_PRIORITY, NULL);
 
 	ctx = ss_new_ctx(); /* TODO: consider dropping this call here */
 
