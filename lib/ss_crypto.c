@@ -32,7 +32,7 @@ enum key_identifier_base key_id_to_kmu_slot(uint8_t key_id)
 	}
 }
 
-#define SHARED_BUFFER_SIZE 256
+#define AES_SCRATCH_SIZE 256
 
 /* Volatile stores, so the compiler keeps the wipe of a buffer about to go dead. */
 static void wipe(void *buf, size_t len)
@@ -175,7 +175,7 @@ void ss_utils_aes_decrypt(uint8_t *buffer, size_t buffer_len, const uint8_t *key
 
 	psa_cipher_operation_t operation = PSA_CIPHER_OPERATION_INIT;
 	uint8_t iv[AES_BLOCKSIZE] = {0}; /* per standards in telco.. */
-	uint8_t decrypted_buffer[SHARED_BUFFER_SIZE];
+	uint8_t decrypted_buffer[AES_SCRATCH_SIZE];
 
 	uint32_t out_len = 0;
 
@@ -185,7 +185,7 @@ void ss_utils_aes_decrypt(uint8_t *buffer, size_t buffer_len, const uint8_t *key
 	psa_cipher_set_iv(&operation, iv, AES_BLOCKSIZE);
 
 	status = cipher_operation(&operation, buffer, buffer_len, AES_BLOCKSIZE, decrypted_buffer,
-				  SHARED_BUFFER_SIZE, &out_len);
+				  sizeof(decrypted_buffer), &out_len);
 	ASSERT_STATUS(status, PSA_SUCCESS);
 
 	memcpy(buffer, decrypted_buffer, out_len);
@@ -210,7 +210,7 @@ void ss_utils_aes_encrypt(uint8_t *buffer, size_t buffer_len, const uint8_t *key
 
 	psa_cipher_operation_t operation = PSA_CIPHER_OPERATION_INIT;
 	uint8_t iv[AES_BLOCKSIZE] = {0}; /* per standards in telco... */
-	uint8_t encrypted_buffer[SHARED_BUFFER_SIZE];
+	uint8_t encrypted_buffer[AES_SCRATCH_SIZE];
 	uint32_t out_len = 0;
 
 	status = psa_cipher_encrypt_setup(&operation, slot_id, PSA_ALG_CBC_NO_PADDING);
@@ -219,7 +219,7 @@ void ss_utils_aes_encrypt(uint8_t *buffer, size_t buffer_len, const uint8_t *key
 	psa_cipher_set_iv(&operation, iv, AES_BLOCKSIZE);
 
 	status = cipher_operation(&operation, buffer, buffer_len, AES_BLOCKSIZE, encrypted_buffer,
-				  SHARED_BUFFER_SIZE, &out_len);
+				  sizeof(encrypted_buffer), &out_len);
 	ASSERT_STATUS(status, PSA_SUCCESS);
 
 	memcpy(buffer, encrypted_buffer, out_len);
