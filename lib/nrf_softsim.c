@@ -95,11 +95,13 @@ int nrf_softsim_init(void)
 		return -1;
 	}
 
+	const struct k_work_queue_config cfg = {.name = "softsim_wq"};
+
 	k_work_queue_init(&softsim_work_q);
 
 	k_work_queue_start(&softsim_work_q, softsim_stack_area,
 			   K_THREAD_STACK_SIZEOF(softsim_stack_area),
-			   CONFIG_SOFTSIM_THREAD_PRIORITY, NULL);
+			   CONFIG_SOFTSIM_THREAD_PRIORITY, &cfg);
 
 	ctx = ss_new_ctx(); /* TODO: consider dropping this call here */
 
