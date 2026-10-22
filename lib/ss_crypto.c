@@ -34,6 +34,16 @@ enum key_identifier_base key_id_to_kmu_slot(uint8_t key_id)
 
 #define SHARED_BUFFER_SIZE 256
 
+/* Volatile stores, so the compiler keeps the wipe of a buffer about to go dead. */
+static void wipe(void *buf, size_t len)
+{
+	volatile uint8_t *p = buf;
+
+	while (len--) {
+		*p++ = 0;
+	}
+}
+
 #define ASSERT_STATUS(actual, expected)                                                            \
 	do {                                                                                       \
 		if ((actual) != (expected)) {                                                      \
@@ -181,6 +191,7 @@ void ss_utils_aes_decrypt(uint8_t *buffer, size_t buffer_len, const uint8_t *key
 	memcpy(buffer, decrypted_buffer, out_len);
 
 exit:
+	wipe(decrypted_buffer, sizeof(decrypted_buffer));
 	psa_cipher_abort(&operation);
 	return;
 }
@@ -214,6 +225,7 @@ void ss_utils_aes_encrypt(uint8_t *buffer, size_t buffer_len, const uint8_t *key
 	memcpy(buffer, encrypted_buffer, out_len);
 
 exit:
+	wipe(encrypted_buffer, sizeof(encrypted_buffer));
 	psa_cipher_abort(&operation);
 	return;
 }
