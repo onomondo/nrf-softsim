@@ -17,6 +17,10 @@
 BUILD_ASSERT(2 * KEY_SIZE <= A001_LEN, "SoftSIM: A001 layout changed");
 BUILD_ASSERT(A004_HEADER_SIZE + 2 * KEY_SIZE <= A004_LEN, "SoftSIM: A004 layout changed");
 
+/* The Kconfig range also admits the idle priority, which Kconfig cannot exclude. */
+BUILD_ASSERT(CONFIG_SOFTSIM_THREAD_PRIORITY <= K_LOWEST_APPLICATION_THREAD_PRIO,
+	     "SoftSIM: thread priority must be below the idle priority");
+
 /* In NCS, when NVS backend for Settings is chosen, `nvs_partition` partition is not included by
  * the Partition Manager.
  * `nvs_storage` partition is required by SoftSIM. FCB backend for Settings should be used instead
