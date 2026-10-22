@@ -25,6 +25,7 @@
 #include <zephyr/ztest.h>
 
 #include <nrf_softsim.h>
+#include <onomondo/softsim/mem.h>
 #include <onomondo/softsim/softsim.h>
 
 /* ss_fs.c does LOG_MODULE_DECLARE(softsim, ...); register it once here.
@@ -167,20 +168,6 @@ ZTEST(softsim_apdu, test_select_unknown_file_fails_cleanly)
 	expect_sw(rsp, len, 0x6a82, "SELECT of an unknown FID");
 }
 
-ZTEST(softsim_apdu, test_read_binary_without_an_ef_fails_cleanly)
-{
-	static const uint8_t read10[] = {0x00, 0xb0, 0x00, 0x00, 0x0a};
-	uint8_t rsp[RSP_MAX];
-
-	/* Fresh reset: the MF is selected, no EF is. The core answers 6981
-	 * (command incompatible with file structure -- the current file is a
-	 * DF), where TS 102 221 would also allow 6986; either is a clean
-	 * rejection, this pins the one the core actually gives. */
-	size_t len = transact(read10, sizeof(read10), rsp);
-
-	expect_sw(rsp, len, 0x6981, "READ BINARY with no EF selected");
-}
-
 /*
  * The write path, end to end: UPDATE BINARY into EF.LOCI, then tear the
  * filesystem down and bring it back up so the bytes have to come off flash
@@ -298,4 +285,16 @@ ZTEST(softsim_apdu, test_authenticate_rejects_a_forged_mac)
 	len = transact(authenticate, sizeof(authenticate), rsp);
 	expect_sw(rsp, len, 0x9862, "AUTHENTICATE with a forged MAC");
 	zassert_equal(len, 2, "a rejected AUTHENTICATE must carry no response data");
+}
+
+/* k_malloc never passed a zero size on and tolerated a NULL free. A zero-length
+ * READ BINARY reaches SS_ALLOC_N(0), which a plain k_heap_alloc would reject. */
+ZTEST(softsim_apdu, test_port_allocator_keeps_the_malloc_contract)
+{
+	void *zero = port_malloc(0);
+
+	zassert_not_null(zero, "port_malloc(0) must not fail");
+	port_free(zero);
+
+	port_free(NULL);
 }

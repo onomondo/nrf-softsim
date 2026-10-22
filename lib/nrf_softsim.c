@@ -10,6 +10,7 @@
 #include <zephyr/logging/log.h>
 
 #include "ss_crypto.h"
+#include "ss_heap.h"
 #include <nrf_softsim.h>
 #include <nrf_modem_at.h>
 #include <nrf_modem_softsim.h>
@@ -17,16 +18,16 @@
 #include <onomondo/softsim/softsim.h>
 #include <onomondo/softsim/utils.h>
 #include <onomondo/softsim/fs.h>
+#include <onomondo/softsim/mem.h>
 #include <onomondo/utils/ss_profile.h>
 
 /* Logging */
 LOG_MODULE_REGISTER(softsim, CONFIG_SOFTSIM_NRF_LOG_LEVEL);
 
 /* SoftSIM memory configuration */
-#define SOFTSIM_STACK_SIZE 10000 /* TODO: Figure out some more reasonable value. */
-#define SOFTSIM_PRIORITY   5     /* TODO: What is a good balance here? */
+#define SOFTSIM_PRIORITY 5 /* TODO: What is a good balance here? */
 
-K_THREAD_STACK_DEFINE(softsim_stack_area, SOFTSIM_STACK_SIZE);
+K_THREAD_STACK_DEFINE(softsim_stack_area, CONFIG_SOFTSIM_STACK_SIZE);
 
 #define SIM_HAL_MAX_LE 260
 
@@ -225,6 +226,14 @@ static void softsim_req_task(struct k_work *item)
 	struct softsim_req_node *s_req;
 
 	while ((s_req = k_fifo_get(&softsim_req_fifo, K_NO_WAIT))) {
+		/* Captured before the node is freed, to name the command in the peak log. */
+		uint8_t ins = 0;
+
+		if (s_req->req == NRF_MODEM_SOFTSIM_APDU && s_req->payload.data &&
+		    s_req->payload.data_len > 1) {
+			ins = ((const uint8_t *)s_req->payload.data)[1];
+		}
+
 		/* The context is allocated by INIT, which the modem sends first;
 		 * APDU and RESET dereference it and cannot run without it. */
 		if (!ctx && (s_req->req == NRF_MODEM_SOFTSIM_APDU ||
@@ -313,6 +322,9 @@ static void softsim_req_task(struct k_work *item)
 			break;
 		}
 		default:
+			/* Never leave the modem waiting on a req_id. */
+			LOG_ERR("SoftSIM unknown request: %d", s_req->req);
+			nrf_modem_softsim_err(s_req->req, s_req->req_id);
 			break;
 		}
 
@@ -323,7 +335,9 @@ free_node:
 		}
 
 		/* Free the request node */
-		k_free(s_req);
+		port_free(s_req);
+
+		ss_heap_log_stats(ins);
 	}
 }
 
@@ -332,7 +346,7 @@ void nrf_modem_softsim_req_handler(enum nrf_modem_softsim_cmd req, uint16_t req_
 {
 	struct softsim_req_node *req_node = NULL;
 
-	req_node = k_malloc(sizeof(struct softsim_req_node));
+	req_node = port_malloc(sizeof(struct softsim_req_node));
 
 	if (!req_node) {
 		LOG_ERR("SoftSIM req_node allocation failed");

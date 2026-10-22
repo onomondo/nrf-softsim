@@ -4,8 +4,16 @@
  */
 
 #include <zephyr/kernel.h>
+#include <zephyr/logging/log.h>
+#include <zephyr/sys/mem_stats.h>
 
 #include <onomondo/softsim/mem.h>
+
+#include "ss_heap.h"
+
+/* SoftSIM's own heap: neither side can allocate from the other's. Wrapped like
+ * the kernel wraps the system heap, so the Kconfig value means usable bytes. */
+K_HEAP_DEFINE(softsim_port_heap, Z_HEAP_MIN_SIZE_FOR(CONFIG_SOFTSIM_HEAP_SIZE));
 
 /**
  * @brief Custom allocator
@@ -16,7 +24,9 @@
  */
 void *port_malloc(size_t size)
 {
-	return k_malloc(size);
+	/* K_NO_WAIT: runs in the modem request handler. size ? size : 1 keeps
+	 * k_malloc's contract of never passing a zero size on. */
+	return k_heap_alloc(&softsim_port_heap, size ? size : 1, K_NO_WAIT);
 }
 
 /**
@@ -26,5 +36,29 @@ void *port_malloc(size_t size)
  */
 void port_free(void *ptr)
 {
-	k_free(ptr);
+	k_heap_free(&softsim_port_heap, ptr);
 }
+
+#if defined(CONFIG_SOFTSIM_HEAP_STATS)
+/* Registered by nrf_softsim.c, which is always in the image when this is on. */
+LOG_MODULE_DECLARE(softsim, CONFIG_SOFTSIM_NRF_LOG_LEVEL);
+
+void ss_heap_log_stats(uint8_t ins)
+{
+	/* Only the SoftSIM work queue calls this, so the static needs no lock. */
+	static size_t logged_peak;
+	struct sys_memory_stats stats;
+
+	sys_heap_runtime_stats_get(&softsim_port_heap.heap, &stats);
+
+	if (stats.max_allocated_bytes <= logged_peak) {
+		return;
+	}
+	logged_peak = stats.max_allocated_bytes;
+
+	/* A high-water mark, so it cannot show fragmentation. INS 0 = not an APDU. */
+	LOG_INF("SoftSIM heap: new peak %zu of %d configured, INS 0x%02x (%zu used, %zu free)",
+		stats.max_allocated_bytes, CONFIG_SOFTSIM_HEAP_SIZE, ins, stats.allocated_bytes,
+		stats.free_bytes);
+}
+#endif

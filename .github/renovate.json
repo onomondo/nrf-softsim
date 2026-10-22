@@ -28,12 +28,14 @@
   ],
   "packageRules": [
     {
-      "description": "GitHub actions should wait 7 days; github-tags lacks releaseTimestamp, so treat timestamp-less releases as stable to avoid stalling stability-days forever.",
+      "description": "GitHub actions wait 14 days. Only github-tags is aged: ghcr.io images and github-runners have no release timestamp, so ageing them would hold their updates forever.",
       "matchManagers": [
         "github-actions"
       ],
-      "minimumReleaseAge": "14 days",
-      "minimumReleaseAgeBehaviour": "timestamp-optional"
+      "matchDatasources": [
+        "github-tags"
+      ],
+      "minimumReleaseAge": "14 days"
     },
     {
       "description": "Digest updates re-pin an already-released tag; the tag itself has been out for 7 days, so don't gate the pin on a nonexistent release age.",

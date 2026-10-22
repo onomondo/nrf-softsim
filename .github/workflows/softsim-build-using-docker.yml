@@ -15,7 +15,7 @@ concurrency:
 
 jobs:
   build-in-docker-container:
-    runs-on: ubuntu-24.04
+    runs-on: ubuntu-26.04
     timeout-minutes: 60
     container: ghcr.io/nrfconnect/sdk-nrf-toolchain:v3.4.0@sha256:f1dca44678dae83e37404e33f369786f5b2ffe2ed497eec1815f66c3a868bace
     defaults:
@@ -46,6 +46,14 @@ jobs:
         with:
           path: modules/lib/onomondo-softsim
           submodules: true
+
+      # A toolchain image that differs from west.yml's sdk-nrf still builds green.
+      - name: Check toolchain image matches west.yml
+        working-directory: modules/lib/onomondo-softsim
+        run: |
+          ncs=$(awk '/name: sdk-nrf/{f=1} f&&/revision:/{print $2; exit}' west.yml)
+          refs=$(sed -n 's|^ *container: ghcr.io/nrfconnect/sdk-nrf-toolchain:\([^@]*\)@.*|\1|p' .github/workflows/*.yml | sort -u)
+          [ "$refs" = "$ncs" ] || { echo "toolchain image ($refs) != west.yml sdk-nrf ($ncs)"; exit 1; }
 
       # Update dependencies and submodules using west
       - name: Fetch nRF and Zephyr workspaces and dependencies
@@ -80,12 +88,20 @@ jobs:
       # Compile-check the static-profile mode too. The static vs external delta is
       # board-independent, so one board is enough. Runs after the archive so its
       # pristine rebuild doesn't clobber the archived (external) merged.hex.
+      #
+      # overlay-heap-stats.conf rides along: the only build that links ss_heap.c
+      # and nrf_softsim.c, so nothing else compiles the stats path. The greps
+      # check what a compile cannot: the option and the log level survived.
       - name: Build firmware (static profile mode, compile check)
         if: matrix.board == 'nrf9151dk/nrf9151/ns'
         working-directory: modules/lib/onomondo-softsim/samples/softsim_external_profile
         run: |
           west build --sysbuild --pristine=always --board ${{ matrix.board }} \
-            -- -DEXTRA_CONF_FILE=overlay-static.conf
+            -- -DEXTRA_CONF_FILE="overlay-static.conf;overlay-heap-stats.conf"
+          grep -qx 'CONFIG_SOFTSIM_HEAP_STATS=y' \
+            build/softsim_external_profile/zephyr/.config
+          grep -qE '^CONFIG_SOFTSIM_NRF_LOG_LEVEL=[34]$' \
+            build/softsim_external_profile/zephyr/.config
 
       # The sysbuild hook runs for every sysbuild build in the workspace; hello_world
       # proves it works without the (deprecated, default-off) Partition Manager.

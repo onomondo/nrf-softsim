@@ -76,10 +76,6 @@ config SOFTSIM_UICC_ENABLE_SANITIZE
     bool "Enable sanitizers in onomondo-uicc"
     default n
 
-config SOFTSIM_UICC_USE_SYSTEM_HEAP
-    bool "Use system malloc/free in onomondo-uicc"
-    default n
-
 config SOFTSIM_UICC_USE_LOGS
     bool "Enable ss_logp logging in onomondo-uicc"
     default y
@@ -140,11 +136,53 @@ endif #SOFTSIM
 
 endmenu
 
+# Top-level (not under `if SOFTSIM`) so autoconf defines it in every build,
+# including the native_sim unit-test builds that compile nrf_softsim.c without
+# CONFIG_SOFTSIM — same reason the log-level symbols below live here.
+config SOFTSIM_STACK_SIZE
+    int "SoftSIM work-queue thread stack size"
+    default 10000
+    help
+        Stack size of the dedicated work-queue thread that runs all SoftSIM
+        processing (ATR, APDU transactions, filesystem and crypto). The
+        default is deliberately generous; measure the high-water mark with
+        CONFIG_THREAD_ANALYZER before lowering it in a product build.
+
+config SOFTSIM_HEAP_SIZE
+    int "SoftSIM heap size"
+    range 30000 131072
+    default 30000
+    help
+        Usable bytes in SoftSIM's private heap. Every SoftSIM allocation --
+        SIM context, directory table, file cache, APDU transactions, TLV
+        decode trees, OTA responses -- comes from here and from nowhere else,
+        so an application cannot consume it and SoftSIM cannot consume the
+        application's. As far as this module is concerned
+        CONFIG_HEAP_MEM_POOL_SIZE may be 0.
+
+        The floor is not slack: steady state on the shipped profile is
+        11.5-13 kB and the RFM/OTA path peaks about 10 kB above that (a 4 kB
+        response held live while all 31 concatenated-SMS parts are queued).
+        Do not lower it without a measured high-water mark that covers an
+        RFM/OTA exchange -- see CONFIG_SOFTSIM_HEAP_STATS.
+
+config SOFTSIM_HEAP_STATS
+    bool "Log SoftSIM heap usage"
+    select SYS_HEAP_RUNTIME_STATS
+    help
+        Log the SoftSIM heap high-water mark each time it grows, naming the
+        INS byte of the APDU that caused it. This is the only SoftSIM-only
+        heap figure available: the kernel pool mixes every k_malloc caller in
+        the image. Exercise an RFM/OTA exchange before trusting a peak.
+        Raises CONFIG_SOFTSIM_NRF_LOG_LEVEL to INF, or the line cannot
+        be emitted.
+
 # Conditional defaults for per-layer log levels — placed BEFORE each template
 # source so they win over the template's `default LOG_DEFAULT_LEVEL` fallback
 # (Kconfig: first matching default wins).
 config SOFTSIM_NRF_LOG_LEVEL
     default 4 if SOFTSIM_NRF_DEBUG_LOGS
+    default 3 if SOFTSIM_HEAP_STATS
 
 module = SOFTSIM_NRF
 module-str = Onomondo-SoftSIM-NRF

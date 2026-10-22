@@ -91,8 +91,8 @@ static const uint8_t deinit_content[] = {0xd0, 0xd1, 0xd2, 0xd3, 0xd4, 0xd5, 0xd
  * port_check_provisioned() compares the stored IMSI against. */
 static const uint8_t unprovisioned_imsi[] = {0x08, 0x09, 0x10, 0x10, 0x00, 0x00, 0x00, 0x00, 0x10};
 
-/* SS_MAX_ENTRIES in ss_cache.c: the cache grows to this many buffered entries
- * before f_cache_find_buffer() starts evicting. */
+/* SS_MAX_ENTRIES in ss_cache.h: the cache grows to this many buffered slots
+ * before ss_slot_acquire() starts evicting. */
 #define CACHE_CAPACITY 10
 
 /* One file bigger than every other, so the open that evicts cannot reuse the

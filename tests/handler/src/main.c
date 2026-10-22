@@ -22,6 +22,7 @@
 #include <zephyr/ztest.h>
 
 #include <nrf_modem_softsim.h>
+#include <onomondo/softsim/mem.h>
 #include <onomondo/softsim/softsim.h>
 #include <onomondo/utils/ss_profile.h>
 
@@ -54,6 +55,18 @@ FAKE_VALUE_FUNC(int, ss_deinit_fs);
 FAKE_VALUE_FUNC(int, port_provision, struct ss_profile *);
 FAKE_VALUE_FUNC(int, port_check_provisioned);
 FAKE_VALUE_FUNC(int, ss_utils_check_key_existence, enum key_identifier_base);
+
+/* The allocator port (lib/ss_heap.c) is not compiled here. Route to the kernel
+ * heap so allocation stays real and the balance tests keep their meaning. */
+void *port_malloc(size_t size)
+{
+	return k_malloc(size);
+}
+
+void port_free(void *ptr)
+{
+	k_free(ptr);
+}
 
 /*
  * ss_utils_setup_key is declared with a VLA-style parameter, which FFF cannot
@@ -398,11 +411,10 @@ ZTEST(softsim_handler, test_a_deep_burst_is_drained_completely)
 /* --- the NULL-context orderings -------------------------------------------- */
 
 /*
- * Known defect. The command enum has a gap at value 2 (INIT=1, APDU=3,
- * DEINIT=4, RESET=5), and the handler's default case answers nothing at all --
- * no response, no error -- so the modem is left waiting on a req_id that will
- * never come back. Any command the modem gains in a future firmware lands here.
- * Expected to fail until the default case answers with nrf_modem_softsim_err().
+ * The command enum has a gap at value 2 (INIT=1, APDU=3, DEINIT=4, RESET=5),
+ * and any command the modem gains in a future firmware lands in the default
+ * case -- which must answer with nrf_modem_softsim_err() so the modem is never
+ * left waiting on a req_id.
  */
 ZTEST(softsim_handler, test_an_unknown_command_is_still_answered)
 {
@@ -414,7 +426,6 @@ ZTEST(softsim_handler, test_an_unknown_command_is_still_answered)
 
 	zassert_equal(completions(), 1, "an unknown command left the modem without an answer");
 }
-ZTEST_EXPECT_FAIL(softsim_handler, test_an_unknown_command_is_still_answered);
 
 /*
  * The modem sends RESET exactly when a request has become unresponsive, which
