@@ -74,9 +74,10 @@ jobs:
             | grep -Eq 'reg = <\s*${{ matrix.nvs_addr || '0xf0000' }} 0x8000\s*>'
           # Every hook the core declares weak in fs.h must be defined: on ARM an
           # undefined weak call links as a silent nop.w.
-          cc=$(sed -n 's/^CMAKE_C_COMPILER:[^=]*=//p' build/softsim_external_profile/CMakeCache.txt)
-          syms=$("${cc%gcc}nm" build/softsim_external_profile/zephyr/zephyr.elf)
-          hooks=$(sed -nE 's/.*[ *](ss_[a-z_]+)\(.*weak.*/\1/p' ../../lib/onomondo-uicc/include/onomondo/softsim/fs.h)
+          nm=$(sed -n 's/^CMAKE_NM:[^=]*=//p' build/softsim_external_profile/CMakeCache.txt)
+          syms=$("$nm" build/softsim_external_profile/zephyr/zephyr.elf)
+          hooks=$(tr '\n' ' ' < ../../lib/onomondo-uicc/include/onomondo/softsim/fs.h | tr ';' '\n' \
+            | sed -nE 's/.*[ *](ss_[a-z_]+)\(.*weak.*/\1/p')
           test -n "$hooks"
           for h in $hooks; do grep -qE " [TW] $h\$" <<<"$syms" || { echo "undefined: $h"; exit 1; }; done
 
