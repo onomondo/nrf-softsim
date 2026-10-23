@@ -244,7 +244,7 @@ from its own heap and no longer sets or requires yours. Two things to check:
   mandated value rather than a measured one. Delete it, or lower it to what your
   application actually allocates — the private heap is charged on top of it.
 
-### Measuring the heap
+### Measuring the heap and stack
 
 Build with `CONFIG_SOFTSIM_HEAP_STATS=y` — the sample carries
 [`overlay-heap-stats.conf`](../samples/softsim_external_profile/overlay-heap-stats.conf)
@@ -255,6 +255,12 @@ allocates about 10 kB more than steady state, and provisioning plus attach never
 it. The figure is a high-water mark, not a largest-free-block, so it says nothing about
 fragmentation, and because it only reports on growth a leak stays invisible until it
 exceeds the peak.
+
+[`overlay-thread-analyzer.conf`](../samples/softsim_external_profile/overlay-thread-analyzer.conf)
+does the same for the stack: every 30 s it logs each thread's high-water mark, SoftSIM's
+on the `softsim_wq` line. The mark resets on reboot and is only sampled, so a peak reached
+less than 30 s before a reboot is never logged. The RFM/OTA caveat above applies before
+lowering `CONFIG_SOFTSIM_STACK_SIZE`.
 
 Two more that no assert catches: some applications (e.g. `modem_shell`) fail to link with
 `... uses VFP register arguments` — add `CONFIG_FP_SOFTABI=y`. And the crypto port needs
