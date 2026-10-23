@@ -28,7 +28,7 @@ library's SoftSIM interface, and the glue in
    | Request | What the worker does |
    |---|---|
    | `NRF_MODEM_SOFTSIM_INIT` | Create the SIM context (`ss_new_ctx()`) if needed; unless suspended, reset it and prime the filesystem (`ss_init_fs()`). Answers with the ATR from `ss_atr()`. |
-   | `NRF_MODEM_SOFTSIM_APDU` | Feed the command APDU to `ss_application_apdu_transact()`. Answers with the response APDU + status words. |
+   | `NRF_MODEM_SOFTSIM_APDU` | Feed the command APDU to `ss_application_apdu_transact()`. Answers with the response APDU + status words. A `STATUS` first runs `ss_poll()`, so a proactive command the core holds (such as a REFRESH to retry) can be announced in its answer. |
    | `NRF_MODEM_SOFTSIM_RESET` | `ss_reset()` — warm reset of the SIM state. The modem issues this when a request became unresponsive, so answer promptly. |
    | `NRF_MODEM_SOFTSIM_DEINIT` | Unless suspended: free the context and `ss_deinit_fs()`, committing cached writes to flash. |
 
