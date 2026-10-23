@@ -165,12 +165,33 @@ static int capture_profile(struct ss_profile *profile)
 	return 0;
 }
 
+/* The handler answers out of its own stack and the modem copies during the call,
+ * so snapshot the bytes then. FFF bumps call_count before a custom fake runs, so
+ * a reader must wait on res_snapshot_taken, not on the count. */
+static uint8_t res_snapshot[260]; /* SIM_HAL_MAX_LE in nrf_softsim.c */
+static uint16_t res_snapshot_len;
+static K_SEM_DEFINE(res_snapshot_taken, 0, K_SEM_MAX_LIMIT);
+
+static int res_snapshot_fake(enum nrf_modem_softsim_cmd cmd, uint16_t req_id, const void *data,
+			     uint16_t len)
+{
+	if (data) {
+		memcpy(res_snapshot, data, MIN(len, sizeof(res_snapshot)));
+	}
+	res_snapshot_len = len;
+	k_sem_give(&res_snapshot_taken);
+	return 0;
+}
+
 static void reset_all_fakes(void)
 {
 	ALL_FAKES(RESET_FAKE)
 	FFF_RESET_HISTORY();
 	memset(&key_setup, 0, sizeof(key_setup));
 	memset(&captured_profile, 0, sizeof(captured_profile));
+	memset(res_snapshot, 0, sizeof(res_snapshot));
+	res_snapshot_len = 0;
+	k_sem_reset(&res_snapshot_taken);
 
 	nrf_modem_softsim_req_handler_set_fake.custom_fake = capture_handler;
 	ss_new_ctx_fake.custom_fake = new_ctx_ok;
@@ -247,24 +268,25 @@ ZTEST(softsim_handler, test_each_request_is_answered_exactly_once)
 }
 
 /*
- * The handler answers out of one static buffer for both the ATR and every APDU
- * response, and narrows the core's size_t length into the modem's uint16_t. That
- * plumbing is what the modem actually consumes, so pin the bytes and the length,
- * not just the call count.
+ * The handler answers the ATR and every APDU response out of a buffer on its
+ * own work-queue stack, and narrows the core's size_t length into the modem's
+ * uint16_t. That plumbing is what the modem actually consumes, so pin the
+ * bytes and the length via a call-time snapshot, not just the call count.
  */
 ZTEST(softsim_handler, test_answers_carry_the_core_response_bytes)
 {
-	const uint8_t *out;
+	nrf_modem_softsim_res_fake.custom_fake = res_snapshot_fake;
 
 	submit(NRF_MODEM_SOFTSIM_INIT, 1, NULL, 0);
-	wait_for_completions(1);
+	zassert_ok(k_sem_take(&res_snapshot_taken, K_SECONDS(2)), "INIT was not answered");
 
 	/* atr_ok() fills 8 bytes of 0x3b and returns 8. */
-	zassert_equal(nrf_modem_softsim_res_fake.arg3_val, 8, "ATR length was not passed through");
-	out = nrf_modem_softsim_res_fake.arg2_val;
-	zassert_not_null(out, "INIT must answer with the ATR buffer");
+	zassert_not_null(nrf_modem_softsim_res_fake.arg2_val,
+			 "INIT must answer with the ATR buffer");
+	zassert_equal(res_snapshot_len, 8, "ATR length was not passed through");
 	for (int i = 0; i < 8; i++) {
-		zassert_equal(out[i], 0x3b, "ATR byte %d differs from what the core produced", i);
+		zassert_equal(res_snapshot[i], 0x3b,
+			      "ATR byte %d differs from what the core produced", i);
 	}
 
 	uint8_t *apdu = k_malloc(4);
@@ -272,15 +294,14 @@ ZTEST(softsim_handler, test_answers_carry_the_core_response_bytes)
 	zassert_not_null(apdu);
 	memcpy(apdu, "\x00\xa4\x00\x0c", 4);
 	submit(NRF_MODEM_SOFTSIM_APDU, 2, apdu, 4);
-	wait_for_completions(2);
+	zassert_ok(k_sem_take(&res_snapshot_taken, K_SECONDS(2)), "APDU was not answered");
 
 	/* apdu_ok() fills 2 bytes of 0x90 and returns 2. */
-	zassert_equal(nrf_modem_softsim_res_fake.arg3_val, 2,
-		      "APDU response length was not passed through");
-	out = nrf_modem_softsim_res_fake.arg2_val;
-	zassert_not_null(out, "APDU must answer with the response buffer");
-	zassert_equal(out[0], 0x90, "APDU response byte 0 differs");
-	zassert_equal(out[1], 0x90, "APDU response byte 1 differs");
+	zassert_not_null(nrf_modem_softsim_res_fake.arg2_val,
+			 "APDU must answer with the response buffer");
+	zassert_equal(res_snapshot_len, 2, "APDU response length was not passed through");
+	zassert_equal(res_snapshot[0], 0x90, "APDU response byte 0 differs");
+	zassert_equal(res_snapshot[1], 0x90, "APDU response byte 1 differs");
 
 	/* DEINIT has nothing to say and must not point the modem at the buffer. */
 	submit(NRF_MODEM_SOFTSIM_DEINIT, 3, NULL, 0);
