@@ -577,9 +577,9 @@ int port_provision(struct ss_profile *profile)
 
 	/* The onomondo-uicc parser hands EF contents back as hex-ASCII and stores
 	 * the real key material in A001/A004. The nrf port instead stores the
-	 * compact binary form and keeps KI/KIC/KID in the KMU, so the on-flash
-	 * A001/A004 carry only a one-byte KMU slot tag in place of each key (the
-	 * AES/CMAC impl in ss_crypto.c resolves the tag to the hardware key). Build
+	 * compact binary form and keeps KI/KIC/KID as PSA persistent keys, so the
+	 * on-flash A001/A004 carry only a one-byte key tag in place of each key (the
+	 * AES/CMAC impl in ss_crypto.c resolves the tag to the PSA key id). Build
 	 * those binary EFs here. */
 	uint8_t iccid[ICCID_BIN_LEN];
 	uint8_t imsi[IMSI_BIN_LEN];
@@ -590,7 +590,7 @@ int port_provision(struct ss_profile *profile)
 	hex2bin((char *)profile->_3F00_7ff0_6f07, IMSI_LEN, imsi, sizeof(imsi));
 
 	/* A001: [KI_TAG | 15x 0x00 | OPC[16] | flag 0x00]. The KI slot holds only
-	 * the KMU tag; OPC sits at hex offset KEY_SIZE in the parsed profile. */
+	 * the key tag; OPC sits at hex offset KEY_SIZE in the parsed profile. */
 	a001[0] = KI_TAG;
 	hex2bin((char *)&profile->_3F00_A001[KEY_SIZE], KEY_SIZE, &a001[KEY_BIN_LEN],
 		sizeof(a001) - KEY_BIN_LEN);

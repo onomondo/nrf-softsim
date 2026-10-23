@@ -36,7 +36,7 @@ long ss_ftell(ss_FILE fp);
 int port_provision(struct ss_profile *profile);
 int port_check_provisioned(void);
 
-/* Binary EF sizes and KMU slot tags, as ss_fs.c derives them from the profile
+/* Binary EF sizes and key tags, as ss_fs.c derives them from the profile
  * field sizes. Kept here rather than exported so the test states the layout it
  * expects independently of the implementation. */
 #define KEY_BIN_LEN   (KEY_SIZE / 2)
@@ -449,10 +449,10 @@ ZTEST(softsim_fs, test_deinit_commits_what_close_did_not)
  * authenticates from, and it is the largest single function in the port. It was
  * faked in every suite, so none of the encodings below had ever been checked:
  * the hex-ASCII fields of the parsed profile become packed binary, and each key
- * is replaced by a one-byte KMU slot tag because the real key material lives in
- * the KMU rather than on flash.
+ * is replaced by a one-byte key tag because the real key material lives in
+ * TF-M's Internal Trusted Storage rather than in this filesystem.
  *
- * The KMU is not involved here -- that is nrf_softsim_provision()'s half of the
+ * The key store is not involved here -- that is nrf_softsim_provision()'s half of the
  * job, covered in the handler suite -- so this needs no PSA.
  */
 ZTEST(softsim_fs, test_provisioning_writes_the_expected_binary_efs)
@@ -482,7 +482,7 @@ ZTEST(softsim_fs, test_provisioning_writes_the_expected_binary_efs)
 	zassert_mem_equal(buf, "\x98\x00\x10\x32\x54\x76\x98\x10\x32\x14", ICCID_BIN_LEN,
 			  "ICCID encoding");
 
-	/* A001: the KI slot carries its KMU tag and nothing else, then the OPc. */
+	/* A001: the KI slot carries its key tag and nothing else, then the OPc. */
 	zassert_equal(read_flash_record(A001_PROV_ID, buf, A001_BIN_LEN), A001_BIN_LEN);
 	zassert_equal(buf[0], KI_TAG, "A001 does not start with the KI slot tag");
 	for (size_t i = 1; i < KEY_BIN_LEN; i++) {

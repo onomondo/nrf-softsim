@@ -7,9 +7,9 @@ project(softsim_crypto_test)
 
 set(SOFTSIM_LIB ${CMAKE_CURRENT_LIST_DIR}/../../lib)
 
-# ss_crypto.c talks to PSA and nothing else -- no KMU register access, no
+# ss_crypto.c talks to PSA and nothing else -- no TF-M API calls, no
 # nrf-specific headers -- so the same file the firmware compiles runs here
-# against Mbed TLS's PSA implementation. The "KMU slots" are plain persistent
+# against Mbed TLS's PSA implementation. The keys are plain persistent
 # PSA key ids (10, 11, 12), which is what makes this testable off-target.
 target_sources(app PRIVATE
   src/main.c

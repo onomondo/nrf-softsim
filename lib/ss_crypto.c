@@ -18,9 +18,9 @@
 
 LOG_MODULE_REGISTER(softsim_crypto, CONFIG_SOFTSIM_NRF_LOG_LEVEL);
 
-enum key_identifier_base key_id_to_kmu_slot(uint8_t key_id)
+enum key_identifier_base key_tag_to_psa_id(uint8_t key_tag)
 {
-	switch (key_id) {
+	switch (key_tag) {
 	case KI_TAG:
 		return KEY_ID_KI;
 	case KID_TAG:
@@ -80,20 +80,20 @@ int ss_utils_ota_calc_cc(uint8_t *cc, size_t cc_len, uint8_t *key, size_t key_le
 			 enum enc_algorithm alg, uint8_t *data1, size_t data1_len, uint8_t *data2,
 			 size_t data2_len)
 {
-	enum key_identifier_base slot_id = key_id_to_kmu_slot(key[0]);
+	enum key_identifier_base key_id = key_tag_to_psa_id(key[0]);
 
 	psa_status_t status;
 
-	/* Only supports AES_CMAC on nRF91 Series as KMU doesn't support 3DES CMAC */
+	/* This port implements AES-CMAC only */
 	if (alg != AES_CMAC) {
 		LOG_DBG("Only AES_CMAC supported, supplied alg: %d", alg);
 		return -EINVAL;
 	}
 
-	LOG_DBG("CMAC key resolved to: %d", slot_id);
+	LOG_DBG("CMAC key resolved to: %d", key_id);
 
 	/* Has to be KID */
-	if (slot_id == KEY_ID_UNKNOWN || slot_id != KEY_ID_KID) {
+	if (key_id == KEY_ID_UNKNOWN || key_id != KEY_ID_KID) {
 		LOG_ERR("Unknown key id: %d", key[0]);
 		return -EINVAL;
 	}
@@ -102,7 +102,7 @@ int ss_utils_ota_calc_cc(uint8_t *cc, size_t cc_len, uint8_t *key, size_t key_le
 
 	psa_mac_operation_t mac_op;
 	mac_op = psa_mac_operation_init();
-	status = psa_mac_sign_setup(&mac_op, slot_id, PSA_ALG_CMAC);
+	status = psa_mac_sign_setup(&mac_op, key_id, PSA_ALG_CMAC);
 	ASSERT_STATUS(status, PSA_SUCCESS);
 
 	uint8_t mac_buf[16];
@@ -154,12 +154,12 @@ void ss_utils_3des_encrypt(uint8_t *buffer, size_t buffer_len, const uint8_t *ke
 
 void ss_utils_aes_decrypt(uint8_t *buffer, size_t buffer_len, const uint8_t *key, size_t key_len)
 {
-	enum key_identifier_base slot_id = key_id_to_kmu_slot(key[0]);
+	enum key_identifier_base key_id = key_tag_to_psa_id(key[0]);
 	psa_status_t status;
 
-	LOG_DBG("AES decrypt: resolved to key id: %d", slot_id);
+	LOG_DBG("AES decrypt: resolved to key id: %d", key_id);
 
-	if (slot_id == KEY_ID_UNKNOWN) {
+	if (key_id == KEY_ID_UNKNOWN) {
 		LOG_ERR("Unknown key id: %d", key[0]);
 		return;
 	}
@@ -170,7 +170,7 @@ void ss_utils_aes_decrypt(uint8_t *buffer, size_t buffer_len, const uint8_t *key
 
 	uint32_t out_len = 0;
 
-	status = psa_cipher_decrypt_setup(&operation, slot_id, PSA_ALG_CBC_NO_PADDING);
+	status = psa_cipher_decrypt_setup(&operation, key_id, PSA_ALG_CBC_NO_PADDING);
 	ASSERT_STATUS(status, PSA_SUCCESS);
 
 	psa_cipher_set_iv(&operation, iv, AES_BLOCKSIZE);
@@ -188,12 +188,12 @@ exit:
 
 void ss_utils_aes_encrypt(uint8_t *buffer, size_t buffer_len, const uint8_t *key, size_t key_len)
 {
-	enum key_identifier_base slot_id = key_id_to_kmu_slot(key[0]);
+	enum key_identifier_base key_id = key_tag_to_psa_id(key[0]);
 	psa_status_t status;
 
-	LOG_DBG("AES encrypt to key id: %d", slot_id);
+	LOG_DBG("AES encrypt to key id: %d", key_id);
 
-	if (slot_id == KEY_ID_UNKNOWN) {
+	if (key_id == KEY_ID_UNKNOWN) {
 		LOG_ERR("Unknown key id: %d", key[0]);
 		return;
 	}
@@ -203,7 +203,7 @@ void ss_utils_aes_encrypt(uint8_t *buffer, size_t buffer_len, const uint8_t *key
 	uint8_t *encrypted_buffer = shared_buffer;
 	uint32_t out_len = 0;
 
-	status = psa_cipher_encrypt_setup(&operation, slot_id, PSA_ALG_CBC_NO_PADDING);
+	status = psa_cipher_encrypt_setup(&operation, key_id, PSA_ALG_CBC_NO_PADDING);
 	ASSERT_STATUS(status, PSA_SUCCESS);
 
 	psa_cipher_set_iv(&operation, iv, AES_BLOCKSIZE);
