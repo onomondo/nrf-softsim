@@ -40,6 +40,7 @@ config SOFTSIM_NRF_DEBUG_LOGS
 config SOFTSIM_LIBS_DEBUG_LOGS
     bool "Enable verbose debug logs for the onomondo-uicc library"
     default n
+    select SOFTSIM_UICC_USE_LOGS
     help
         When y, SS_LOGP messages from the onomondo-uicc library are emitted
         at DBG level via the softsim_uicc Zephyr log module. This is the
@@ -78,7 +79,10 @@ config SOFTSIM_UICC_ENABLE_SANITIZE
 
 config SOFTSIM_UICC_USE_LOGS
     bool "Enable ss_logp logging in onomondo-uicc"
-    default y
+    default n
+    help
+        Compiles the library's SS_LOGP calls in. Off by default to save
+        flash and RAM; turn on to diagnose the card.
 
 config SOFTSIM_UICC_USE_EXPERIMENTAL_SUSPEND_COMMAND
     bool "Enable experimental suspend command in onomondo-uicc"
@@ -218,6 +222,7 @@ source "${ZEPHYR_BASE}/subsys/logging/Kconfig.template.log_config"
 
 config SOFTSIM_LIBS_LOG_LEVEL
     default 4 if SOFTSIM_LIBS_DEBUG_LOGS
+    default 0 if !SOFTSIM_UICC_USE_LOGS
 
 module = SOFTSIM_LIBS
 module-str = Onomondo-SoftSIM-libs
