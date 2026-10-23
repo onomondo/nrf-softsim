@@ -59,6 +59,8 @@ int port_check_provisioned(void);
  * that asserts an exact on-flash length needs a record nothing else touches. */
 #define PATCH_ID    0x8011
 #define PATCH_PATH  "/3f00/a101"
+#define RO_ID       0x8102 /* high byte 0x81 -> FS_READ_ONLY | FS_COMMIT_ON_CLOSE */
+#define RO_PATH     "/3f00/r000"
 
 /* Records with no flag byte at all: ss_fclose() does not commit these, so a
  * write to one stays dirty in the cache. That makes them the only way to reach
@@ -83,6 +85,7 @@ int port_check_provisioned(void);
 #define A004_PROV_PATH  "/3f00/a004"
 
 static const uint8_t plain_content[] = {0x98, 0x00, 0x10, 0x32, 0x54, 0x76, 0x98, 0x10, 0x32, 0x14};
+static const uint8_t ro_content[] = {0x0a, 0x1b, 0x2c, 0x3d, 0x4e, 0x5f, 0x60, 0x71};
 static const uint8_t commit_content[] = {1, 2, 3, 4, 5, 6, 7, 8};
 static const uint8_t patch_content[] = {0x11, 0x22, 0x33, 0x44, 0x55, 0x66, 0x77, 0x88};
 static const uint8_t deinit_content[] = {0xd0, 0xd1, 0xd2, 0xd3, 0xd4, 0xd5, 0xd6, 0xd7};
@@ -162,6 +165,7 @@ static void seed_nvs(void)
 	len = put_record(blob, 0, PLAIN_ID, PLAIN_PATH);
 	len = put_record(blob, len, COMMIT_ID, COMMIT_PATH);
 	len = put_record(blob, len, PATCH_ID, PATCH_PATH);
+	len = put_record(blob, len, RO_ID, RO_PATH);
 	len = put_record(blob, len, DEINIT_ID, DEINIT_PATH);
 	len = put_record(blob, len, GROW_ID, GROW_PATH);
 	len = put_record(blob, len, IMSI_PROV_ID, IMSI_PROV_PATH);
@@ -183,6 +187,8 @@ static void seed_nvs(void)
 		     "seeding %s failed", COMMIT_PATH);
 	zassume_true(nvs_write(&seed, PATCH_ID, patch_content, sizeof(patch_content)) > 0,
 		     "seeding %s failed", PATCH_PATH);
+	zassume_true(nvs_write(&seed, RO_ID, ro_content, sizeof(ro_content)) > 0,
+		     "seeding %s failed", RO_PATH);
 	zassume_true(nvs_write(&seed, DEINIT_ID, deinit_content, sizeof(deinit_content)) > 0,
 		     "seeding %s failed", DEINIT_PATH);
 	zassume_true(nvs_write(&seed, GROW_ID, commit_content, sizeof(commit_content)) > 0,
@@ -273,6 +279,31 @@ ZTEST(softsim_fs, test_write_then_reread_in_the_same_session)
 	zassert_mem_equal(buf + sizeof(patch), patch_content + sizeof(patch),
 			  sizeof(patch_content) - sizeof(patch),
 			  "the bytes past the write were not preserved on flash");
+}
+
+/*
+ * FS_READ_ONLY must win over FS_COMMIT_ON_CLOSE: a record carrying both flags
+ * must never be committed by ss_fclose(). That is the only close behaviour the
+ * flag changes -- without FS_COMMIT_ON_CLOSE the close never wrote anyway --
+ * and it is the footgun a template key straying into 0x81xx would arm: the
+ * file's close-commit silently stops. The shipped template marks no file
+ * read-only, so this is the guard's only caller. Only the close path is
+ * pinned: the eviction write-back and the ss_deinit_fs() flush still commit a
+ * dirty read-only buffer -- pre-existing behaviour, deliberately not asserted.
+ */
+ZTEST(softsim_fs, test_read_only_file_is_not_committed_on_close)
+{
+	const uint8_t marker = 0x99;
+	uint8_t buf[sizeof(ro_content)];
+	ss_FILE f = ss_fopen(RO_PATH, "r+");
+
+	zassert_not_null(f, "%s did not open", RO_PATH);
+	zassert_equal(ss_fwrite(&marker, 1, 1, f), 1, "%s did not take the write", RO_PATH);
+	ss_fclose(f);
+
+	zassert_equal(read_flash_record(RO_ID, buf, sizeof(buf)), sizeof(ro_content),
+		      "the close changed the record length on flash");
+	zassert_equal(buf[0], ro_content[0], "a read-only record reached flash on close");
 }
 
 /*
