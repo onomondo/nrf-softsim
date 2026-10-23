@@ -77,7 +77,7 @@ behave in ways the help text can't fully convey:
   `SOFTSIM_LOG_IMMEDIATE_MODE_BAUD` (1000000) at boot — **reconnect your terminal at
   that rate**. SEGGER RTT avoids the UART bottleneck entirely. Debug only.
 - **`SOFTSIM_UICC_DISABLE_SMS`** — compiles the core without SMS, and with it RFM/OTA remote
-  file management (OTA arrives over SMS); `CONFIG_SOFTSIM_HEAP_SIZE` defaults to 15000. The
+  file management (OTA arrives over SMS), and lowers the heap and stack defaults. The
   card still answers an SMS-PP DOWNLOAD, with 6F00 and an error log.
 
 ## Flash partitioning
@@ -211,8 +211,8 @@ To upgrade firmware while keeping the profile, either:
 
 | Resource | Requirement |
 |---|---|
-| Heap | SoftSIM allocates from its own heap, `CONFIG_SOFTSIM_HEAP_SIZE` (30000 by default and its floor; 15000 when `SOFTSIM_UICC_DISABLE_SMS` compiles SMS and OTA out). Nothing to budget on top: your `CONFIG_HEAP_MEM_POOL_SIZE` is yours alone, and may be 0 if your application never calls `k_malloc`. |
-| SoftSIM thread | `softsim_wq`, 10 kB stack (`CONFIG_SOFTSIM_STACK_SIZE`; 4096 when `SOFTSIM_UICC_DISABLE_SMS` compiles SMS and OTA out), priority 5 (`CONFIG_SOFTSIM_THREAD_PRIORITY`). |
+| Heap | SoftSIM allocates from its own heap, `CONFIG_SOFTSIM_HEAP_SIZE` (default and floor in [`Kconfig`](../Kconfig)). Nothing to budget on top: your `CONFIG_HEAP_MEM_POOL_SIZE` is yours alone, and may be 0 if your application never calls `k_malloc`. |
+| SoftSIM thread | `softsim_wq`, sized by `CONFIG_SOFTSIM_STACK_SIZE` and prioritised by `CONFIG_SOFTSIM_THREAD_PRIORITY` (defaults in [`Kconfig`](../Kconfig)). |
 | Flash | 32 kB `nvs_storage` + the TF-M secure region, sized by the devicetree `slot0_s_partition` node: 0x18000 (96 kB) on both nRF91 DK layouts, 0x14000 (80 kB) on Thingy:91, 0x20000 (128 kB) on Thingy:91 X. Large applications may need features trimmed to fit — the linker reports overflow. The same applies to RAM. |
 | TF-M | `CONFIG_BUILD_WITH_TFM=y` is a hard dependency (PSA crypto). The sample shows how to keep it small (`CONFIG_TFM_PARTITION_PROTECTED_STORAGE=n`, `CONFIG_PSA_CRYPTO_DRIVER_CC3XX=n`). |
 
