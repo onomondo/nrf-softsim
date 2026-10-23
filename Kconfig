@@ -157,10 +157,8 @@ config SOFTSIM_STACK_SIZE
         default is deliberately generous; measure the high-water mark with
         CONFIG_THREAD_ANALYZER before lowering it in a product build.
 
-        With CONFIG_SOFTSIM_UICC_DISABLE_SMS the deepest path, an RFM/OTA
-        exchange, does not exist: the thread peaked at 1,944 B on an
-        nRF9151-DK over cold-start LTE attach cycles, so the default is
-        4096. With SMS it stays 10000 until a multi-part OTA is measured.
+        With CONFIG_SOFTSIM_UICC_DISABLE_SMS the RFM/OTA path does not exist;
+        cold LTE attaches peaked at 1,944 B, so the default is 4096.
 
 config SOFTSIM_THREAD_PRIORITY
     int "SoftSIM work-queue thread priority"
