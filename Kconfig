@@ -200,6 +200,7 @@ config SOFTSIM_HEAP_SIZE
 
 config SOFTSIM_HEAP_STATS
     bool "Log SoftSIM heap usage"
+    depends on LOG
     select SYS_HEAP_RUNTIME_STATS
     help
         Log the SoftSIM heap high-water mark each time it grows, naming the

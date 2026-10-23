@@ -41,6 +41,9 @@ No changes to this repository are needed — consume it as a west module.
    rather than editing the repo's. The overlay deliberately does **not** bring a
    partition layout — see [Flash partitioning](#flash-partitioning).
 
+   Nor does it turn logging on: set `CONFIG_LOG=y` for SoftSIM's logs, and see
+   [`CONFIG_SOFTSIM_UICC_USE_LOGS`](../Kconfig) for the library's.
+
 3. Include a [partition layout](#flash-partitioning) from a board overlay and set
    `SB_CONFIG_SOFTSIM_BUNDLE_TEMPLATE_HEX=y` in `sysbuild.conf` so
    [the filesystem template](#the-filesystem-template) travels with the firmware.
