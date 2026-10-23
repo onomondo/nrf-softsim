@@ -48,6 +48,7 @@ FAKE_VALUE_FUNC(size_t, ss_atr, struct ss_context *, uint8_t *, size_t);
 FAKE_VALUE_FUNC(uint8_t, ss_is_suspended, struct ss_context *);
 FAKE_VALUE_FUNC(size_t, ss_application_apdu_transact, struct ss_context *, uint8_t *, size_t,
 		uint8_t *, size_t *);
+FAKE_VOID_FUNC(ss_poll, struct ss_context *);
 
 /* Filesystem port (lib/ss_fs.c) and crypto (lib/ss_crypto.c) */
 FAKE_VALUE_FUNC(int, ss_init_fs);
@@ -104,6 +105,7 @@ int ss_utils_setup_key(size_t key_len, uint8_t key[static key_len], enum key_ide
 	F(ss_atr)                                                                                  \
 	F(ss_is_suspended)                                                                         \
 	F(ss_application_apdu_transact)                                                            \
+	F(ss_poll)                                                                                 \
 	F(ss_init_fs)                                                                              \
 	F(ss_deinit_fs)                                                                            \
 	F(port_commit_fs)                                                                          \
@@ -453,6 +455,29 @@ ZTEST(softsim_handler, test_envelope_commits_the_cache_after_answering)
 	zassert_equal(answers_at_commit, 2, "the commit must not delay the ENVELOPE's answer");
 }
 
+static unsigned int transactions_at_poll;
+
+static void record_transactions_at_poll(struct ss_context *c)
+{
+	ARG_UNUSED(c);
+	transactions_at_poll = ss_application_apdu_transact_fake.call_count;
+}
+
+ZTEST(softsim_handler, test_status_polls_the_core_before_answering)
+{
+	static const uint8_t status[] = {0x80, 0xf2, 0x00, 0x0c, 0x00};
+
+	ss_poll_fake.custom_fake = record_transactions_at_poll;
+	submit(NRF_MODEM_SOFTSIM_INIT, 1, NULL, 0);
+	wait_for_completions(1);
+	submit_apdu(2, status, sizeof(status));
+	wait_for_count(&nrf_modem_softsim_data_free_fake.call_count, 1);
+
+	zassert_equal(ss_poll_fake.call_count, 1, "a STATUS must poll the core");
+	zassert_equal_ptr(ss_poll_fake.arg0_val, FAKE_CTX);
+	zassert_equal(transactions_at_poll, 0, "the poll must come before the STATUS is answered");
+}
+
 ZTEST(softsim_handler, test_other_apdus_leave_the_cache_alone)
 {
 	static const uint8_t read_binary[] = {0x00, 0xb0, 0x00, 0x00, 0x01};
@@ -462,6 +487,7 @@ ZTEST(softsim_handler, test_other_apdus_leave_the_cache_alone)
 	submit_apdu(2, read_binary, sizeof(read_binary));
 	wait_for_count(&nrf_modem_softsim_data_free_fake.call_count, 1);
 
+	zassert_equal(ss_poll_fake.call_count, 0);
 	zassert_equal(port_commit_fs_fake.call_count, 1, "only the INIT may commit");
 }
 

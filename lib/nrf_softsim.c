@@ -271,6 +271,15 @@ static void softsim_req_task(struct k_work *item)
 			LOG_HEXDUMP_DBG(s_req->payload.data, s_req->payload.data_len,
 					"SoftSIM APDU request");
 
+			/* STATUS is the terminal's proactive poll: run the core's proactive
+			 * tasks first, so this answer can announce a pending command. Each
+			 * STATUS is one core poll cycle: the core gives a lost TERMINAL
+			 * RESPONSE up after 30, about 15 min at the modem's 30 s cadence,
+			 * longer once an idle modem stops polling. */
+			if (ins == 0xF2) {
+				ss_poll(ctx);
+			}
+
 			size_t req_len = s_req->payload.data_len;
 			size_t rsp_len = ss_application_apdu_transact(
 				ctx, softsim_buffer_out, SIM_HAL_MAX_LE, s_req->payload.data,
