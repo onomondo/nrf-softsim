@@ -67,6 +67,17 @@ a SIM-core failure is still answered, just with a possibly empty or bogus payloa
 `nrf_modem_softsim_res()` itself is checked; when *it* fails the error is logged and the
 request goes unanswered, again falling back to the modem's timeout and `RESET`.
 
+Measured on mfw_nrf91x1 2.0.4 (nRF9151 DK): the modem waits **2 s** for the answer to any
+request. Then it sends `RESET` with the same `req_id`, 2 s later `DEINIT`, 2 s later a fresh
+`INIT`, and after a second unanswered round it declares the card failed (`+CEREG: 90`,
+`%XSIM: 0,9`) and only probes `INIT`+`DEINIT` every 30 s from then on. An answer that arrives
+after that is still accepted by the Modem library but does not revive the session; only a
+modem restart does (`AT+CFUN=4`, `AT%XFACTORYRESET=0`, pin reset). Because `RESET` is served
+by the same work queue as the stalled request, the handler cannot recover from a stall by
+itself: every request must be answered within 2 s. An `INIT` answered with
+`nrf_modem_softsim_err()` is milder: the modem retries `INIT` once, reports the card failed,
+and the next `AT+CFUN=4`/`AT+CFUN=41` cycle brings it up again without a restart.
+
 ### Suspend
 
 The modem can suspend the SIM (UICC SUSPEND, enabled by
