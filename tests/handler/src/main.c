@@ -429,11 +429,12 @@ ZTEST(softsim_handler, test_an_unknown_command_is_still_answered)
 
 /*
  * The modem sends RESET exactly when a request has become unresponsive, which
- * is when ordering is least predictable -- so a RESET (or APDU) arriving
- * without a context must be answered with an error, never handed to
- * ss_reset(), which dereferences immediately on target.
+ * is when ordering is least predictable -- so a RESET arriving without a
+ * context is acknowledged as is, never handed to ss_reset(), which
+ * dereferences immediately on target. A reset of nothing cannot fail, so the
+ * answer is a plain response, not an error.
  *
- * Asserted against the fake's recorded argument rather than by letting it
+ * Asserted against the fake's recorded calls rather than by letting it
  * crash, so the suite reports a regression instead of taking the process down.
  */
 ZTEST(softsim_handler, test_reset_never_receives_a_null_context)
@@ -450,19 +451,42 @@ ZTEST(softsim_handler, test_reset_never_receives_a_null_context)
 	submit(NRF_MODEM_SOFTSIM_RESET, 4, NULL, 0);
 	wait_for_completions(4);
 
-	/* Deliberately not asserting a call count: INIT resets the card too, and
-	 * a fix may well drop the RESET-with-no-context call altogether. The
-	 * invariant is only that no reset is ever handed a NULL context. */
-	for (unsigned int i = 0; i < ss_reset_fake.call_count; i++) {
-		zassert_not_null(ss_reset_fake.arg0_history[i],
-				 "ss_reset() call %u received a NULL context", i);
-	}
+	/* Both RESETs are acknowledged; only INIT reset the card, with a real context. */
+	zassert_equal(nrf_modem_softsim_err_fake.call_count, 0, "RESET answered with an error");
+	zassert_equal(nrf_modem_softsim_res_fake.call_count, 4);
+	zassert_equal(nrf_modem_softsim_res_fake.arg1_history[0], 1);
+	zassert_equal(nrf_modem_softsim_res_fake.arg1_history[3], 4);
+	zassert_equal(ss_reset_fake.call_count, 1, "only INIT may reset the card");
+	zassert_equal_ptr(ss_reset_fake.arg0_history[0], FAKE_CTX);
+}
+
+/*
+ * An APDU without a context has no card to answer it: the request is failed,
+ * never handed to the core, and its payload is still released.
+ */
+ZTEST(softsim_handler, test_apdu_without_a_context_is_answered_with_an_error)
+{
+	uint8_t *apdu = k_malloc(4);
+
+	zassert_not_null(apdu);
+	memcpy(apdu, "\x00\xa4\x00\x0c", 4);
+	submit(NRF_MODEM_SOFTSIM_APDU, 1, apdu, 4);
+	wait_for_completions(1);
+
+	zassert_equal(nrf_modem_softsim_err_fake.call_count, 1, "the APDU must be failed");
+	zassert_equal(nrf_modem_softsim_err_fake.arg1_val, 1);
+	zassert_equal(ss_application_apdu_transact_fake.call_count, 0,
+		      "the core must not see an APDU without a context");
+	zassert_equal(nrf_modem_softsim_data_free_fake.call_count, 1,
+		      "the payload must still be released");
+	zassert_equal_ptr(nrf_modem_softsim_data_free_fake.arg0_val, apdu);
 }
 
 /*
  * Same class, different entry point: ss_new_ctx() returns NULL when the heap is
  * exhausted, and ss_is_suspended(NULL) deliberately answers 0 -- so INIT must
- * check the allocation itself before the reset path runs.
+ * check the allocation itself before the reset path runs, fail the request,
+ * and leave a later INIT able to bring the card up.
  */
 ZTEST(softsim_handler, test_init_handles_context_allocation_failure)
 {
@@ -472,8 +496,22 @@ ZTEST(softsim_handler, test_init_handles_context_allocation_failure)
 	submit(NRF_MODEM_SOFTSIM_INIT, 1, NULL, 0);
 	wait_for_completions(1);
 
+	zassert_equal(nrf_modem_softsim_err_fake.call_count, 1, "INIT must be failed");
+	zassert_equal(nrf_modem_softsim_res_fake.call_count, 0);
 	zassert_equal(ss_reset_fake.call_count, 0,
 		      "a failed context allocation must not reach ss_reset()");
+	zassert_equal(ss_atr_fake.call_count, 0,
+		      "a failed context allocation must not reach ss_atr()");
+	zassert_is_null(ctx);
+
+	/* The heap recovers: the next INIT brings the card up. */
+	ss_new_ctx_fake.custom_fake = new_ctx_ok;
+	submit(NRF_MODEM_SOFTSIM_INIT, 2, NULL, 0);
+	wait_for_completions(2);
+
+	zassert_equal(nrf_modem_softsim_res_fake.call_count, 1, "a later INIT must succeed");
+	zassert_equal(nrf_modem_softsim_res_fake.arg1_val, 2);
+	zassert_equal_ptr(ctx, FAKE_CTX);
 }
 
 /* ===========================================================================

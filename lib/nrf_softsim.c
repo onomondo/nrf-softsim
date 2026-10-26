@@ -235,26 +235,17 @@ static void softsim_req_task(struct k_work *item)
 			ins = ((const uint8_t *)s_req->payload.data)[1];
 		}
 
-		/* The context is allocated by INIT, which the modem sends first;
-		 * APDU and RESET dereference it and cannot run without it. */
-		if (!ctx && (s_req->req == NRF_MODEM_SOFTSIM_APDU ||
-			     s_req->req == NRF_MODEM_SOFTSIM_RESET)) {
-			LOG_ERR("SoftSIM request %d before INIT", s_req->req);
-			nrf_modem_softsim_err(s_req->req, s_req->req_id);
-			goto free_node;
-		}
-
 		switch (s_req->req) {
 		case NRF_MODEM_SOFTSIM_INIT: {
 			LOG_DBG("SoftSIM INIT REQ");
 			if (!ctx) { /* Check needed since multiple INIT requests can be sent */
 				ctx = ss_new_ctx();
-			}
-
-			if (!ctx) { /* ss_is_suspended(NULL) is 0; ss_reset(NULL) crashes */
-				LOG_ERR("SoftSIM context allocation failed");
-				nrf_modem_softsim_err(s_req->req, s_req->req_id);
-				goto free_node;
+				/* ss_is_suspended(NULL) is 0; ss_reset(NULL) crashes */
+				if (!ctx) {
+					LOG_ERR("SoftSIM context allocation failed");
+					nrf_modem_softsim_err(s_req->req, s_req->req_id);
+					break;
+				}
 			}
 
 			if (!ss_is_suspended(ctx)) {
@@ -274,6 +265,12 @@ static void softsim_req_task(struct k_work *item)
 			break;
 		}
 		case NRF_MODEM_SOFTSIM_APDU: {
+			if (!ctx) { /* Before INIT or after DEINIT there is no card */
+				LOG_ERR("SoftSIM APDU without a context");
+				nrf_modem_softsim_err(s_req->req, s_req->req_id);
+				break;
+			}
+
 			LOG_HEXDUMP_DBG(s_req->payload.data, s_req->payload.data_len,
 					"SoftSIM APDU request");
 
@@ -313,7 +310,9 @@ static void softsim_req_task(struct k_work *item)
 		case NRF_MODEM_SOFTSIM_RESET: {
 			LOG_DBG("SoftSIM RESET");
 
-			ss_reset(ctx);
+			if (ctx) { /* Nothing to reset before INIT or after DEINIT */
+				ss_reset(ctx);
+			}
 
 			err = nrf_modem_softsim_res(s_req->req, s_req->req_id, NULL, 0);
 			if (err) {
@@ -329,7 +328,6 @@ static void softsim_req_task(struct k_work *item)
 			break;
 		}
 
-free_node:
 		/* Free the payload data of the request node if allocated */
 		if (s_req->payload.data) {
 			nrf_modem_softsim_data_free(s_req->payload.data);
