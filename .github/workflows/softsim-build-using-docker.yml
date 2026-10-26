@@ -85,23 +85,59 @@ jobs:
           overwrite: true
           if-no-files-found: warn
 
+      # The nrf-actions HIL rig flashes this build for every run that has it, so
+      # every HIL verdict rests on it, and its peaks column reads the logs it
+      # adds. Never released. The greps check what a compile cannot: each log
+      # line the rig parses is still compiled in, and the queue still has the
+      # name the rig looks for.
+      - name: Build firmware (HIL stats)
+        if: contains(matrix.board, 'dk/')
+        working-directory: modules/lib/onomondo-softsim/samples/softsim_external_profile
+        run: |
+          west build --sysbuild --pristine=always --board ${{ matrix.board }} -d build-stats \
+            -- -DEXTRA_CONF_FILE="overlay-heap-stats.conf;overlay-thread-analyzer.conf"
+          test -f build-stats/merged.hex
+          config=build-stats/softsim_external_profile/zephyr/.config
+          grep -qx 'CONFIG_SOFTSIM_HEAP_STATS=y' "$config"
+          grep -qE '^CONFIG_SOFTSIM_NRF_LOG_LEVEL=[34]$' "$config"
+          grep -qx 'CONFIG_THREAD_ANALYZER_AUTO=y' "$config"
+          grep -qx 'CONFIG_THREAD_ANALYZER_LOG_LEVEL=3' "$config"
+          grep -qx 'CONFIG_THREAD_RUNTIME_STATS=y' "$config"
+          grep -qx 'CONFIG_THREAD_NAME=y' "$config"
+          grep -qa 'softsim_wq' build-stats/softsim_external_profile/zephyr/zephyr.elf
+
+      - name: Archive SoftSIM HIL stats build
+        if: contains(matrix.board, 'dk/')
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: ${{ steps.artifact_name.outputs.artifact_name }}_stats
+          path: modules/lib/onomondo-softsim/samples/softsim_external_profile/build-stats/merged.hex
+          overwrite: true
+          if-no-files-found: error
+
       # Compile-check the static-profile mode too. The static vs external delta is
       # board-independent, so one board is enough. Runs after the archive so its
       # pristine rebuild doesn't clobber the archived (external) merged.hex.
-      #
-      # overlay-heap-stats.conf rides along: the only build that links ss_heap.c
-      # and nrf_softsim.c, so nothing else compiles the stats path. The greps
-      # check what a compile cannot: the option and the log level survived.
       - name: Build firmware (static profile mode, compile check)
         if: matrix.board == 'nrf9151dk/nrf9151/ns'
         working-directory: modules/lib/onomondo-softsim/samples/softsim_external_profile
         run: |
           west build --sysbuild --pristine=always --board ${{ matrix.board }} \
-            -- -DEXTRA_CONF_FILE="overlay-static.conf;overlay-heap-stats.conf"
-          grep -qx 'CONFIG_SOFTSIM_HEAP_STATS=y' \
-            build/softsim_external_profile/zephyr/.config
-          grep -qE '^CONFIG_SOFTSIM_NRF_LOG_LEVEL=[34]$' \
-            build/softsim_external_profile/zephyr/.config
+            -- -DEXTRA_CONF_FILE=overlay-static.conf
+
+      # A build passes whether or not the option reached the submodule, so
+      # check the link map (uicc_cat.c.obj stays, as the positive control).
+      - name: Build firmware (SMS and OTA compiled out)
+        if: matrix.board == 'nrf9151dk/nrf9151/ns'
+        working-directory: modules/lib/onomondo-softsim/samples/softsim_external_profile
+        run: |
+          west build --sysbuild --pristine=always --board ${{ matrix.board }} \
+            -- -DCONFIG_SOFTSIM_UICC_DISABLE_SMS=y
+          map=build/softsim_external_profile/zephyr/zephyr.map
+          grep -qx 'CONFIG_SOFTSIM_HEAP_SIZE=15000' build/softsim_external_profile/zephyr/.config
+          grep -qx 'CONFIG_SOFTSIM_STACK_SIZE=4096' build/softsim_external_profile/zephyr/.config
+          grep -q 'uicc_cat\.c\.obj' "$map"
+          if grep -qE 'uicc_(remote_cmd|sms_rx)\.c\.obj' "$map"; then exit 1; fi
 
       # The sysbuild hook runs for every sysbuild build in the workspace; hello_world
       # proves it works without the (deprecated, default-off) Partition Manager.

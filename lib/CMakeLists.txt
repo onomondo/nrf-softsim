@@ -56,7 +56,7 @@ file(MAKE_DIRECTORY ${_softsim_install_dir})
 # Set default option values in one place.
 _softsim_set_uicc_bool(CONFIG_ENABLE_SANITIZE CONFIG_SOFTSIM_UICC_ENABLE_SANITIZE OFF "Enable -fsanitize in onomondo-uicc build")
 _softsim_set_uicc_bool(CONFIG_USE_SYSTEM_HEAP CONFIG_SOFTSIM_UICC_USE_SYSTEM_HEAP OFF "Use system malloc/free in onomondo-uicc")
-_softsim_set_uicc_bool(CONFIG_USE_LOGS CONFIG_SOFTSIM_UICC_USE_LOGS ON "Enable ss_logp logging in onomondo-uicc")
+_softsim_set_uicc_bool(CONFIG_USE_LOGS CONFIG_SOFTSIM_UICC_USE_LOGS OFF "Enable ss_logp logging in onomondo-uicc")
 _softsim_set_uicc_bool(CONFIG_USE_EXPERIMENTAL_SUSPEND_COMMAND CONFIG_SOFTSIM_UICC_USE_EXPERIMENTAL_SUSPEND_COMMAND ON "Enable experimental suspend command in onomondo-uicc")
 _softsim_set_uicc_bool(CONFIG_EXTERNAL_CRYPTO_IMPL CONFIG_SOFTSIM_UICC_EXTERNAL_CRYPTO_IMPL ON "Use external crypto implementation in onomondo-uicc")
 _softsim_set_uicc_bool(CONFIG_EXTERNAL_KEY_LOAD CONFIG_SOFTSIM_UICC_EXTERNAL_KEY_LOAD OFF "Enable external key loader in onomondo-uicc")
@@ -64,6 +64,7 @@ _softsim_set_uicc_bool(CONFIG_USE_UTILS CONFIG_SOFTSIM_UICC_USE_UTILS OFF "Build
 _softsim_set_uicc_bool(CONFIG_NO_DEFAULT_IMPL CONFIG_SOFTSIM_UICC_NO_DEFAULT_IMPL ON "Build onomondo-uicc with no default impl")
 _softsim_set_uicc_bool(CONFIG_COMPACT_STORAGE CONFIG_SOFTSIM_UICC_COMPACT_STORAGE ON "Build with compact storage implementation")
 _softsim_set_uicc_bool(CONFIG_BUILD_LIB_ONLY CONFIG_SOFTSIM_UICC_BUILD_LIB_ONLY ON "Only build libraries in onomondo-uicc")
+_softsim_set_uicc_bool(CONFIG_DISABLE_SMS CONFIG_SOFTSIM_UICC_DISABLE_SMS OFF "Compile out SMS (and OTA/RFM) in onomondo-uicc")
 
 # Detect uninitialized git submodule early and emit an actionable error.
 if(NOT EXISTS "${CMAKE_CURRENT_SOURCE_DIR}/onomondo-uicc/CMakeLists.txt")

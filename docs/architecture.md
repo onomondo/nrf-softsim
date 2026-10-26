@@ -19,7 +19,8 @@ library's SoftSIM interface, and the glue in
    `nrf_modem_softsim_req_handler_set()`. **This callback runs in an interrupt service
    routine**, so it must not block.
 2. The handler allocates a request node, puts it on a FIFO, and submits work to a
-   **dedicated work queue** (own thread, 10 kB stack, `SOFTSIM_STACK_SIZE`).
+   **dedicated work queue** (own thread `softsim_wq`, stack `SOFTSIM_STACK_SIZE`,
+   priority `SOFTSIM_THREAD_PRIORITY`).
 3. The worker drains the FIFO and dispatches on the request type. Every case answers
    with `nrf_modem_softsim_res()`:
 
