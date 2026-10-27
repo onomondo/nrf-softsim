@@ -27,9 +27,9 @@ library's SoftSIM interface, and the glue in
 
    | Request | What the worker does |
    |---|---|
-   | `NRF_MODEM_SOFTSIM_INIT` | Create the SIM context (`ss_new_ctx()`) if needed, answering with an error if that fails; unless suspended, reset it and prime the filesystem (`ss_init_fs()`). Answers with the ATR from `ss_atr()`. |
-   | `NRF_MODEM_SOFTSIM_APDU` | Without a context, answers with an error. Otherwise feed the command APDU to `ss_application_apdu_transact()`. Answers with the response APDU + status words. |
-   | `NRF_MODEM_SOFTSIM_RESET` | `ss_reset()` — warm reset of the SIM state; without a context there is nothing to reset and the request is acknowledged as is. The modem issues this when a request became unresponsive, so answer promptly. |
+   | `NRF_MODEM_SOFTSIM_INIT` | Create the SIM context (`ss_new_ctx()`) if needed; unless suspended, reset it and prime the filesystem (`ss_init_fs()`). Answers with the ATR from `ss_atr()`. |
+   | `NRF_MODEM_SOFTSIM_APDU` | Feed the command APDU to `ss_application_apdu_transact()`. Answers with the response APDU + status words. |
+   | `NRF_MODEM_SOFTSIM_RESET` | `ss_reset()` — warm reset of the SIM state. The modem issues this when a request became unresponsive, so answer promptly. |
    | `NRF_MODEM_SOFTSIM_DEINIT` | Unless suspended: free the context and `ss_deinit_fs()`, committing cached writes to flash. |
 
 4. Request payloads handed over by the Modem library are released with
@@ -45,10 +45,10 @@ accepted only while the modem is deactivated, and is committed to modem NVM on
 
 ### Threading
 
-The SIM context is created, used and freed on the work queue only, so the SIM core
-needs no locking of its own. The *filesystem* is not confined to that thread:
-`nrf_softsim_init()` calls `ss_init_fs()` in its caller's context, and
-`nrf_softsim_provision()` runs on the application thread and mutates the same cache
+APDU and context processing runs on the work queue only, so the SIM core needs no
+locking of its own. The *filesystem* is not confined to that thread:
+`nrf_softsim_init()` calls `ss_init_fs()` in its caller's context,
+and `nrf_softsim_provision()` runs on the application thread and mutates the same cache
 (`port_provision()` in [`lib/ss_fs.c`](../lib/ss_fs.c)). **Provision before the modem is
 activated, not concurrently with it.**
 
@@ -58,25 +58,14 @@ Recovery lives one layer up: apart from the context allocation, no SIM-core resu
 checked inside the worker, so it's the modem's own response-timeout and `RESET`
 protocol — not per-call error codes — that actually recovers from a failure.
 
-`nrf_modem_softsim_err()` answers the requests that cannot be served: from the ISR when
-the request node cannot be allocated, and from the worker for an unknown request, an
-`APDU` without a context, or a failed context allocation. Return values from
-`ss_init_fs()`/`ss_deinit_fs()` are discarded, `ss_reset()` is `void`, and the lengths
-from `ss_atr()` and `ss_application_apdu_transact()` go straight into the response — so
-a SIM-core failure is still answered, just with a possibly empty or bogus payload. Only
-`nrf_modem_softsim_res()` itself is checked; when *it* fails the error is logged and the
-request goes unanswered, again falling back to the modem's timeout and `RESET`.
-
-Measured on mfw_nrf91x1 2.0.4 (nRF9151 DK): the modem waits **2 s** for the answer to any
-request. Then it sends `RESET` with the same `req_id`, 2 s later `DEINIT`, 2 s later a fresh
-`INIT`, and after a second unanswered round it declares the card failed (`+CEREG: 90`,
-`%XSIM: 0,9`) and only probes `INIT`+`DEINIT` every 30 s from then on. An answer that arrives
-after that is still accepted by the Modem library but does not revive the session; only a
-modem restart does (`AT+CFUN=4`, `AT%XFACTORYRESET=0`, pin reset). Because `RESET` is served
-by the same work queue as the stalled request, the handler cannot recover from a stall by
-itself: every request must be answered within 2 s. An `INIT` answered with
-`nrf_modem_softsim_err()` is milder: the modem retries `INIT` once, reports the card failed,
-and the next `AT+CFUN=4`/`AT+CFUN=41` cycle brings it up again without a restart.
+`nrf_modem_softsim_err()` answers only requests that cannot be served at all, such as a
+failed request-node or context allocation. Return values from
+`ss_init_fs()`/`ss_deinit_fs()` are discarded, `ss_reset()`
+is `void`, and the lengths from `ss_atr()` and `ss_application_apdu_transact()` go
+straight into the response — so a SIM-core failure is still answered, just with a
+possibly empty or bogus payload. Only `nrf_modem_softsim_res()` itself is checked; when
+*it* fails the error is logged and the request goes unanswered, again falling back to
+the modem's timeout and `RESET`.
 
 ### Suspend
 
