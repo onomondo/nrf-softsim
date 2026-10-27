@@ -24,6 +24,18 @@
         "# renovate: datasource=(?<datasource>.*?)(?: depName=(?<depName>.+?))? packageName=(?<packageName>.+?)(?: versioning=(?<versioning>.*?))?(?: extractVersion=(?<extractVersion>.*?))?\\s.+?((?i)VERSION)\\s*:\\s*(?:'|\")(?<currentValue>[^(?:'|\")]+)(?:'|\")",
         "# renovate: datasource=(?<datasource>.*?)(?: depName=(?<depName>.+?))? packageName=(?<packageName>.+?)(?: versioning=(?<versioning>.*?))?(?: extractVersion=(?<extractVersion>.*?))?\\s.+?((?i)VERSION)\\s*:\\s*(?<currentValue>[^'\"\\s]+)"
       ]
+    },
+    {
+      "description": "sdk-nrf revision in west.yml; west has no Renovate manager.",
+      "customType": "regex",
+      "managerFilePatterns": [
+        "/^west\\.yml$/"
+      ],
+      "matchStrings": [
+        "name: sdk-nrf\\n(?:[ \\t]+.*\\n)*?[ \\t]+revision: (?<currentValue>v\\d+\\.\\d+\\.\\d+)"
+      ],
+      "datasourceTemplate": "github-tags",
+      "depNameTemplate": "nrfconnect/sdk-nrf"
     }
   ],
   "packageRules": [
@@ -54,6 +66,14 @@
         "git-submodules"
       ],
       "allowedVersions": "/^v\\d+\\.\\d+\\.\\d+$/"
+    },
+    {
+      "description": "west.yml sdk-nrf and the NCS toolchain image must move together.",
+      "matchPackageNames": [
+        "nrfconnect/sdk-nrf",
+        "ghcr.io/nrfconnect/sdk-nrf-toolchain"
+      ],
+      "groupName": "nRF Connect SDK"
     }
   ]
 }
