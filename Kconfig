@@ -2,14 +2,28 @@ menu "Onomondo SoftSIM Options"
 
 config SOFTSIM
     bool "SoftSIM"
-    depends on NVS
-    depends on FLASH
-    depends on FLASH_MAP
-    depends on FLASH_PAGE_LAYOUT
-    depends on MPU_ALLOW_FLASH_WRITE
+    select FLASH
+    select FLASH_MAP
+    select FLASH_PAGE_LAYOUT
+    select MPU_ALLOW_FLASH_WRITE
     depends on BUILD_WITH_TFM
 
 if SOFTSIM
+
+choice SOFTSIM_FS_BACKEND
+    prompt "SoftSIM filesystem backend"
+    default SOFTSIM_FS_NVS
+    help
+        Storage backend for the SoftSIM filesystem. Selects the port sources built
+        in lib/ and enables what that backend needs.
+
+config SOFTSIM_FS_NVS
+    bool "NVS"
+    select NVS
+    help
+        Zephyr Non-volatile Storage (CONFIG_NVS). Builds ss_fs.c and ss_cache.c.
+
+endchoice
 
 config SOFTSIM_AUTO_INIT
     bool "Automatically initialize SoftSIM"

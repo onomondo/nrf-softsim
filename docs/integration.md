@@ -136,14 +136,19 @@ west build --sysbuild -b nrf9151dk/nrf9151/ns -- \
   -DEXTRA_DTC_OVERLAY_FILE=mcuboot-partitions.overlay
 ```
 
-On the Thingy:91 and Thingy:91 X the bootloader chain is enabled by the board defaults;
-the module gives those images the matching partition view where the factory layout differs
-from the stock board devicetree. On the Thingy:91 X this matters: the stock view would let
-a DFU swap write the image trailer into the SoftSIM storage area.
+On the Thingy:91 and Thingy:91 X the bootloader chain is enabled by the board defaults
+(`BOOTLOADER_MCUBOOT` is defaulted in each board's `Kconfig.sysbuild` in the NCS), so they
+need neither `-DSB_CONFIG_BOOTLOADER_MCUBOOT=y` nor `mcuboot-partitions.overlay` — that
+overlay is the DK layout and does not apply to them. The module gives those images the
+matching partition view where the factory layout differs from the stock board devicetree.
+On the Thingy:91 X this matters: the stock view would let a DFU swap write the image
+trailer into the SoftSIM storage area.
 
 The deprecated Partition Manager flow still works during the transition window: build with
 `-DSB_CONFIG_PARTITION_MANAGER=y` (static layouts in the `pm_static.yml` files, kept in
-the sample and under [`boards/`](../boards)).
+the sample and under [`boards/`](../boards)). In that flow, set
+`CONFIG_PM_PARTITION_SIZE_NVS_STORAGE=0x8000` in your `prj.conf`, as the sample does; the
+module no longer sets it.
 
 ### Applications that already bring a layout
 
@@ -160,6 +165,14 @@ west build --sysbuild -b nrf9151dk/nrf9151/ns nrf/samples/cellular/at_client -- 
   -DOVERLAY_CONFIG=$PATH_TO_ONOMONDO_SOFTSIM/overlay-softsim.conf \
   -DDTC_OVERLAY_FILE="$PATH_TO_ONOMONDO_SOFTSIM/dts/softsim/nrf91_softsim_partitions.dtsi;$PATH_TO_ONOMONDO_SOFTSIM/dts/softsim/nrf91_softsim_sram.dtsi"
 ```
+
+## Filesystem backend
+
+The SoftSIM filesystem is stored through a backend, chosen with the Kconfig choice
+[`SOFTSIM_FS_BACKEND`](../Kconfig). NVS (`CONFIG_SOFTSIM_FS_NVS`) is default one, so 
+it does not need to be set. The choice selects the port sources built in
+[`lib/`](../lib/CMakeLists.txt) (`ss_fs.c` and `ss_cache.c` for NVS) and turns on what the
+backend needs (`CONFIG_NVS`).
 
 ## The filesystem template
 

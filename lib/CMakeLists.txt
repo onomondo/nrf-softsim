@@ -115,14 +115,22 @@ zephyr_include_directories(onomondo-uicc/include)
 
 zephyr_library_sources(
   nrf_softsim.c
-  ss_fs.c
   onomondo-uicc/utils/ss_profile.c
-  ss_cache.c
   ss_heap.c
   ss_crypto.c
   ss_logp_zephyr.c
   build_asserts.c
 )
+
+# Filesystem backend sources, selected by the SOFTSIM_FS_BACKEND choice in Kconfig
+if(CONFIG_SOFTSIM_FS_NVS)
+  zephyr_library_sources(
+    ss_fs.c
+    ss_cache.c
+  )
+else()
+  message(FATAL_ERROR "SoftSIM: no filesystem backend selected (CONFIG_SOFTSIM_FS_NVS).")
+endif()
 
 target_compile_definitions(${ZEPHYR_CURRENT_LIBRARY} PRIVATE CONFIG_CUSTOM_HEAP)
 # Keep the port's storage_path[] and path buffers the same size as the
