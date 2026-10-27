@@ -161,6 +161,14 @@ west build --sysbuild -b nrf9151dk/nrf9151/ns nrf/samples/cellular/at_client -- 
   -DDTC_OVERLAY_FILE="$PATH_TO_ONOMONDO_SOFTSIM/dts/softsim/nrf91_softsim_partitions.dtsi;$PATH_TO_ONOMONDO_SOFTSIM/dts/softsim/nrf91_softsim_sram.dtsi"
 ```
 
+## Filesystem backend
+
+The SoftSIM filesystem is stored through a backend, chosen with the Kconfig choice
+[`SOFTSIM_FS_BACKEND`](../Kconfig). NVS (`CONFIG_SOFTSIM_FS_NVS`) is the default, so
+it does not need to be set. The choice selects the port sources built in
+[`lib/`](../lib/CMakeLists.txt) (`ss_fs.c` and `ss_cache.c` for NVS) and turns on what the
+backend needs (`CONFIG_NVS`).
+
 ## The filesystem template
 
 The `nvs_storage` partition must be pre-populated with the SoftSIM's initial filesystem
