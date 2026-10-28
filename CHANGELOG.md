@@ -1,5 +1,32 @@
 # Changelog
 
+## [7.0.0](https://github.com/onomondo/nrf-softsim/compare/v6.1.1...v7.0.0) (2026-10-28)
+
+
+### ⚠ BREAKING CHANGES
+
+* give SoftSIM its own heap ([#198](https://github.com/onomondo/nrf-softsim/issues/198))
+
+### Features
+
+* add an SMS+OTA opt-out and size the heap and stack to match ([#203](https://github.com/onomondo/nrf-softsim/issues/203)) ([2fd96d1](https://github.com/onomondo/nrf-softsim/commit/2fd96d1e856c6ef76aeb3cdfab37ca1b34fedd13))
+* configurable thread priority ([#218](https://github.com/onomondo/nrf-softsim/issues/218)) ([b728818](https://github.com/onomondo/nrf-softsim/commit/b728818083d581ad48f38fe7e0be70ae0a39bcb2))
+* give SoftSIM its own heap ([#198](https://github.com/onomondo/nrf-softsim/issues/198)) ([ec86509](https://github.com/onomondo/nrf-softsim/commit/ec865098a3658db2e4607b39aa9f93287c48fa4e))
+* name the SoftSIM thread ([#219](https://github.com/onomondo/nrf-softsim/issues/219)) ([f0099c0](https://github.com/onomondo/nrf-softsim/commit/f0099c0d15b81861057c95ef12516656f0471ad3))
+
+
+### Bug Fixes
+
+* drop trailing slash from west manifest url ([#207](https://github.com/onomondo/nrf-softsim/issues/207)) ([e7d359b](https://github.com/onomondo/nrf-softsim/commit/e7d359b9b185a55588d36a768316ea27162a9804))
+* fail INIT when the SIM context cannot be allocated ([#227](https://github.com/onomondo/nrf-softsim/issues/227)) ([590dc92](https://github.com/onomondo/nrf-softsim/commit/590dc923156ff2c865d443de653a564e6a159374))
+
+
+### Performance Improvements
+
+* compile out onomondo-uicc logs by default ([#224](https://github.com/onomondo/nrf-softsim/issues/224)) ([db49ad0](https://github.com/onomondo/nrf-softsim/commit/db49ad0a34e0a2f0150688fd1204471d77b5ef46))
+* replace the per-file cache entries with a compact dir table ([#197](https://github.com/onomondo/nrf-softsim/issues/197)) ([5b8ecd7](https://github.com/onomondo/nrf-softsim/commit/5b8ecd7c110141e658666ea725cc8d4610413033))
+* stop forcing CONFIG_LOG on in the SoftSIM overlay ([#225](https://github.com/onomondo/nrf-softsim/issues/225)) ([e500333](https://github.com/onomondo/nrf-softsim/commit/e50033398123ae94e82f04b39f8e7620975972ac))
+
 ## [6.1.1](https://github.com/onomondo/nrf-softsim/compare/v6.1.0...v6.1.1) (2026-08-28)
 
 
