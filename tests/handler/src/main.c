@@ -52,6 +52,7 @@ FAKE_VALUE_FUNC(size_t, ss_application_apdu_transact, struct ss_context *, uint8
 /* Filesystem port (lib/ss_fs.c) and crypto (lib/ss_crypto.c) */
 FAKE_VALUE_FUNC(int, ss_init_fs);
 FAKE_VALUE_FUNC(int, ss_deinit_fs);
+FAKE_VALUE_FUNC(int, port_commit_fs);
 FAKE_VALUE_FUNC(int, port_provision, struct ss_profile *);
 FAKE_VALUE_FUNC(int, port_check_provisioned);
 FAKE_VALUE_FUNC(int, ss_utils_check_key_existence, enum key_identifier_base);
@@ -105,6 +106,7 @@ int ss_utils_setup_key(size_t key_len, uint8_t key[static key_len], enum key_ide
 	F(ss_application_apdu_transact)                                                            \
 	F(ss_init_fs)                                                                              \
 	F(ss_deinit_fs)                                                                            \
+	F(port_commit_fs)                                                                          \
 	F(port_provision)                                                                          \
 	F(port_check_provisioned)                                                                  \
 	F(ss_utils_check_key_existence)
@@ -406,6 +408,96 @@ ZTEST(softsim_handler, test_a_deep_burst_is_drained_completely)
 	zassert_equal(nrf_modem_softsim_err_fake.call_count, 0, "a queued request errored");
 	zassert_equal(nrf_modem_softsim_data_free_fake.call_count, burst,
 		      "every payload in the burst must be released");
+}
+
+/* --- remote file management ----------------------------------------------- */
+
+static void submit_apdu(uint16_t req_id, const uint8_t *bytes, size_t len)
+{
+	uint8_t *apdu = k_malloc(len);
+
+	zassert_not_null(apdu);
+	memcpy(apdu, bytes, len);
+	submit(NRF_MODEM_SOFTSIM_APDU, req_id, apdu, len);
+}
+
+/* Wait for a fake's call count; the worker frees the payload last and commits
+ * INIT/RESET/DEINIT last. */
+static void wait_for_count(const unsigned int *count, unsigned int n)
+{
+	for (int i = 0; i < 2000 && *count < n; i++) {
+		k_msleep(1);
+	}
+	zassert_equal(*count, n);
+}
+
+static unsigned int answers_at_commit;
+
+static int record_answers_at_commit(void)
+{
+	answers_at_commit = nrf_modem_softsim_res_fake.call_count;
+	return 0;
+}
+
+ZTEST(softsim_handler, test_envelope_commits_the_cache_after_answering)
+{
+	static const uint8_t envelope[] = {0x80, 0xc2, 0x00, 0x00, 0x02, 0xd1, 0x00};
+
+	port_commit_fs_fake.custom_fake = record_answers_at_commit;
+	submit(NRF_MODEM_SOFTSIM_INIT, 1, NULL, 0);
+	wait_for_count(&port_commit_fs_fake.call_count, 1);
+	submit_apdu(2, envelope, sizeof(envelope));
+	wait_for_count(&nrf_modem_softsim_data_free_fake.call_count, 1);
+
+	zassert_equal(port_commit_fs_fake.call_count, 2, "an ENVELOPE must commit the cache");
+	zassert_equal(answers_at_commit, 2, "the commit must not delay the ENVELOPE's answer");
+}
+
+ZTEST(softsim_handler, test_other_apdus_leave_the_cache_alone)
+{
+	static const uint8_t read_binary[] = {0x00, 0xb0, 0x00, 0x00, 0x01};
+
+	submit(NRF_MODEM_SOFTSIM_INIT, 1, NULL, 0);
+	wait_for_count(&port_commit_fs_fake.call_count, 1);
+	submit_apdu(2, read_binary, sizeof(read_binary));
+	wait_for_count(&nrf_modem_softsim_data_free_fake.call_count, 1);
+
+	zassert_equal(port_commit_fs_fake.call_count, 1, "only the INIT may commit");
+}
+
+/* --- card session boundaries ---------------------------------------------- */
+
+ZTEST(softsim_handler, test_init_commits_the_cache_after_the_atr)
+{
+	port_commit_fs_fake.custom_fake = record_answers_at_commit;
+	submit(NRF_MODEM_SOFTSIM_INIT, 1, NULL, 0);
+	wait_for_count(&port_commit_fs_fake.call_count, 1);
+
+	zassert_equal(answers_at_commit, 1, "the commit must not delay the ATR");
+}
+
+ZTEST(softsim_handler, test_reset_commits_the_cache_after_answering)
+{
+	port_commit_fs_fake.custom_fake = record_answers_at_commit;
+	submit(NRF_MODEM_SOFTSIM_INIT, 1, NULL, 0);
+	wait_for_count(&port_commit_fs_fake.call_count, 1);
+	submit(NRF_MODEM_SOFTSIM_RESET, 2, NULL, 0);
+	wait_for_count(&port_commit_fs_fake.call_count, 2);
+
+	zassert_equal(answers_at_commit, 2, "the commit must not delay the RESET's answer");
+}
+
+ZTEST(softsim_handler, test_suspended_deinit_commits_the_cache_after_answering)
+{
+	port_commit_fs_fake.custom_fake = record_answers_at_commit;
+	submit(NRF_MODEM_SOFTSIM_INIT, 1, NULL, 0);
+	wait_for_count(&port_commit_fs_fake.call_count, 1);
+	ss_is_suspended_fake.return_val = 1;
+	submit(NRF_MODEM_SOFTSIM_DEINIT, 2, NULL, 0);
+	wait_for_count(&port_commit_fs_fake.call_count, 2);
+
+	zassert_equal(ss_deinit_fs_fake.call_count, 0, "a suspended card keeps its filesystem");
+	zassert_equal(answers_at_commit, 2, "the commit must not delay the DEINIT's answer");
 }
 
 /* --- the NULL-context orderings -------------------------------------------- */

@@ -98,6 +98,17 @@ int ss_init_fs(void);
 int ss_deinit_fs(void);
 
 /**
+ * @brief Write every buffered file change to NVS
+ *
+ * Internal helper used when a card session ends (INIT, RESET, DEINIT) and after an
+ * ENVELOPE, so writes made by the core or by remote file management survive
+ * a reset or power loss.
+ *
+ * @return 0 on success, -1 if a write failed (that change stays buffered)
+ */
+int port_commit_fs(void);
+
+/**
  * @brief Provision a parsed SoftSIM profile into NVS
  *
  * Internal helper used by nrf_softsim_provision after the encoded profile

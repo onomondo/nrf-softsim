@@ -148,24 +148,40 @@ int ss_init_fs(void)
 	return fs_dir_count == 0;
 }
 
+/* See nrf_softsim.h */
+int port_commit_fs(void)
+{
+	int rc = 0;
+
+	for (size_t i = 0; i < SS_MAX_ENTRIES; i++) {
+		struct ss_cache_slot *slot = &fs_slots[i];
+
+		if (!slot->buf || !slot->_b_dirty) {
+			continue;
+		}
+
+		LOG_DBG("SoftSIM committing key 0x%04x to NVS", fs_dir[slot->dir_idx].key);
+		if (nvs_write(&fs, fs_dir[slot->dir_idx].key, slot->buf, slot->_l) < 0) {
+			LOG_ERR("SoftSIM commit of key 0x%04x failed", fs_dir[slot->dir_idx].key);
+			rc = -1;
+			continue;
+		}
+		slot->_b_dirty = 0;
+	}
+
+	return rc;
+}
+
 /* See <onomondo/softsim/fs.h> in the onomondo-uicc submodule */
 int ss_deinit_fs(void)
 {
 	/* Commit changes to NVS and free the cache buffers and the table */
+	port_commit_fs();
+
 	for (size_t i = 0; i < SS_MAX_ENTRIES; i++) {
-		struct ss_cache_slot *slot = &fs_slots[i];
-
-		if (!slot->buf) {
-			continue;
+		if (fs_slots[i].buf) {
+			SS_FREE(fs_slots[i].buf);
 		}
-
-		if (slot->_b_dirty) {
-			LOG_INF("SoftSIM stop - committing key 0x%04x to NVS",
-				fs_dir[slot->dir_idx].key);
-			nvs_write(&fs, fs_dir[slot->dir_idx].key, slot->buf, slot->_l);
-		}
-
-		SS_FREE(slot->buf);
 	}
 
 	memset(fs_slots, 0, sizeof(fs_slots));
