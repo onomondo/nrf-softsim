@@ -242,6 +242,12 @@ static void softsim_req_task(struct k_work *item)
 			LOG_DBG("SoftSIM INIT REQ");
 			if (!ctx) { /* Check needed since multiple INIT requests can be sent */
 				ctx = ss_new_ctx();
+				/* ss_is_suspended(NULL) is 0; ss_reset(NULL) crashes */
+				if (!ctx) {
+					LOG_ERR("SoftSIM context allocation failed");
+					nrf_modem_softsim_err(s_req->req, s_req->req_id);
+					break;
+				}
 			}
 
 			if (!ss_is_suspended(ctx)) {

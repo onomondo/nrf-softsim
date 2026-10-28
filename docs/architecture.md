@@ -22,7 +22,8 @@ library's SoftSIM interface, and the glue in
    **dedicated work queue** (own thread `softsim_wq`, stack `SOFTSIM_STACK_SIZE`,
    priority `SOFTSIM_THREAD_PRIORITY`).
 3. The worker drains the FIFO and dispatches on the request type. Every case answers
-   with `nrf_modem_softsim_res()`:
+   with `nrf_modem_softsim_res()`, or with `nrf_modem_softsim_err()` when the request
+   cannot be served:
 
    | Request | What the worker does |
    |---|---|
@@ -53,12 +54,13 @@ activated, not concurrently with it.**
 
 ### Failure behavior
 
-Recovery lives one layer up: since no SIM-core request or response is checked inside the
-worker, it's the modem's own response-timeout and `RESET` protocol — not per-call error
-codes — that actually recovers from a failure.
+Recovery lives one layer up: apart from the context allocation, no SIM-core result is
+checked inside the worker, so it's the modem's own response-timeout and `RESET`
+protocol — not per-call error codes — that actually recovers from a failure.
 
-`nrf_modem_softsim_err()` has one call site: the ISR, when the request node cannot be
-allocated. Return values from `ss_init_fs()`/`ss_deinit_fs()` are discarded, `ss_reset()`
+`nrf_modem_softsim_err()` answers only requests that cannot be served at all, such as a
+failed request-node or context allocation. Return values from
+`ss_init_fs()`/`ss_deinit_fs()` are discarded, `ss_reset()`
 is `void`, and the lengths from `ss_atr()` and `ss_application_apdu_transact()` go
 straight into the response — so a SIM-core failure is still answered, just with a
 possibly empty or bogus payload. Only `nrf_modem_softsim_res()` itself is checked; when

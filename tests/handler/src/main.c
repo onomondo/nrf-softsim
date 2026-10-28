@@ -463,9 +463,9 @@ ZTEST_EXPECT_FAIL(softsim_handler, test_reset_never_receives_a_null_context);
 
 /*
  * Same class, different entry point: ss_new_ctx() returns NULL when the heap is
- * exhausted, and ss_is_suspended(NULL) deliberately answers 0, so the guard in
- * the INIT case passes and ss_reset(NULL) runs. Expected to fail until INIT
- * checks the allocation.
+ * exhausted, and ss_is_suspended(NULL) deliberately answers 0 -- so INIT must
+ * check the allocation itself before the reset path runs, fail the request,
+ * and leave a later INIT able to bring the card up.
  */
 ZTEST(softsim_handler, test_init_handles_context_allocation_failure)
 {
@@ -475,10 +475,23 @@ ZTEST(softsim_handler, test_init_handles_context_allocation_failure)
 	submit(NRF_MODEM_SOFTSIM_INIT, 1, NULL, 0);
 	wait_for_completions(1);
 
+	zassert_equal(nrf_modem_softsim_err_fake.call_count, 1, "INIT must be failed");
+	zassert_equal(nrf_modem_softsim_res_fake.call_count, 0);
 	zassert_equal(ss_reset_fake.call_count, 0,
 		      "a failed context allocation must not reach ss_reset()");
+	zassert_equal(ss_atr_fake.call_count, 0,
+		      "a failed context allocation must not reach ss_atr()");
+	zassert_is_null(ctx);
+
+	/* The heap recovers: the next INIT brings the card up. */
+	ss_new_ctx_fake.custom_fake = new_ctx_ok;
+	submit(NRF_MODEM_SOFTSIM_INIT, 2, NULL, 0);
+	wait_for_completions(2);
+
+	zassert_equal(nrf_modem_softsim_res_fake.call_count, 1, "a later INIT must succeed");
+	zassert_equal(nrf_modem_softsim_res_fake.arg1_val, 2);
+	zassert_equal_ptr(ctx, FAKE_CTX);
 }
-ZTEST_EXPECT_FAIL(softsim_handler, test_init_handles_context_allocation_failure);
 
 /* ===========================================================================
  * nrf_softsim_provision(): the validation layer over the profile parser.
