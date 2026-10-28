@@ -223,10 +223,12 @@ The build asserts in [`lib/build_asserts.c`](../lib/build_asserts.c) catch the p
 size and the Settings clash with an explanatory message, so you will be told rather than
 debug it. Two of them need context:
 
-- **Zephyr Settings.** `CONFIG_SETTINGS_NVS` is rejected — the SoftSIM needs the
-  `nvs_storage` partition. Switching to `CONFIG_SETTINGS_FCB=y` (or ZMS) is not enough on
-  its own: those backends default to `storage_partition`, which on the DK and Thingy:91 X
-  layouts *is* `nvs_storage`. Define a dedicated settings partition in your board overlay.
+- **Zephyr Settings.** The NVS, FCB and ZMS backends default to `storage_partition`,
+  which on the DK and Thingy:91 X layouts *is* `nvs_storage`. Define a dedicated settings
+  partition in your board overlay and select it with `zephyr,settings-partition`; it
+  must be neither `nvs_storage` nor a partition containing it. Under the Partition
+  Manager, `CONFIG_SETTINGS_NVS` is rejected: PM then leaves out the `nvs_storage`
+  partition the SoftSIM needs.
 - **MCUboot on the DKs.** Enabling it without switching to the MCUboot partition layout
   leaves the devicetree with no `boot_partition`; add the overlay
   [above](#flash-partitioning).
