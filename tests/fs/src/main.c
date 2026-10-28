@@ -15,6 +15,7 @@
  */
 
 #include <stdint.h>
+#include <stdio.h>
 #include <string.h>
 
 #include <zephyr/kernel.h>
@@ -33,6 +34,7 @@ LOG_MODULE_REGISTER(softsim, CONFIG_SOFTSIM_NRF_LOG_LEVEL);
  * defines them. Declared here so the tests can reach them. */
 int ss_fputc(int c, ss_FILE fp);
 long ss_ftell(ss_FILE fp);
+int ss_remove(const char *path);
 int port_provision(struct ss_profile *profile);
 int port_check_provisioned(void);
 
@@ -60,16 +62,27 @@ int port_check_provisioned(void);
 #define PATCH_ID    0x8011
 #define PATCH_PATH  "/3f00/a101"
 
-/* Records with no flag byte at all: ss_fclose() does not commit these, so a
- * write to one stays dirty in the cache. That makes them the only way to reach
- * the two paths that write to flash outside ss_fclose() -- the eviction
- * write-back and the ss_deinit_fs() flush. */
+/* Records with no flag byte: ss_fclose() does not commit these, so a write
+ * stays dirty in the cache until an eviction, a commit or ss_deinit_fs(). */
 #define EVICT_COUNT   12
 #define EVICT_BASE_ID 0x0020
 #define DEINIT_ID     0x0030
 #define DEINIT_PATH   "/3f00/d000"
+#define SYNC_ID       0x0031
+#define SYNC_PATH     "/3f00/d001"
 #define GROW_ID       0x0050
 #define GROW_PATH     "/3f00/g000"
+
+/* Records no other test opens: each one below is grown past an NVS sector and removed again. */
+#define REFUSE_ID            0x0032
+#define REFUSE_PATH          "/3f00/d002"
+#define REFUSE_CLOSE_ID      0x8012 /* FS_COMMIT_ON_CLOSE */
+#define REFUSE_CLOSE_PATH    "/3f00/a102"
+#define REFUSE_EVICT_COUNT   10
+#define REFUSE_EVICT_BASE_ID 0x0060
+/* One flash sector: a record this long is refused by nvs_write()
+ * (4 ATEs are reserved per sector). */
+#define NVS_SECTOR           0x1000
 
 /* The four EFs port_provision() writes. The paths are the ones ss_fs.c looks up
  * by name; the keys are this suite's own. */
@@ -86,6 +99,7 @@ static const uint8_t plain_content[] = {0x98, 0x00, 0x10, 0x32, 0x54, 0x76, 0x98
 static const uint8_t commit_content[] = {1, 2, 3, 4, 5, 6, 7, 8};
 static const uint8_t patch_content[] = {0x11, 0x22, 0x33, 0x44, 0x55, 0x66, 0x77, 0x88};
 static const uint8_t deinit_content[] = {0xd0, 0xd1, 0xd2, 0xd3, 0xd4, 0xd5, 0xd6, 0xd7};
+static const uint8_t sync_content[] = {0xe0, 0xe1, 0xe2, 0xe3, 0xe4, 0xe5, 0xe6, 0xe7};
 
 /* default_imsi in ss_fs.c: what an unprovisioned card carries, and what
  * port_check_provisioned() compares the stored IMSI against. */
@@ -104,6 +118,11 @@ static const uint8_t unprovisioned_imsi[] = {0x08, 0x09, 0x10, 0x10, 0x00, 0x00,
 static void evict_path(unsigned int i, char *out)
 {
 	snprintk(out, 11, "/3f00/e0%02u", i);
+}
+
+static void refuse_evict_path(unsigned int i, char *out)
+{
+	snprintk(out, 11, "/3f00/e1%02u", i);
 }
 
 static size_t evict_size(unsigned int i)
@@ -163,17 +182,27 @@ static void seed_nvs(void)
 	len = put_record(blob, len, COMMIT_ID, COMMIT_PATH);
 	len = put_record(blob, len, PATCH_ID, PATCH_PATH);
 	len = put_record(blob, len, DEINIT_ID, DEINIT_PATH);
+	len = put_record(blob, len, SYNC_ID, SYNC_PATH);
 	len = put_record(blob, len, GROW_ID, GROW_PATH);
 	len = put_record(blob, len, IMSI_PROV_ID, IMSI_PROV_PATH);
 	len = put_record(blob, len, ICCID_PROV_ID, ICCID_PROV_PATH);
 	len = put_record(blob, len, A001_PROV_ID, A001_PROV_PATH);
 	len = put_record(blob, len, A004_PROV_ID, A004_PROV_PATH);
+	len = put_record(blob, len, REFUSE_ID, REFUSE_PATH);
+	len = put_record(blob, len, REFUSE_CLOSE_ID, REFUSE_CLOSE_PATH);
 
 	for (unsigned int i = 0; i < EVICT_COUNT; i++) {
 		char path[11];
 
 		evict_path(i, path);
 		len = put_record(blob, len, (uint16_t)(EVICT_BASE_ID + i), path);
+	}
+
+	for (unsigned int i = 0; i < REFUSE_EVICT_COUNT; i++) {
+		char path[11];
+
+		refuse_evict_path(i, path);
+		len = put_record(blob, len, (uint16_t)(REFUSE_EVICT_BASE_ID + i), path);
 	}
 
 	zassume_true(nvs_write(&seed, DIR_ID, blob, len) > 0, "DIR write failed");
@@ -187,6 +216,12 @@ static void seed_nvs(void)
 		     "seeding %s failed", DEINIT_PATH);
 	zassume_true(nvs_write(&seed, GROW_ID, commit_content, sizeof(commit_content)) > 0,
 		     "seeding %s failed", GROW_PATH);
+	zassume_true(nvs_write(&seed, SYNC_ID, sync_content, sizeof(sync_content)) > 0,
+		     "seeding %s failed", SYNC_PATH);
+	zassume_true(nvs_write(&seed, REFUSE_ID, commit_content, sizeof(commit_content)) > 0,
+		     "seeding %s failed", REFUSE_PATH);
+	zassume_true(nvs_write(&seed, REFUSE_CLOSE_ID, commit_content, sizeof(commit_content)) > 0,
+		     "seeding %s failed", REFUSE_CLOSE_PATH);
 
 	/* The IMSI record starts out holding the placeholder ss_fs.c compares
 	 * against, so port_check_provisioned() reports "not provisioned". */
@@ -201,6 +236,12 @@ static void seed_nvs(void)
 		zassume_true(
 			nvs_write(&seed, (uint16_t)(EVICT_BASE_ID + i), content, evict_size(i)) > 0,
 			"seeding eviction file %u failed", i);
+	}
+
+	for (unsigned int i = 0; i < REFUSE_EVICT_COUNT; i++) {
+		zassume_true(nvs_write(&seed, (uint16_t)(REFUSE_EVICT_BASE_ID + i), commit_content,
+				       sizeof(commit_content)) > 0,
+			     "seeding refused-eviction file %u failed", i);
 	}
 }
 
@@ -318,6 +359,19 @@ ZTEST(softsim_fs, test_repeated_write_growth_does_not_leak)
 
 /* --- cache eviction and shutdown ------------------------------------------- */
 
+/* NVS refuses a record larger than a sector: grow the file past one, which no commit can write */
+static ss_FILE grow_past_a_sector(const char *path)
+{
+	ss_FILE f = ss_fopen((char *)path, "r+");
+
+	zassert_not_null(f, "%s did not open", path);
+	zassert_ok(ss_fseek(f, 0, SEEK_END));
+	while (ss_ftell(f) <= NVS_SECTOR) {
+		zassert_true(ss_fputc(0xff, f) >= 0, "%s did not grow", path);
+	}
+	return f;
+}
+
 /*
  * The cache holds ten buffers; past that, every open has to take one away from
  * another entry. That code writes the victim back if it was dirty, then either
@@ -395,11 +449,8 @@ ZTEST(softsim_fs, test_cache_eviction_writes_the_victim_back)
 }
 
 /*
- * ss_deinit_fs() is what the modem's DEINIT request reaches, and for records
- * without FS_COMMIT_ON_CLOSE it is the only thing that ever writes them to
- * flash. Until it runs, the write exists only in RAM -- which is what a power
- * loss before shutdown would throw away, and is asserted here so the boundary
- * is pinned rather than assumed.
+ * ss_deinit_fs() backs the modem's DEINIT; until a commit runs, a write to an
+ * unflagged record exists only in RAM, which a power loss would lose.
  *
  * The suite's filesystem is torn down and brought back up in the middle of this
  * test; it re-initialises before returning so the remaining tests still have a
@@ -432,6 +483,101 @@ ZTEST(softsim_fs, test_deinit_commits_what_close_did_not)
 	zassert_mem_equal(buf + 1, deinit_content + 1, sizeof(deinit_content) - 1,
 			  "the rest of the record did not survive the remount");
 	ss_fclose(f);
+}
+
+/* port_commit_fs() writes dirty files to flash; the filesystem and cache stay usable. */
+ZTEST(softsim_fs, test_commit_writes_dirty_files_and_keeps_them)
+{
+	const uint8_t marker = 0xa5;
+	uint8_t buf[sizeof(sync_content)];
+	ss_FILE f = ss_fopen(SYNC_PATH, "r+");
+
+	zassert_not_null(f);
+	zassert_equal(ss_fwrite(&marker, 1, 1, f), 1);
+	ss_fclose(f);
+
+	zassert_equal(read_flash_record(SYNC_ID, buf, sizeof(buf)), sizeof(sync_content));
+	zassert_equal(buf[0], sync_content[0], "the write reached flash before the commit");
+
+	zassert_ok(port_commit_fs(), "port_commit_fs() failed");
+	zassert_equal(read_flash_record(SYNC_ID, buf, sizeof(buf)), sizeof(sync_content),
+		      "the commit changed the record length");
+	zassert_equal(buf[0], marker, "port_commit_fs() did not commit the dirty buffer");
+	zassert_mem_equal(buf + 1, sync_content + 1, sizeof(sync_content) - 1);
+
+	f = ss_fopen(SYNC_PATH, "r");
+	zassert_not_null(f, "%s did not open after the commit", SYNC_PATH);
+	zassert_equal(ss_fread(buf, 1, sizeof(buf), f), sizeof(buf));
+	zassert_equal(buf[0], marker, "the cached copy was lost by the commit");
+	ss_fclose(f);
+}
+
+/* A commit NVS refuses leaves flash alone and keeps the change buffered;
+ * ss_deinit_fs() then reports it and keeps the filesystem up. */
+ZTEST(softsim_fs, test_a_refused_commit_keeps_the_change_and_the_filesystem)
+{
+	uint8_t buf[sizeof(commit_content)];
+	ss_FILE f = grow_past_a_sector(REFUSE_PATH);
+
+	ss_fclose(f);
+	zassert_equal(port_commit_fs(), -1, "NVS must refuse a record larger than a sector");
+	zassert_equal(read_flash_record(REFUSE_ID, buf, sizeof(buf)), sizeof(commit_content));
+	zassert_mem_equal(buf, commit_content, sizeof(buf), "a refused commit changed flash");
+
+	zassert_equal(ss_deinit_fs(), -1, "deinit must not drop a change NVS refused");
+	zassert_equal(ss_file_size(REFUSE_PATH), NVS_SECTOR + 1, "the buffered change was dropped");
+	zassert_equal(port_commit_fs(), -1, "the change must still be buffered");
+
+	/* The suite can never commit this record */
+	ss_remove(REFUSE_PATH);
+}
+
+/* A commit-on-close NVS refuses is reported by ss_fclose(), leaves flash alone
+ * and keeps the change buffered. */
+ZTEST(softsim_fs, test_a_refused_commit_on_close_keeps_the_change)
+{
+	uint8_t buf[sizeof(commit_content)];
+	ss_FILE f = grow_past_a_sector(REFUSE_CLOSE_PATH);
+
+	zassert_equal(ss_fclose(f), -1, "close must report the refused write");
+	zassert_equal(read_flash_record(REFUSE_CLOSE_ID, buf, sizeof(buf)), sizeof(commit_content));
+	zassert_mem_equal(buf, commit_content, sizeof(buf), "a refused commit changed flash");
+	zassert_equal(port_commit_fs(), -1, "the change must still be buffered");
+	ss_remove(REFUSE_CLOSE_PATH);
+}
+
+/* An eviction whose write-back NVS refuses refuses the open instead, and the
+ * victim keeps its change. */
+ZTEST(softsim_fs, test_a_refused_write_back_refuses_the_eviction)
+{
+	const uint8_t marker = 0xee;
+	char path[11];
+	ss_FILE f;
+
+	/* Empty cache, every hit count zero */
+	zassert_ok(ss_deinit_fs());
+	zassert_ok(ss_init_fs());
+
+	/* Dirty, two hits */
+	for (unsigned int i = 0; i < REFUSE_EVICT_COUNT - 1; i++) {
+		refuse_evict_path(i, path);
+		f = ss_fopen(path, "r+");
+		zassert_not_null(f, "%s did not open", path);
+		zassert_equal(ss_fwrite(&marker, 1, 1, f), 1, "%s did not take the write", path);
+		ss_fclose(f);
+		f = ss_fopen(path, "r");
+		zassert_not_null(f, "%s did not reopen", path);
+		ss_fclose(f);
+	}
+
+	/* Dirty, one hit, so it is the victim once every slot is dirty */
+	refuse_evict_path(REFUSE_EVICT_COUNT - 1, path);
+	ss_fclose(grow_past_a_sector(path));
+
+	zassert_is_null(ss_fopen(PLAIN_PATH, "r"), "an open must not evict a change NVS refuses");
+	zassert_equal(ss_file_size(path), NVS_SECTOR + 1, "the victim lost its change");
+	ss_remove(path);
+	zassert_ok(port_commit_fs(), "the other nine changes commit");
 }
 
 /*

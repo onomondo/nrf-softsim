@@ -148,24 +148,49 @@ int ss_init_fs(void)
 	return fs_dir_count == 0;
 }
 
-/* See <onomondo/softsim/fs.h> in the onomondo-uicc submodule */
-int ss_deinit_fs(void)
+/* Write a dirty slot to NVS; a refused write leaves the slot dirty */
+static int commit_slot(struct ss_cache_slot *slot)
 {
-	/* Commit changes to NVS and free the cache buffers and the table */
+	uint16_t key = fs_dir[slot->dir_idx].key;
+
+	LOG_DBG("SoftSIM committing key 0x%04x to NVS", key);
+	if (nvs_write(&fs, key, slot->buf, slot->_l) < 0) {
+		LOG_ERR("SoftSIM commit of key 0x%04x failed", key);
+		return -1;
+	}
+	slot->_b_dirty = 0;
+
+	return 0;
+}
+
+/* See nrf_softsim.h */
+int port_commit_fs(void)
+{
+	int rc = 0;
+
 	for (size_t i = 0; i < SS_MAX_ENTRIES; i++) {
 		struct ss_cache_slot *slot = &fs_slots[i];
 
-		if (!slot->buf) {
-			continue;
+		if (slot->buf && slot->_b_dirty && commit_slot(slot) < 0) {
+			rc = -1;
 		}
+	}
 
-		if (slot->_b_dirty) {
-			LOG_INF("SoftSIM stop - committing key 0x%04x to NVS",
-				fs_dir[slot->dir_idx].key);
-			nvs_write(&fs, fs_dir[slot->dir_idx].key, slot->buf, slot->_l);
+	return rc;
+}
+
+/* See <onomondo/softsim/fs.h> in the onomondo-uicc submodule */
+int ss_deinit_fs(void)
+{
+	/* A change NVS refused stays buffered: keep the filesystem up for the next commit */
+	if (port_commit_fs() < 0) {
+		return -1;
+	}
+
+	for (size_t i = 0; i < SS_MAX_ENTRIES; i++) {
+		if (fs_slots[i].buf) {
+			SS_FREE(fs_slots[i].buf);
 		}
-
-		SS_FREE(slot->buf);
 	}
 
 	memset(fs_slots, 0, sizeof(fs_slots));
@@ -266,10 +291,9 @@ struct ss_cache_slot *ss_load_to_slot(uint16_t dir_idx, uint16_t len)
 	size_t buffer_size = 0;
 
 	if (slot->buf) {
-		if (slot->_b_dirty) {
-			LOG_DBG("Cache slot for key 0x%04x is dirty, writing to NVS",
-				fs_dir[slot->dir_idx].key);
-			nvs_write(&fs, fs_dir[slot->dir_idx].key, slot->buf, slot->_l);
+		/* The victim's change must reach NVS before its buffer goes */
+		if (slot->_b_dirty && commit_slot(slot) < 0) {
+			return NULL;
 		}
 
 		if (len > slot->_b_size) {
@@ -341,6 +365,7 @@ char *ss_fgets(char *str, int n, ss_FILE fp)
 int ss_fclose(ss_FILE fp)
 {
 	struct ss_cache_slot *slot = (struct ss_cache_slot *)fp;
+	int rc = 0;
 
 	if (!slot) {
 		LOG_ERR("Invalid file pointer, ss_fclose failed");
@@ -353,16 +378,13 @@ int ss_fclose(ss_FILE fp)
 		goto out;
 	}
 
-	if (flags & FS_COMMIT_ON_CLOSE) {
-		if (slot->_b_dirty) {
-			nvs_write(&fs, fs_dir[slot->dir_idx].key, slot->buf, slot->_l);
-		}
-		slot->_b_dirty = 0;
+	if ((flags & FS_COMMIT_ON_CLOSE) && slot->_b_dirty) {
+		rc = commit_slot(slot);
 	}
 
 out:
 	slot->_p = 0; /* TODO: Resetting internal read/write pointer not needed? */
-	return 0;
+	return rc;
 }
 
 int ss_fseek(ss_FILE fp, long offset, int whence)
