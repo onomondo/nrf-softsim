@@ -60,14 +60,14 @@ int port_check_provisioned(void);
 #define PATCH_ID    0x8011
 #define PATCH_PATH  "/3f00/a101"
 
-/* Records with no flag byte at all: ss_fclose() does not commit these, so a
- * write to one stays dirty in the cache. That makes them the only way to reach
- * the two paths that write to flash outside ss_fclose() -- the eviction
- * write-back and the ss_deinit_fs() flush. */
+/* Records with no flag byte: ss_fclose() does not commit these, so a write
+ * stays dirty in the cache until an eviction, a commit or ss_deinit_fs(). */
 #define EVICT_COUNT   12
 #define EVICT_BASE_ID 0x0020
 #define DEINIT_ID     0x0030
 #define DEINIT_PATH   "/3f00/d000"
+#define SYNC_ID       0x0031
+#define SYNC_PATH     "/3f00/d001"
 #define GROW_ID       0x0050
 #define GROW_PATH     "/3f00/g000"
 
@@ -86,6 +86,7 @@ static const uint8_t plain_content[] = {0x98, 0x00, 0x10, 0x32, 0x54, 0x76, 0x98
 static const uint8_t commit_content[] = {1, 2, 3, 4, 5, 6, 7, 8};
 static const uint8_t patch_content[] = {0x11, 0x22, 0x33, 0x44, 0x55, 0x66, 0x77, 0x88};
 static const uint8_t deinit_content[] = {0xd0, 0xd1, 0xd2, 0xd3, 0xd4, 0xd5, 0xd6, 0xd7};
+static const uint8_t sync_content[] = {0xe0, 0xe1, 0xe2, 0xe3, 0xe4, 0xe5, 0xe6, 0xe7};
 
 /* default_imsi in ss_fs.c: what an unprovisioned card carries, and what
  * port_check_provisioned() compares the stored IMSI against. */
@@ -163,6 +164,7 @@ static void seed_nvs(void)
 	len = put_record(blob, len, COMMIT_ID, COMMIT_PATH);
 	len = put_record(blob, len, PATCH_ID, PATCH_PATH);
 	len = put_record(blob, len, DEINIT_ID, DEINIT_PATH);
+	len = put_record(blob, len, SYNC_ID, SYNC_PATH);
 	len = put_record(blob, len, GROW_ID, GROW_PATH);
 	len = put_record(blob, len, IMSI_PROV_ID, IMSI_PROV_PATH);
 	len = put_record(blob, len, ICCID_PROV_ID, ICCID_PROV_PATH);
@@ -187,6 +189,8 @@ static void seed_nvs(void)
 		     "seeding %s failed", DEINIT_PATH);
 	zassume_true(nvs_write(&seed, GROW_ID, commit_content, sizeof(commit_content)) > 0,
 		     "seeding %s failed", GROW_PATH);
+	zassume_true(nvs_write(&seed, SYNC_ID, sync_content, sizeof(sync_content)) > 0,
+		     "seeding %s failed", SYNC_PATH);
 
 	/* The IMSI record starts out holding the placeholder ss_fs.c compares
 	 * against, so port_check_provisioned() reports "not provisioned". */
@@ -395,11 +399,8 @@ ZTEST(softsim_fs, test_cache_eviction_writes_the_victim_back)
 }
 
 /*
- * ss_deinit_fs() is what the modem's DEINIT request reaches, and for records
- * without FS_COMMIT_ON_CLOSE it is the only thing that ever writes them to
- * flash. Until it runs, the write exists only in RAM -- which is what a power
- * loss before shutdown would throw away, and is asserted here so the boundary
- * is pinned rather than assumed.
+ * ss_deinit_fs() backs the modem's DEINIT; until a commit runs, a write to an
+ * unflagged record exists only in RAM, which a power loss would lose.
  *
  * The suite's filesystem is torn down and brought back up in the middle of this
  * test; it re-initialises before returning so the remaining tests still have a
@@ -431,6 +432,33 @@ ZTEST(softsim_fs, test_deinit_commits_what_close_did_not)
 	zassert_equal(buf[0], marker, "the committed byte did not survive the remount");
 	zassert_mem_equal(buf + 1, deinit_content + 1, sizeof(deinit_content) - 1,
 			  "the rest of the record did not survive the remount");
+	ss_fclose(f);
+}
+
+/* port_commit_fs() writes dirty files to flash; the filesystem and cache stay usable. */
+ZTEST(softsim_fs, test_commit_writes_dirty_files_and_keeps_them)
+{
+	const uint8_t marker = 0xa5;
+	uint8_t buf[sizeof(sync_content)];
+	ss_FILE f = ss_fopen(SYNC_PATH, "r+");
+
+	zassert_not_null(f);
+	zassert_equal(ss_fwrite(&marker, 1, 1, f), 1);
+	ss_fclose(f);
+
+	zassert_equal(read_flash_record(SYNC_ID, buf, sizeof(buf)), sizeof(sync_content));
+	zassert_equal(buf[0], sync_content[0], "the write reached flash before the commit");
+
+	zassert_ok(port_commit_fs(), "port_commit_fs() failed");
+	zassert_equal(read_flash_record(SYNC_ID, buf, sizeof(buf)), sizeof(sync_content),
+		      "the commit changed the record length");
+	zassert_equal(buf[0], marker, "port_commit_fs() did not commit the dirty buffer");
+	zassert_mem_equal(buf + 1, sync_content + 1, sizeof(sync_content) - 1);
+
+	f = ss_fopen(SYNC_PATH, "r");
+	zassert_not_null(f, "%s did not open after the commit", SYNC_PATH);
+	zassert_equal(ss_fread(buf, 1, sizeof(buf), f), sizeof(buf));
+	zassert_equal(buf[0], marker, "the cached copy was lost by the commit");
 	ss_fclose(f);
 }
 
