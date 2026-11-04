@@ -174,6 +174,35 @@ it does not need to be set. The choice selects the port sources built in
 [`lib/`](../lib/CMakeLists.txt) (`ss_fs.c` and `ss_cache.c` for NVS) and turns on what the
 backend needs (`CONFIG_NVS`).
 
+### LittleFS
+
+`CONFIG_SOFTSIM_FS_LFS` stores the filesystem in LittleFS instead
+([`lib/ss_fs_littlefs.c`](../lib/ss_fs_littlefs.c)). Enable it on the `west build` command
+line, not in `prj.conf`:
+
+```
+west build -p -b nrf9151dk/nrf9151/ns samples/softsim_external_profile -- -DCONFIG_SOFTSIM_FS_LFS=y
+```
+
+LittleFS needs a 48 kB storage partition instead of 32 kB. The module's sysbuild hook
+applies the matching `dts/softsim/storage-48k*.overlay` for the board and bootloader, and
+with MCUboot gives the bootloader the same slot layout as the application. The hook runs
+before the application's `prj.conf` is read, so it only sees the option on the command
+line. Set anywhere else, the build fails with a partition size error that says so.
+
+With LittleFS:
+
+- The template is [`lib/profile/lfs_SoftSIM.bin`](../lib/profile/lfs_SoftSIM.bin), a
+  prebuilt LittleFS image (4096-byte blocks, 12 blocks).
+- UICC paths are flat (`_3f00_7ff0_6f07` instead of `/3f00/7ff0/6f07`).
+  `CONFIG_SOFTSIM_UICC_ALT_FILE_SEPARATOR` follows the backend automatically and can't be
+  set by hand.
+- The partition is never formatted automatically. If it holds no valid LittleFS image (for
+  example, only the application was flashed), SoftSIM initialization fails with
+  "Failed to mount littlefs". Flash `merged.hex` (see below) to fix it.
+- Switching between NVS and LittleFS loses the provisioned profile: the two store data in
+  different formats. Do a pristine build and re-flash the template.
+
 ## The filesystem template
 
 The `nvs_storage` partition must be pre-populated with the SoftSIM's initial filesystem

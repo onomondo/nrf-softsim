@@ -23,7 +23,21 @@ config SOFTSIM_FS_NVS
     help
         Zephyr Non-volatile Storage (CONFIG_NVS). Builds ss_fs.c and ss_cache.c.
 
+config SOFTSIM_FS_LFS
+    bool "LittleFS"
+    select FILE_SYSTEM
+    select FILE_SYSTEM_LITTLEFS
+    help
+        LittleFS backend. Needs the larger (48 kB) nvs_storage partition: pass
+        -DCONFIG_SOFTSIM_FS_LFS=y so the module's sysbuild hook picks the
+        matching dts/softsim/storage-48k*.overlay.
+
 endchoice
+
+# Zephyr's littlefs_fs.c sizes its per-file cache pool from this symbol; the SoftSIM mount
+# (ss_fs_littlefs.c) uses 256-byte caches, so a smaller pool makes every ss_fopen() fail.
+config FS_LITTLEFS_CACHE_SIZE
+    default 256 if SOFTSIM_FS_LFS
 
 config SOFTSIM_AUTO_INIT
     bool "Automatically initialize SoftSIM"
@@ -97,6 +111,18 @@ config SOFTSIM_UICC_USE_LOGS
     help
         Compiles the library's SS_LOGP calls in. Off by default to save
         flash and RAM; turn on to diagnose the card.
+
+config SOFTSIM_UICC_ALT_FILE_SEPARATOR
+    def_bool SOFTSIM_FS_LFS
+    help
+        Joins each path's FID chain with "_" instead of "/" (e.g.
+        "_3f00_7ff0_6f07" instead of "/3f00/7ff0/6f07"), so every EF/DF
+        lands as a single flat entry with no real subdirectories.
+
+        The LittleFS template (lib/profile/lfs_SoftSIM.bin)
+        uses flat names and the LittleFS port only implements them, so this
+        is on exactly when CONFIG_SOFTSIM_FS_LFS is; the NVS template uses
+        "/" paths, so it is off with NVS.
 
 config SOFTSIM_UICC_USE_EXPERIMENTAL_SUSPEND_COMMAND
     bool "Enable experimental suspend command in onomondo-uicc"

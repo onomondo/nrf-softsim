@@ -29,10 +29,12 @@ jobs:
       matrix:
         board: [nrf9160dk/nrf9160/ns, nrf9161dk/nrf9161/ns, nrf9151dk/nrf9151/ns, thingy91/nrf9160/ns, thingy91x/nrf9151/ns]
         # Factory nvs_storage address per board; every other board uses the
-        # default 0xf0000 (see the pin in the build step below).
+        # default 0xf0000 (see the pin in the build step below). lfs_addr is
+        # the 48 kB LittleFS storage start; every other board uses 0xec000.
         include:
           - board: thingy91/nrf9160/ns
             nvs_addr: "0x60000"
+            lfs_addr: "0x5c000"
 
     steps:
       # Initialize a Zephyr West workspace in its default format
@@ -70,7 +72,9 @@ jobs:
           # place is destroyed -- and the build that moves it succeeds. Pin the
           # resolved address per board; the Partition Manager canary further
           # down pins the same claim for PM mode via partitions.yml.
-          grep -A4 'nvs_storage: partition@' build/softsim_external_profile/zephyr/zephyr.dts \
+          # The node carries several labels (storage_partition: nvs_storage:
+          # lfs_storage:), so match nvs_storage anywhere before partition@.
+          grep -A4 -E 'nvs_storage:.* partition@' build/softsim_external_profile/zephyr/zephyr.dts \
             | grep -Eq 'reg = <\s*${{ matrix.nvs_addr || '0xf0000' }} 0x8000\s*>'
 
       - name: Archive name generator
@@ -84,6 +88,23 @@ jobs:
           path: modules/lib/onomondo-softsim/samples/softsim_external_profile/build/merged.hex
           overwrite: true
           if-no-files-found: warn
+
+      # LittleFS backend. The sysbuild hook only sees CONFIG_SOFTSIM_FS_LFS on
+      # the command line and then applies the board's storage-48k*.overlay, so
+      # pin the enlarged partition per board as above, and check that the
+      # flat-path option followed the backend. Own build dir, so the archived
+      # NVS merged.hex above stays untouched.
+      - name: Build firmware (LittleFS backend)
+        working-directory: modules/lib/onomondo-softsim/samples/softsim_external_profile
+        run: |
+          west build --sysbuild --pristine=always --board ${{ matrix.board }} -d build-lfs \
+            -- -DCONFIG_SOFTSIM_FS_LFS=y
+          test -f build-lfs/merged.hex
+          config=build-lfs/softsim_external_profile/zephyr/.config
+          grep -qx 'CONFIG_SOFTSIM_FS_LFS=y' "$config"
+          grep -qx 'CONFIG_SOFTSIM_UICC_ALT_FILE_SEPARATOR=y' "$config"
+          grep -A4 -E 'lfs_storage:.* partition@' build-lfs/softsim_external_profile/zephyr/zephyr.dts \
+            | grep -Eq 'reg = <\s*${{ matrix.lfs_addr || '0xec000' }} 0xc000\s*>'
 
       # The nrf-actions HIL rig flashes this build for every run that has it, so
       # every HIL verdict rests on it, and its peaks column reads the logs it
@@ -185,6 +206,24 @@ jobs:
             -- -DSB_CONFIG_BOOTLOADER_MCUBOOT=y \
                -DEXTRA_DTC_OVERLAY_FILE=mcuboot-partitions.overlay
           test -f build/merged.hex
+
+      # LittleFS with MCUboot moves the slot boundaries (storage-48k-mcuboot.overlay).
+      # MCUboot builds with its own devicetree, so check it got the same layout as
+      # the application: with a mismatch it looks for the DFU image in the wrong place.
+      - name: Build firmware (MCUboot DFU layout, LittleFS backend)
+        if: matrix.board == 'nrf9151dk/nrf9151/ns'
+        working-directory: modules/lib/onomondo-softsim/samples/softsim_external_profile
+        run: |
+          west build --sysbuild --pristine=always --board ${{ matrix.board }} -d build-lfs-mcuboot \
+            -- -DCONFIG_SOFTSIM_FS_LFS=y \
+               -DSB_CONFIG_BOOTLOADER_MCUBOOT=y \
+               -DEXTRA_DTC_OVERLAY_FILE=mcuboot-partitions.overlay
+          test -f build-lfs-mcuboot/merged.hex
+          for image in softsim_external_profile mcuboot; do
+            dts=build-lfs-mcuboot/$image/zephyr/zephyr.dts
+            grep -A4 -E 'slot1_partition:.* partition@' "$dts" | grep -Eq 'reg = <\s*0x7e000 0x6e000\s*>'
+            grep -A4 -E 'nvs_storage:.* partition@' "$dts" | grep -Eq 'reg = <\s*0xec000 0xc000\s*>'
+          done
 
       # Every step above builds our own sample, which wires SoftSIM in through
       # its CMakeLists.txt, sysbuild.conf and boards/<board>.overlay. These two
