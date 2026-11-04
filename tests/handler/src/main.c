@@ -499,7 +499,7 @@ ZTEST(softsim_handler, test_init_handles_context_allocation_failure)
  * The parser itself is upstream code with its own tests (onomondo-uicc
  * tests/utils); these cases pin the glue on top of it -- length bounds ahead
  * of the uint16_t cast, required-field rejection before anything is written
- * to the KMU, and that a legitimately zero-valued key survives: the OPc of
+ * to the key store, and that a legitimately zero-valued key survives: the OPc of
  * the GSMA TS.48 test profile is 32 hex-ASCII '0' characters, which must not
  * be mistaken for an absent tag.
  */
@@ -571,7 +571,7 @@ ZTEST(softsim_provision, test_valid_profile_provisions)
 			      "OPc hex char %zu was mangled", i);
 	}
 
-	/* KI, KIC, KID reach the KMU as decoded bytes, in that order. */
+	/* KI, KIC, KID reach the key store as decoded bytes, in that order. */
 	zassert_equal(key_setup.count, 3);
 	zassert_equal(key_setup.ids[0], KEY_ID_KI);
 	zassert_equal(key_setup.ids[1], KEY_ID_KIC);
@@ -584,7 +584,7 @@ ZTEST(softsim_provision, test_valid_profile_provisions)
 ZTEST(softsim_provision, test_missing_required_field_is_rejected)
 {
 	/* IMSI, ICCID, OPC, KI, KIC, KID -- dropping any one of them must fail
-	 * the whole provisioning, and fail it before any key hits the KMU. */
+	 * the whole provisioning, and fail it before any key hits the key store. */
 	const uint8_t required_tags[] = {0x01, 0x02, 0x03, 0x04, 0x05, 0x06};
 	char reduced[sizeof(ts48_profile)];
 
@@ -598,8 +598,7 @@ ZTEST(softsim_provision, test_missing_required_field_is_rejected)
 		zassert_equal(port_provision_fake.call_count, 0,
 			      "rejected profile (no tag %02x) still reached the filesystem",
 			      required_tags[i]);
-		zassert_equal(key_setup.count, 0,
-			      "rejected profile (no tag %02x) still wrote KMU keys",
+		zassert_equal(key_setup.count, 0, "rejected profile (no tag %02x) still wrote keys",
 			      required_tags[i]);
 	}
 }
@@ -691,7 +690,7 @@ static size_t with_crc_record(uint32_t crc, char *dst)
  * The optional trailing CRC32 record comes with the parser; its algorithm and
  * edge cases are pinned upstream (onomondo-uicc tests/utils). These two pin
  * the glue: a profile whose record matches provisions as usual, and a mismatch
- * fails the provisioning before anything reaches the KMU or the filesystem.
+ * fails the provisioning before anything reaches the key store or the filesystem.
  * The record is built from ss_profile_crc32() itself, so the pair stays valid
  * if the algorithm ever changes -- what it pins is match vs. mismatch.
  */

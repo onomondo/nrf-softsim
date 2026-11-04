@@ -8,7 +8,7 @@
  *
  * Keys do not need to survive a reboot for these tests -- what matters is that
  * PSA_KEY_LIFETIME_PERSISTENT is accepted and that a key stays retrievable
- * across calls, which is what the real KMU provides on target.
+ * across calls, which is what TF-M's ITS provides on target.
  */
 
 #include <string.h>

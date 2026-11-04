@@ -5,8 +5,8 @@
  * Tests for lib/ss_crypto.c -- the PSA glue that holds KI, KIC and KID and does
  * every AES and CMAC operation the card performs.
  *
- * On target the keys live in the nRF91 KMU behind TF-M; here the same file runs
- * against Mbed TLS's PSA implementation, because the "KMU slots" are ordinary
+ * On target the keys live in TF-M's Internal Trusted Storage; here the same file runs
+ * against Mbed TLS's PSA implementation, because the keys are ordinary
  * persistent PSA key ids and the file touches no nrf-specific API. The keys are
  * therefore real keys, the ciphertext is real ciphertext, and the vectors below
  * were computed independently (Python cryptography, AES-128) rather than by
@@ -27,7 +27,7 @@
 #include <onomondo/utils/ss_profile.h>
 
 /* KI = KIC = KID = 000102..0f, as the GSMA TS.48 test profile carries them. */
-static const uint8_t test_key[KMU_KEY_SIZE] = {0x00, 0x01, 0x02, 0x03, 0x04, 0x05, 0x06, 0x07,
+static const uint8_t test_key[AES_KEY_SIZE] = {0x00, 0x01, 0x02, 0x03, 0x04, 0x05, 0x06, 0x07,
 					       0x08, 0x09, 0x0a, 0x0b, 0x0c, 0x0d, 0x0e, 0x0f};
 
 /* Two AES blocks of plaintext and its AES-128-CBC encryption under the key
@@ -49,9 +49,9 @@ static const uint8_t cmac_data2[16] = {0xb0, 0xb1, 0xb2, 0xb3, 0xb4, 0xb5, 0xb6,
 static const uint8_t cmac_golden[16] = {0xcd, 0xb6, 0x8c, 0xa8, 0x77, 0x2c, 0x22, 0x12,
 					0x47, 0xd6, 0xec, 0xa1, 0x96, 0xe2, 0x9d, 0x03};
 
-/* The cipher helpers take the key by its profile tag, not by slot id: the first
+/* The cipher helpers take the key by its profile tag, not by key id: the first
  * byte of the "key" they are handed is the tag stored in EF.A001/EF.A004, which
- * key_id_to_kmu_slot() maps to a slot. */
+ * key_tag_to_psa_id() maps to a key id. */
 static const uint8_t kic_ref[1] = {KIC_TAG};
 static const uint8_t kid_ref[1] = {KID_TAG};
 
@@ -64,7 +64,7 @@ static void *suite_setup(void)
 
 static void import_all_keys(void)
 {
-	uint8_t key[KMU_KEY_SIZE];
+	uint8_t key[AES_KEY_SIZE];
 
 	/* The signature takes a non-const key. */
 	memcpy(key, test_key, sizeof(key));
@@ -90,7 +90,7 @@ ZTEST_SUITE(softsim_crypto, NULL, suite_setup, test_before, NULL, NULL);
 
 ZTEST(softsim_crypto, test_key_existence_follows_the_import)
 {
-	uint8_t key[KMU_KEY_SIZE];
+	uint8_t key[AES_KEY_SIZE];
 
 	memcpy(key, test_key, sizeof(key));
 
@@ -111,7 +111,7 @@ ZTEST(softsim_crypto, test_key_existence_follows_the_import)
  */
 ZTEST(softsim_crypto, test_importing_over_an_existing_key_replaces_it)
 {
-	uint8_t key[KMU_KEY_SIZE];
+	uint8_t key[AES_KEY_SIZE];
 	uint8_t buf[sizeof(plaintext)];
 
 	memcpy(key, test_key, sizeof(key));
@@ -180,7 +180,7 @@ ZTEST(softsim_crypto, test_ota_checksum_matches_the_known_vector)
 }
 
 /*
- * The checksum is only defined for CMAC here, because the KMU cannot do 3DES.
+ * The checksum is only defined for CMAC here, because this port implements AES-CMAC only.
  * Any other algorithm has to be refused rather than quietly producing something
  * an operator would reject.
  */
@@ -230,14 +230,14 @@ ZTEST(softsim_crypto, test_an_unknown_key_tag_leaves_the_buffer_alone)
  * failure mode that cannot be recovered from the field.
  *
  * The import is made to fail by filling the key store first, which is a real
- * failure mode (the KMU has a fixed number of slots) and keeps the key itself
+ * failure mode (TF-M's ITS holds CONFIG_TFM_ITS_NUM_ASSETS assets) and keeps the key itself
  * valid, so the length assertions inside the function are not what trips.
  *
  * Expected to fail until the return value is propagated.
  */
 ZTEST(softsim_crypto, test_a_failed_key_import_is_reported)
 {
-	uint8_t key[KMU_KEY_SIZE];
+	uint8_t key[AES_KEY_SIZE];
 	psa_key_id_t filler_base = 100;
 	unsigned int filled = 0;
 

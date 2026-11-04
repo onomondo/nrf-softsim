@@ -14,9 +14,9 @@
 
 #define AES_BLOCKSIZE 16
 
-/* Binary width of a key as imported into the KMU. The onomondo-uicc
+/* Binary width of a key as imported into the PSA key store. The onomondo-uicc
  * profile parser hands back KI/KIC/KID as 16 raw bytes. */
-#define KMU_KEY_SIZE 16
+#define AES_KEY_SIZE 16
 
 /**
  * @brief Encryption algorithms supported by calc_cc
@@ -29,7 +29,7 @@ enum enc_algorithm {
 };
 
 /**
- * @brief Key identifiers for KMU slots
+ * @brief PSA persistent key ids of the SoftSIM keys
  *
  * TODO: Make configurable
  */
@@ -102,11 +102,11 @@ void ss_utils_aes_decrypt(uint8_t *buffer, size_t buffer_len, const uint8_t *key
 void ss_utils_aes_encrypt(uint8_t *buffer, size_t buffer_len, const uint8_t *key, size_t key_len);
 
 /**
- * @brief Setup key in KMU for encryption/decryption/CC calculation
+ * @brief Import a key into the PSA key store for encryption/decryption/CC calculation
  *
  * @param key Pointer to key data
  * @param key_len Length of key data
- * @param key_id Key identifier (resolves into a KMU slot)
+ * @param key_id PSA persistent key id
  *
  * @return int 0 on success, negative error code otherwise
  */
@@ -114,11 +114,11 @@ int ss_utils_setup_key(size_t key_len, uint8_t key[static key_len],
 		       enum key_identifier_base key_id);
 
 /**
- * @brief Check if a key exists in KMU
+ * @brief Check if a key exists in the PSA key store
  *
  * Can be used to check SoftSIM provisioning status
  *
- * @param key_id Key identifier (resolves into a KMU slot)
+ * @param key_id PSA persistent key id
  *
  * @return int 1 if key exists, 0 otherwise
  */

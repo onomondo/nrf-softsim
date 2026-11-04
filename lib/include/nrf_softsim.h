@@ -105,7 +105,7 @@ int ss_deinit_fs(void);
  * from @p profile into persistent storage.
  *
  * External callers should use nrf_softsim_provision instead, which also
- * handles parsing and key installation in the KMU.
+ * handles parsing and key import into the PSA key store.
  *
  * @param profile The parsed profile containing the data to provision
  *
@@ -120,7 +120,7 @@ int port_provision(struct ss_profile *profile);
  * record from NVS and compares it against the default-uninitialized value.
  *
  * External callers should use nrf_softsim_check_provisioned instead, which
- * additionally verifies that the SoftSIM AES key is present in the KMU.
+ * additionally verifies that the SoftSIM AES key is present in the PSA key store.
  *
  * @return 1 if a non-default IMSI is present, 0 otherwise
  */

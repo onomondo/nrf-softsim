@@ -160,11 +160,11 @@ int nrf_softsim_provision(uint8_t *profile_r, size_t len)
 	}
 
 	/* Import to psa_crypto */
-	ss_utils_setup_key(KMU_KEY_SIZE, profile.k, KEY_ID_KI);
-	ss_utils_setup_key(KMU_KEY_SIZE, profile.kic, KEY_ID_KIC);
-	ss_utils_setup_key(KMU_KEY_SIZE, profile.kid, KEY_ID_KID);
+	ss_utils_setup_key(AES_KEY_SIZE, profile.k, KEY_ID_KI);
+	ss_utils_setup_key(AES_KEY_SIZE, profile.kic, KEY_ID_KIC);
+	ss_utils_setup_key(AES_KEY_SIZE, profile.kid, KEY_ID_KID);
 
-	LOG_INF("SoftSIM keys written to KMU");
+	LOG_INF("SoftSIM keys imported into the PSA key store");
 
 	int status = port_provision(&profile);
 
