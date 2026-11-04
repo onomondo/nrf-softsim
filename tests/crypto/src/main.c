@@ -206,9 +206,10 @@ ZTEST(softsim_crypto, test_ota_checksum_refuses_other_algorithms)
 		     "a non-KID key was accepted for the OTA checksum");
 }
 
-ZTEST(softsim_crypto, test_an_unknown_key_tag_leaves_the_buffer_alone)
+ZTEST(softsim_crypto, test_an_unknown_key_tag_wipes_the_buffer)
 {
 	uint8_t buf[sizeof(plaintext)];
+	static const uint8_t zeros[sizeof(plaintext)];
 	const uint8_t bogus_ref[1] = {0x7f};
 
 	import_all_keys();
@@ -216,8 +217,7 @@ ZTEST(softsim_crypto, test_an_unknown_key_tag_leaves_the_buffer_alone)
 
 	ss_utils_aes_encrypt(buf, sizeof(buf), bogus_ref, sizeof(bogus_ref));
 
-	zassert_mem_equal(buf, plaintext, sizeof(plaintext),
-			  "an unresolvable key tag still modified the buffer");
+	zassert_mem_equal(buf, zeros, sizeof(buf), "an unresolvable key tag left plaintext behind");
 }
 
 /*
@@ -247,6 +247,24 @@ ZTEST(softsim_crypto, test_an_oversized_buffer_is_not_silently_left_in_the_clear
 
 	ss_utils_aes_decrypt(buf, sizeof(buf), kic_ref, sizeof(kic_ref));
 	zassert_mem_equal(buf, original, sizeof(buf), "a 512-byte buffer did not round-trip");
+}
+
+/*
+ * A PSA step that fails after the first block must not leave the buffer half
+ * ciphered: 24 bytes cipher one block, then psa_cipher_finish refuses the
+ * 8-byte tail (CBC without padding) and the helper wipes everything.
+ */
+ZTEST(softsim_crypto, test_a_failed_cipher_wipes_the_buffer)
+{
+	uint8_t buf[24];
+	static const uint8_t zeros[sizeof(buf)];
+
+	import_all_keys();
+	memcpy(buf, plaintext, sizeof(buf));
+
+	ss_utils_aes_encrypt(buf, sizeof(buf), kic_ref, sizeof(kic_ref));
+
+	zassert_mem_equal(buf, zeros, sizeof(buf), "a failed cipher left bytes behind");
 }
 
 /* --- documented defects ---------------------------------------------------- */

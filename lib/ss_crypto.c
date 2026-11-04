@@ -160,6 +160,7 @@ void ss_utils_aes_decrypt(uint8_t *buffer, size_t buffer_len, const uint8_t *key
 
 	if (key_id == KEY_ID_UNKNOWN) {
 		LOG_ERR("Unknown key id: %d", key[0]);
+		memset(buffer, 0, buffer_len); /* no key, no plaintext left behind */
 		return;
 	}
 
@@ -177,6 +178,9 @@ void ss_utils_aes_decrypt(uint8_t *buffer, size_t buffer_len, const uint8_t *key
 	ASSERT_STATUS(status, PSA_SUCCESS);
 
 exit:
+	if (status != PSA_SUCCESS) {
+		memset(buffer, 0, buffer_len); /* a half-deciphered command must not be parsed */
+	}
 	psa_cipher_abort(&operation);
 	return;
 }
@@ -190,6 +194,7 @@ void ss_utils_aes_encrypt(uint8_t *buffer, size_t buffer_len, const uint8_t *key
 
 	if (key_id == KEY_ID_UNKNOWN) {
 		LOG_ERR("Unknown key id: %d", key[0]);
+		memset(buffer, 0, buffer_len); /* no key, no plaintext left behind */
 		return;
 	}
 
@@ -207,6 +212,9 @@ void ss_utils_aes_encrypt(uint8_t *buffer, size_t buffer_len, const uint8_t *key
 	ASSERT_STATUS(status, PSA_SUCCESS);
 
 exit:
+	if (status != PSA_SUCCESS) {
+		memset(buffer, 0, buffer_len); /* a half-ciphered buffer must not reach the air */
+	}
 	psa_cipher_abort(&operation);
 	return;
 }
