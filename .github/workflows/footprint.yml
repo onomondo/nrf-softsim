@@ -41,7 +41,7 @@ jobs:
     name: build ELF (${{ matrix.ref }})
     runs-on: ubuntu-26.04
     timeout-minutes: 60
-    container: ghcr.io/nrfconnect/sdk-nrf-toolchain:v3.4.1@sha256:45b97cad97a9967c52d77d1d1a0f7dd8fe027edd17c05c3eda2eeadc23729418
+    container: ghcr.io/nrfconnect/sdk-nrf-toolchain:v3.4.2@sha256:54d1b800cc92602b5206b21a447696982177ac89cdef8c8ca8ef5cab419e0046
     defaults:
       run:
         # Bash shell is needed to set toolchain related environment variables in docker container
