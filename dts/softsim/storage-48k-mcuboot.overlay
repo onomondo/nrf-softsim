@@ -1,0 +1,35 @@
+/*
+ * nvs_storage 32 kB -> 48 kB (0xc000) for the MCUboot layout
+ * (mcuboot-partitions.overlay). Applied AFTER it, automatically, by the
+ * module's sysbuild hook when building with -DCONFIG_SOFTSIM_FS_LFS=y and
+ * MCUboot; pass mcuboot-partitions.overlay yourself.
+ *
+ * Storage keeps its end (0xf8000, start of tfm_its) and starts at 0xec000.
+ * Image 0 and image 1 must stay the same size, so both slots shrink by 0x2000
+ * (0x70000 -> 0x6e000) and slot1 moves down to end at 0xec000:
+ *
+ *   0x10000..0x7e000  slot0 (secure 0x18000 + non-secure 0x56000)
+ *   0x7e000..0xec000  slot1
+ *   0xec000..0xf8000  nvs_storage
+ *
+ * NOTE: the NVS start address changes, so a provisioned profile is lost.
+ * NOTE: the non-secure image now ends at 0x7e000, not a 32 kB SPU boundary
+ * (it used to end at 0x80000); check the TF-M/SPU build output.
+ */
+
+&slot0_partition {
+	reg = <0x00010000 0x6e000>;
+	ranges = <0x0 0x10000 0x6e000>;
+};
+
+&slot0_ns_partition {
+	reg = <0x00018000 0x56000>;
+};
+
+&slot1_partition {
+	reg = <0x0007e000 0x6e000>;
+};
+
+&storage_partition {
+	reg = <0x000ec000 0xc000>;
+};

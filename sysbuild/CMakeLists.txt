@@ -7,6 +7,7 @@
 # stay behind the SB_CONFIG_PARTITION_MANAGER guard -- PM is deprecated and no
 # longer enabled by default from NCS 3.4, and referencing the (nonexistent)
 # target fails the configure step of unrelated applications.
+
 if(SB_CONFIG_PARTITION_MANAGER)
   # Deprecated Partition Manager flow: PM computes the nvs_storage address in
   # sysbuild scope, so the template hex is generated and merged here.
@@ -139,6 +140,42 @@ function(${SYSBUILD_CURRENT_MODULE_NAME}_pre_cmake)
         # duplicate every CMake re-run).
         add_overlay_dts(${image}
           ${SYSBUILD_SOFTSIM_MODULE_DIR}/dts/softsim/thingy91x_softsim_partitions.dtsi)
+      endif()
+    endforeach()
+  endif()
+
+  # LittleFS needs nvs_storage enlarged to 48 kB, which moves the slot
+  # boundaries. The application and MCUboot must see the same slots: with a
+  # mismatch MCUboot looks for the DFU image in the wrong place (DKs), or swaps
+  # its primary slot over the SoftSIM storage (Thingy:91 X). add_overlay_dts()
+  # keeps overlays the user passed (e.g. mcuboot-partitions.overlay) first and
+  # does not add duplicates on CMake re-runs.
+  if(CONFIG_SOFTSIM_FS_LFS)
+    set(_softsim_dts ${SYSBUILD_SOFTSIM_MODULE_DIR}/dts/softsim)
+    set(_softsim_mcuboot_overlays)
+    if(BOARD MATCHES "^thingy91x")
+      set(_softsim_overlay ${_softsim_dts}/storage-48k-thingy91x.overlay)
+      # Applied after thingy91x_softsim_partitions.dtsi above.
+      set(_softsim_mcuboot_overlays ${_softsim_overlay})
+    elseif(BOARD MATCHES "^thingy91(/|$)")
+      # Only app_partition shrinks; the MCUboot slots are unchanged.
+      set(_softsim_overlay ${_softsim_dts}/storage-48k-thingy91.overlay)
+    elseif(SB_CONFIG_BOOTLOADER_MCUBOOT)
+      set(_softsim_overlay ${_softsim_dts}/storage-48k-mcuboot.overlay)
+      # MCUboot otherwise builds with the stock board devicetree; give it the
+      # SoftSIM MCUboot layout the overlay is written against.
+      set(_softsim_mcuboot_overlays
+        ${_softsim_dts}/nrf91_softsim_mcuboot_partitions.dtsi ${_softsim_overlay})
+    else()
+      set(_softsim_overlay ${_softsim_dts}/storage-48k.overlay)
+    endif()
+
+    add_overlay_dts(${DEFAULT_IMAGE} ${_softsim_overlay})
+    foreach(image mcuboot mcuboot_s1_variant)
+      if("${image}" IN_LIST PRE_CMAKE_IMAGES)
+        foreach(overlay ${_softsim_mcuboot_overlays})
+          add_overlay_dts(${image} ${overlay})
+        endforeach()
       endif()
     endforeach()
   endif()

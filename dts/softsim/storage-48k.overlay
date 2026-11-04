@@ -1,0 +1,16 @@
+/*
+ * Grow nvs_storage from 32 kB to 48 kB (0xc000) by taking space from the end
+ * of slot0_ns. Storage keeps its end address (0xf8000, start of tfm_its), so
+ * its start moves from 0xf0000 to 0xec000.
+ *
+ * NOTE: the NVS start address changes, so a previously provisioned profile in
+ * the old region will not be found; re-provision after flashing.
+ */
+
+&slot0_ns_partition {
+	reg = <0x00018000 0xd4000>;   /* ends at 0xec000 */
+};
+
+&storage_partition {
+	reg = <0x000ec000 0xc000>;    /* ends at 0xf8000 */
+};
