@@ -23,6 +23,14 @@ if(CONFIG_SOFTSIM AND NOT CONFIG_PARTITION_MANAGER_ENABLED)
   endif()
   dt_reg_addr(_softsim_nvs_addr PATH ${_softsim_nvs_path})
 
+  # The template image matches the selected filesystem backend; the LittleFS image
+  # (lfs_SoftSIM.bin) is built for the 48 kB nvs_storage of the storage-48k overlays.
+  if(CONFIG_SOFTSIM_FS_LFS)
+    set(_softsim_template_bin ${CMAKE_CURRENT_LIST_DIR}/lib/profile/lfs_SoftSIM.bin)
+  else()
+    set(_softsim_template_bin ${CMAKE_CURRENT_LIST_DIR}/lib/profile/template.bin)
+  endif()
+
   set(_softsim_template_hex ${CMAKE_BINARY_DIR}/onomondo-softsim/template.hex)
   add_custom_command(
     OUTPUT ${_softsim_template_hex}
@@ -30,9 +38,9 @@ if(CONFIG_SOFTSIM AND NOT CONFIG_PARTITION_MANAGER_ENABLED)
     --input-target=binary
     --output-target=ihex
     --change-address ${_softsim_nvs_addr}
-    ${CMAKE_CURRENT_LIST_DIR}/lib/profile/template.bin
+    ${_softsim_template_bin}
     ${_softsim_template_hex}
-    DEPENDS ${CMAKE_CURRENT_LIST_DIR}/lib/profile/template.bin
+    DEPENDS ${_softsim_template_bin}
   )
   add_custom_target(onomondo_softsim_template ALL DEPENDS ${_softsim_template_hex})
 

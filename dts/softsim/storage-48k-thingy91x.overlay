@@ -1,0 +1,21 @@
+/*
+ * nvs_storage 32 kB -> 48 kB (0xc000) on the Thingy:91 X layout.
+ * Storage keeps its end (0xf8000) and starts at 0xec000; image 0 shrinks by
+ * 0x4000 (0xc0000 -> 0xbc000), all of it taken from slot0_ns. The external
+ * flash slot1 (0xd0000) is still larger than slot0.
+ *
+ * NOTE: the NVS start address changes, so a provisioned profile is lost.
+ */
+
+&slot0_partition {
+	reg = <0x00030000 0xbc000>;
+	ranges = <0x0 0x30000 0xbc000>;
+};
+
+&slot0_ns_partition {
+	reg = <0x00020000 0x9c000>;   /* ends at 0xec000 */
+};
+
+&storage_partition {
+	reg = <0x000ec000 0xc000>;
+};
