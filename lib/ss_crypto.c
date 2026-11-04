@@ -32,9 +32,6 @@ enum key_identifier_base key_tag_to_psa_id(uint8_t key_tag)
 	}
 }
 
-#define SHARED_BUFFER_SIZE 256
-static uint8_t shared_buffer[SHARED_BUFFER_SIZE];
-
 #define ASSERT_STATUS(actual, expected)                                                            \
 	do {                                                                                       \
 		if ((actual) != (expected)) {                                                      \
@@ -58,8 +55,10 @@ static psa_status_t cipher_operation(psa_cipher_operation_t *operation, const ui
 			(input_size - bytes_written > part_size ? part_size
 								: input_size - bytes_written);
 
+		/* Bound the output to this block: in place the rest is unread input,
+		 * and TF-M reserves the whole output size in its scratch. */
 		status = psa_cipher_update(operation, input + bytes_written, bytes_to_write,
-					   output + *output_len, output_size - *output_len, &len);
+					   output + *output_len, bytes_to_write, &len);
 		ASSERT_STATUS(status, PSA_SUCCESS);
 
 		bytes_written += bytes_to_write;
@@ -166,20 +165,16 @@ void ss_utils_aes_decrypt(uint8_t *buffer, size_t buffer_len, const uint8_t *key
 
 	psa_cipher_operation_t operation = PSA_CIPHER_OPERATION_INIT;
 	uint8_t iv[AES_BLOCKSIZE] = {0}; /* per standards in telco.. */
-	uint8_t *decrypted_buffer = shared_buffer;
-
-	uint32_t out_len = 0;
+	size_t out_len = 0;
 
 	status = psa_cipher_decrypt_setup(&operation, key_id, PSA_ALG_CBC_NO_PADDING);
 	ASSERT_STATUS(status, PSA_SUCCESS);
 
 	psa_cipher_set_iv(&operation, iv, AES_BLOCKSIZE);
 
-	status = cipher_operation(&operation, buffer, buffer_len, AES_BLOCKSIZE, decrypted_buffer,
-				  SHARED_BUFFER_SIZE, &out_len);
+	status = cipher_operation(&operation, buffer, buffer_len, AES_BLOCKSIZE, buffer, buffer_len,
+				  &out_len);
 	ASSERT_STATUS(status, PSA_SUCCESS);
-
-	memcpy(buffer, decrypted_buffer, out_len);
 
 exit:
 	psa_cipher_abort(&operation);
@@ -200,19 +195,16 @@ void ss_utils_aes_encrypt(uint8_t *buffer, size_t buffer_len, const uint8_t *key
 
 	psa_cipher_operation_t operation = PSA_CIPHER_OPERATION_INIT;
 	uint8_t iv[AES_BLOCKSIZE] = {0}; /* per standards in telco... */
-	uint8_t *encrypted_buffer = shared_buffer;
-	uint32_t out_len = 0;
+	size_t out_len = 0;
 
 	status = psa_cipher_encrypt_setup(&operation, key_id, PSA_ALG_CBC_NO_PADDING);
 	ASSERT_STATUS(status, PSA_SUCCESS);
 
 	psa_cipher_set_iv(&operation, iv, AES_BLOCKSIZE);
 
-	status = cipher_operation(&operation, buffer, buffer_len, AES_BLOCKSIZE, encrypted_buffer,
-				  SHARED_BUFFER_SIZE, &out_len);
+	status = cipher_operation(&operation, buffer, buffer_len, AES_BLOCKSIZE, buffer, buffer_len,
+				  &out_len);
 	ASSERT_STATUS(status, PSA_SUCCESS);
-
-	memcpy(buffer, encrypted_buffer, out_len);
 
 exit:
 	psa_cipher_abort(&operation);
