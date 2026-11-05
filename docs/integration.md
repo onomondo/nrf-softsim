@@ -298,6 +298,7 @@ Three hazards worth knowing:
   in application RAM after provisioning. `CONFIG_SOFTSIM_UICC_EXTERNAL_KEY_LOAD` (software
   crypto with an external key loader) is the fallback, not the goal.
 - **Respect commit-on-close.** Files tagged `FS_COMMIT_ON_CLOSE` are written on every
-  close; everything else is flushed at deinit. The MILENAGE sequence-number files are
-  tagged, so a SEQ update survives power loss — a port that lazily batches all writes
-  weakens AKA replay protection.
+  close; everything else is flushed at every session end (`INIT`, `RESET`, `DEINIT`) and
+  after an `ENVELOPE`, so remote file management survives a reset. The MILENAGE
+  sequence-number files are tagged, so a SEQ update survives power loss — a port that
+  lazily batches all writes weakens AKA replay protection.

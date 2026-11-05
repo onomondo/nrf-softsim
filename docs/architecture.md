@@ -32,6 +32,10 @@ library's SoftSIM interface, and the glue in
    | `NRF_MODEM_SOFTSIM_RESET` | `ss_reset()` — warm reset of the SIM state. The modem issues this when a request became unresponsive, so answer promptly. |
    | `NRF_MODEM_SOFTSIM_DEINIT` | Unless suspended: free the context and `ss_deinit_fs()`, committing cached writes to flash. |
 
+   After answering `INIT`, `RESET`, `DEINIT` or an `ENVELOPE`, the worker commits cached
+   writes to flash (`port_commit_fs()`), so remote file management and a suspended
+   card's writes survive a reset, PSM or power loss.
+
 4. Request payloads handed over by the Modem library are released with
    `nrf_modem_softsim_data_free()`.
 
@@ -140,9 +144,9 @@ NVS is a `uint16 id → blob` store, so a translation layer is needed:
 - **Id flags.** The upper byte of each id is the flags field
   (`_flags = (id & 0xFF00) >> 8`). `FS_COMMIT_ON_CLOSE` (`1 << 7`) is the one in use.
 - **Cache.** File content is cached in RAM once read. Writes normally stay in the cache
-  and are flushed on `DEINIT`/`ss_deinit_fs()`; files flagged `FS_COMMIT_ON_CLOSE` (the
-  MILENAGE sequence-number files) are committed to flash on every close, trading wear for
-  integrity.
+  and are flushed when the card session ends (`INIT`, `RESET`, `DEINIT`) or after an
+  `ENVELOPE`; files flagged `FS_COMMIT_ON_CLOSE` (the MILENAGE sequence-number files) are
+  committed to flash on every close, trading wear for integrity.
 
 <p align="center">
  <img width="900" src="https://github.com/onomondo/nrf-softsim/assets/46489969/815529a8-caf4-485f-a752-1a6242bec082">
@@ -167,8 +171,8 @@ alongside the firmware. Provisioning personalizes a handful of records. See
   constant OPc stays in `A001` on flash, so the filesystem's confidentiality still
   matters.
 - **Replay protection.** The MILENAGE sequence-number files are flagged
-  `FS_COMMIT_ON_CLOSE`, so a power loss cannot roll them back; OTA counters follow the
-  normal cache lifecycle and are committed on `DEINIT`.
+  `FS_COMMIT_ON_CLOSE`, so a power loss cannot roll them back; OTA counters are committed
+  right after the `ENVELOPE` that carried them.
 - **Storage partition isolation.** TF-M configures the `nvs_storage` range as non-secure
   via the SPU, driven by the devicetree `storage_partition` label (see
   [Flash partitioning](integration.md#flash-partitioning)), so the application can reach

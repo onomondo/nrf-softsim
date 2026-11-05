@@ -229,7 +229,8 @@ static void softsim_req_task(struct k_work *item)
 	struct softsim_req_node *s_req;
 
 	while ((s_req = k_fifo_get(&softsim_req_fifo, K_NO_WAIT))) {
-		/* Captured before the node is freed, to name the command in the peak log. */
+		/* Captured before the node is freed: it names the command in the peak
+		 * log and picks the post-processing below. */
 		uint8_t ins = 0;
 
 		if (s_req->req == NRF_MODEM_SOFTSIM_APDU && s_req->payload.data &&
@@ -320,6 +321,12 @@ static void softsim_req_task(struct k_work *item)
 			LOG_ERR("SoftSIM unknown request: %d", s_req->req);
 			nrf_modem_softsim_err(s_req->req, s_req->req_id);
 			break;
+		}
+
+		/* A session end (INIT, RESET, DEINIT) or an ENVELOPE may have changed
+		 * files: commit them now, before a reset or power loss can undo them. */
+		if (s_req->req != NRF_MODEM_SOFTSIM_APDU || ins == 0xC2) {
+			port_commit_fs();
 		}
 
 		/* Free the payload data of the request node if allocated */

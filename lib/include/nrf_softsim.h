@@ -93,9 +93,21 @@ int ss_init_fs(void);
  * Flushes any dirty cache entries to NVS, releases the cache memory, and
  * marks the filesystem as uninitialized.
  *
- * @return 0 on success
+ * @return 0 on success, -1 when a buffered change could not be written to NVS;
+ *         the filesystem then stays up with the change buffered
  */
 int ss_deinit_fs(void);
+
+/**
+ * @brief Write every buffered file change to NVS
+ *
+ * Internal helper used when a card session ends (INIT, RESET, DEINIT) and after an
+ * ENVELOPE, so writes made by the core or by remote file management survive
+ * a reset or power loss.
+ *
+ * @return 0 on success, -1 if a write failed (that change stays buffered)
+ */
+int port_commit_fs(void);
 
 /**
  * @brief Provision a parsed SoftSIM profile into NVS
