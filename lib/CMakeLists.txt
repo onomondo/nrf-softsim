@@ -124,6 +124,26 @@ zephyr_library_sources(
   build_asserts.c
 )
 
+# Every hook fs.h declares weak must be defined: on ARM an undefined weak call
+# links as a silent nop.w. --require-defined is GNU ld only, and
+# zephyr_ld_options() would probe-link each flag and drop it, so the flags go
+# straight to the link line. A hook the parse cannot read stops the build.
+if("${LINKER}" STREQUAL "ld")
+  set(_ss_fs_h onomondo-uicc/include/onomondo/softsim/fs.h)
+  set_property(DIRECTORY APPEND PROPERTY CMAKE_CONFIGURE_DEPENDS ${_ss_fs_h})
+  file(STRINGS ${_ss_fs_h} _ss_hook_decls REGEX "__attribute__\\(\\(weak\\)\\)")
+  if(NOT _ss_hook_decls)
+    message(FATAL_ERROR "SoftSIM: no weak hook found in ${_ss_fs_h}")
+  endif()
+  foreach(_decl IN LISTS _ss_hook_decls)
+    string(REGEX MATCH "[ *](ss_[a-z_]+)\\(.*\\) __attribute__\\(\\(weak\\)\\);$" _m "${_decl}")
+    if(NOT _m)
+      message(FATAL_ERROR "SoftSIM: cannot parse hook declaration: ${_decl}")
+    endif()
+    zephyr_link_libraries(-Wl,--require-defined=${CMAKE_MATCH_1})
+  endforeach()
+endif()
+
 target_compile_definitions(${ZEPHYR_CURRENT_LIBRARY} PRIVATE CONFIG_CUSTOM_HEAP)
 # Keep the port's storage_path[] and path buffers the same size as the
 # submodule's (the header falls back to 100 when the define is absent).

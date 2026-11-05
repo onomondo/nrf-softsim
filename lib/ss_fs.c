@@ -461,55 +461,22 @@ int ss_access(const char *path, int amode)
 	return 0;
 }
 
-int ss_mkdir(const char *path, int mode)
+/* The port cannot create or delete files (the directory table is read from the
+ * template and never rewritten), so the core's weak hooks refuse instead of
+ * linking as nop.w. */
+int ss_create_dir(const char *path, uint32_t mode)
 {
-	/* We don't care. This is a virtual filesystem, so directories
-	 * are not really a thing. We just create files and directories are
-	 * implicitly created.
-	 */
-
-	return 0;
+	return -ENOTSUP;
 }
 
-int ss_rmdir(const char *path)
+int ss_delete_dir(const char *path)
 {
-	/* TODO: Remove all entries with directory match */
-	return 0;
+	return -ENOTSUP;
 }
 
-int ss_remove(const char *path)
+int ss_delete_file(const char *path)
 {
-	int dir_idx = ss_dir_find(fs_dir, fs_dir_count, path);
-
-	if (dir_idx < 0) {
-		return -1;
-	}
-
-	int slot_idx = ss_slot_find(fs_slots, SS_MAX_ENTRIES, (uint16_t)dir_idx);
-
-	if (slot_idx >= 0) {
-		/* The file is going away; its buffer dies with it, dirty or not. */
-		SS_FREE(fs_slots[slot_idx].buf);
-		memset(&fs_slots[slot_idx], 0, sizeof(fs_slots[slot_idx]));
-	}
-
-	nvs_delete(&fs, fs_dir[dir_idx].key);
-
-	/* Close the hole with the last entry, re-pointing its slot if buffered. */
-	size_t last = fs_dir_count - 1;
-
-	if ((size_t)dir_idx != last) {
-		fs_dir[dir_idx] = fs_dir[last];
-
-		int moved = ss_slot_find(fs_slots, SS_MAX_ENTRIES, (uint16_t)last);
-
-		if (moved >= 0) {
-			fs_slots[moved].dir_idx = (uint16_t)dir_idx;
-		}
-	}
-	fs_dir_count--;
-
-	return 0;
+	return -ENOTSUP;
 }
 
 size_t ss_fwrite(const void *ptr, size_t size, size_t count, ss_FILE fp)
