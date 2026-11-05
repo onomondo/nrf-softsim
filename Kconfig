@@ -2,6 +2,10 @@ menu "Onomondo SoftSIM Options"
 
 config SOFTSIM
     bool "SoftSIM"
+    select PSA_WANT_KEY_TYPE_AES
+    select PSA_WANT_ALG_CBC_NO_PADDING
+    select PSA_WANT_ALG_ECB_NO_PADDING # CMAC prerequisite in NCS (oberon-psa-crypto)
+    select PSA_WANT_ALG_CMAC
     depends on NVS
     depends on FLASH
     depends on FLASH_MAP

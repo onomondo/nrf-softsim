@@ -268,11 +268,8 @@ on the `softsim_wq` line. The mark resets on reboot and is only sampled, so a pe
 less than 30 s before a reboot is never logged. The RFM/OTA caveat above applies before
 lowering `CONFIG_SOFTSIM_STACK_SIZE`.
 
-Two more that no assert catches: some applications (e.g. `modem_shell`) fail to link with
-`... uses VFP register arguments` — add `CONFIG_FP_SOFTABI=y`. And the crypto port needs
-`CONFIG_PSA_WANT_KEY_TYPE_AES`, `CONFIG_PSA_WANT_ALG_CBC_NO_PADDING`,
-`CONFIG_PSA_WANT_ALG_ECB_NO_PADDING` and `CONFIG_PSA_WANT_ALG_CMAC`, all already set by
-`overlay-softsim.conf`.
+One more that no assert catches: some applications (e.g. `modem_shell`) fail to link with
+`... uses VFP register arguments` — add `CONFIG_FP_SOFTABI=y`.
 
 ## Custom boards
 
