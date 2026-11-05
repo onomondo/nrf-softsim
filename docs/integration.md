@@ -270,9 +270,8 @@ lowering `CONFIG_SOFTSIM_STACK_SIZE`.
 
 Two more that no assert catches: some applications (e.g. `modem_shell`) fail to link with
 `... uses VFP register arguments` — add `CONFIG_FP_SOFTABI=y`. And the crypto port needs
-`CONFIG_PSA_WANT_KEY_TYPE_AES`, `CONFIG_PSA_WANT_ALG_CBC_NO_PADDING`,
-`CONFIG_PSA_WANT_ALG_ECB_NO_PADDING` and `CONFIG_PSA_WANT_ALG_CMAC`, all already set by
-`overlay-softsim.conf`.
+`CONFIG_PSA_WANT_KEY_TYPE_AES`, `CONFIG_PSA_WANT_ALG_CBC_NO_PADDING` and
+`CONFIG_PSA_WANT_ALG_CMAC`, all already set by `overlay-softsim.conf`.
 
 ## Custom boards
 
