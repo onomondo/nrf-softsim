@@ -1,5 +1,41 @@
 # Changelog
 
+## [7.0.0](https://github.com/onomondo/nrf-softsim/compare/v6.1.1...v7.0.0) (2026-11-05)
+
+
+### ⚠ BREAKING CHANGES
+
+* overlay-softsim.conf no longer sets CONFIG_HEAP_MEM_POOL_SIZE; SoftSIM allocates from its own heap (CONFIG_SOFTSIM_HEAP_SIZE). If your application calls k_malloc, directly or through nRF Cloud, nRF Provisioning or FOTA, declare your own CONFIG_HEAP_MEM_POOL_SIZE; a leftover value of 30000 or more is the old SoftSIM requirement, so lower or remove it. See docs/integration.md "Migrating from 6.1.1 and earlier".
+
+### Features
+
+* add an SMS+OTA opt-out and size the heap and stack to match ([#203](https://github.com/onomondo/nrf-softsim/issues/203)) ([2fd96d1](https://github.com/onomondo/nrf-softsim/commit/2fd96d1e856c6ef76aeb3cdfab37ca1b34fedd13))
+* configurable thread priority ([#218](https://github.com/onomondo/nrf-softsim/issues/218)) ([b728818](https://github.com/onomondo/nrf-softsim/commit/b728818083d581ad48f38fe7e0be70ae0a39bcb2))
+* **deps:** update onomondo-uicc to v2.4.0 ([5db16eb](https://github.com/onomondo/nrf-softsim/commit/5db16ebe7f08ce93f0a371da621f7977b81c3f30))
+* **deps:** update onomondo-uicc to v2.5.0 ([824cb62](https://github.com/onomondo/nrf-softsim/commit/824cb62b0a2154f2e8c8af926c97a0748d03712c))
+* give SoftSIM its own heap ([ec86509](https://github.com/onomondo/nrf-softsim/commit/ec865098a3658db2e4607b39aa9f93287c48fa4e))
+* name the SoftSIM thread ([#219](https://github.com/onomondo/nrf-softsim/issues/219)) ([f0099c0](https://github.com/onomondo/nrf-softsim/commit/f0099c0d15b81861057c95ef12516656f0471ad3))
+
+
+### Bug Fixes
+
+* cipher OTA payloads of any length in place ([#239](https://github.com/onomondo/nrf-softsim/issues/239)) ([3f2a6ff](https://github.com/onomondo/nrf-softsim/commit/3f2a6ff56b677daffbcf80a0920c58bca994d0e9))
+* commit cached writes right after the answer ([#232](https://github.com/onomondo/nrf-softsim/issues/232)) ([52870cb](https://github.com/onomondo/nrf-softsim/commit/52870cbb6cf953af2adb755aeb1b51474339ba78))
+* **deps:** update nRF Connect SDK to v3.4.1 ([a18142a](https://github.com/onomondo/nrf-softsim/commit/a18142a5e53ca614682c05acb5beaa7471b51883))
+* **deps:** update nRF Connect SDK to v3.4.2 ([1e05d4a](https://github.com/onomondo/nrf-softsim/commit/1e05d4a6a36192256ec4f6a731a069be22de16a1))
+* drop trailing slash from west manifest url ([#207](https://github.com/onomondo/nrf-softsim/issues/207)) ([e7d359b](https://github.com/onomondo/nrf-softsim/commit/e7d359b9b185a55588d36a768316ea27162a9804))
+* fail INIT when the SIM context cannot be allocated ([#227](https://github.com/onomondo/nrf-softsim/issues/227)) ([590dc92](https://github.com/onomondo/nrf-softsim/commit/590dc923156ff2c865d443de653a564e6a159374))
+* poll the SIM core on STATUS ([#233](https://github.com/onomondo/nrf-softsim/issues/233)) ([859bd8f](https://github.com/onomondo/nrf-softsim/commit/859bd8ff7730ecc471381240393e4e1ff30c8c39))
+
+
+### Performance Improvements
+
+* compile out onomondo-uicc logs by default ([#224](https://github.com/onomondo/nrf-softsim/issues/224)) ([db49ad0](https://github.com/onomondo/nrf-softsim/commit/db49ad0a34e0a2f0150688fd1204471d77b5ef46))
+* lower the SoftSIM heap default to 25000 ([#241](https://github.com/onomondo/nrf-softsim/issues/241)) ([6f31354](https://github.com/onomondo/nrf-softsim/commit/6f31354631e72e74ee345ef068b11ffe5fc09111))
+* lower the SoftSIM stack default to 6000 ([#240](https://github.com/onomondo/nrf-softsim/issues/240)) ([43f0406](https://github.com/onomondo/nrf-softsim/commit/43f0406e9dbb2ff37c8394228f5f88f7b851ef9f))
+* replace the per-file cache entries with a compact dir table ([#197](https://github.com/onomondo/nrf-softsim/issues/197)) ([5b8ecd7](https://github.com/onomondo/nrf-softsim/commit/5b8ecd7c110141e658666ea725cc8d4610413033))
+* stop forcing CONFIG_LOG on in the SoftSIM overlay ([#225](https://github.com/onomondo/nrf-softsim/issues/225)) ([e500333](https://github.com/onomondo/nrf-softsim/commit/e50033398123ae94e82f04b39f8e7620975972ac))
+
 ## [6.1.1](https://github.com/onomondo/nrf-softsim/compare/v6.1.0...v6.1.1) (2026-08-28)
 
 
