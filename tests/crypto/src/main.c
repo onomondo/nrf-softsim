@@ -206,9 +206,10 @@ ZTEST(softsim_crypto, test_ota_checksum_refuses_other_algorithms)
 		     "a non-KID key was accepted for the OTA checksum");
 }
 
-ZTEST(softsim_crypto, test_an_unknown_key_tag_leaves_the_buffer_alone)
+ZTEST(softsim_crypto, test_an_unknown_key_tag_wipes_the_buffer)
 {
 	uint8_t buf[sizeof(plaintext)];
+	static const uint8_t zeros[sizeof(plaintext)];
 	const uint8_t bogus_ref[1] = {0x7f};
 
 	import_all_keys();
@@ -216,8 +217,54 @@ ZTEST(softsim_crypto, test_an_unknown_key_tag_leaves_the_buffer_alone)
 
 	ss_utils_aes_encrypt(buf, sizeof(buf), bogus_ref, sizeof(bogus_ref));
 
-	zassert_mem_equal(buf, plaintext, sizeof(plaintext),
-			  "an unresolvable key tag still modified the buffer");
+	zassert_mem_equal(buf, zeros, sizeof(buf), "an unresolvable key tag left plaintext behind");
+}
+
+/*
+ * The helpers cipher the caller's buffer block by block, so no payload is too
+ * long for them: 512 bytes, about four concatenated-SMS parts of OTA command,
+ * cipher fully and round-trip. The last block pins the CBC chain across all 32
+ * blocks against an independently computed vector (same key, zero IV); the
+ * round trip catches a block that was ciphered but never written back.
+ */
+ZTEST(softsim_crypto, test_an_oversized_buffer_is_not_silently_left_in_the_clear)
+{
+	static uint8_t buf[512];
+	static uint8_t original[512];
+	static const uint8_t last_block[AES_BLOCKSIZE] = {0x04, 0x01, 0x52, 0x6b, 0xc5, 0xdc,
+							  0xc3, 0xa3, 0x6f, 0x6b, 0xe4, 0xd4,
+							  0x1e, 0x53, 0x19, 0x22};
+
+	import_all_keys();
+	for (size_t i = 0; i < sizeof(buf); i++) {
+		buf[i] = (uint8_t)i;
+	}
+	memcpy(original, buf, sizeof(original));
+
+	ss_utils_aes_encrypt(buf, sizeof(buf), kic_ref, sizeof(kic_ref));
+	zassert_mem_equal(buf + sizeof(buf) - AES_BLOCKSIZE, last_block, AES_BLOCKSIZE,
+			  "the last CBC block differs from the reference vector");
+
+	ss_utils_aes_decrypt(buf, sizeof(buf), kic_ref, sizeof(kic_ref));
+	zassert_mem_equal(buf, original, sizeof(buf), "a 512-byte buffer did not round-trip");
+}
+
+/*
+ * A PSA step that fails after the first block must not leave the buffer half
+ * ciphered: 24 bytes cipher one block, then psa_cipher_finish refuses the
+ * 8-byte tail (CBC without padding) and the helper wipes everything.
+ */
+ZTEST(softsim_crypto, test_a_failed_cipher_wipes_the_buffer)
+{
+	uint8_t buf[24];
+	static const uint8_t zeros[sizeof(buf)];
+
+	import_all_keys();
+	memcpy(buf, plaintext, sizeof(buf));
+
+	ss_utils_aes_encrypt(buf, sizeof(buf), kic_ref, sizeof(kic_ref));
+
+	zassert_mem_equal(buf, zeros, sizeof(buf), "a failed cipher left bytes behind");
 }
 
 /* --- documented defects ---------------------------------------------------- */
@@ -275,33 +322,6 @@ ZTEST(softsim_crypto, test_a_failed_key_import_is_reported)
 	zassert_true(rc != 0, "ss_utils_setup_key() reported a failed import as success");
 }
 ZTEST_EXPECT_FAIL(softsim_crypto, test_a_failed_key_import_is_reported);
-
-/*
- * Known defect. The cipher helpers copy through a fixed 256-byte scratch buffer
- * and never check the caller's length against it. PSA runs out of output space,
- * the error path jumps past the copy-back, and the function returns void -- so
- * the caller gets its plaintext back unchanged with no indication that nothing
- * was encrypted. For an OTA payload that means sending in the clear.
- *
- * Expected to fail until the helpers bound the length (and report failure).
- */
-ZTEST(softsim_crypto, test_an_oversized_buffer_is_not_silently_left_in_the_clear)
-{
-	static uint8_t buf[512];
-	static uint8_t original[512];
-
-	import_all_keys();
-	for (size_t i = 0; i < sizeof(buf); i++) {
-		buf[i] = (uint8_t)i;
-	}
-	memcpy(original, buf, sizeof(original));
-
-	ss_utils_aes_encrypt(buf, sizeof(buf), kic_ref, sizeof(kic_ref));
-
-	zassert_true(memcmp(buf, original, sizeof(buf)) != 0,
-		     "a buffer larger than the scratch space came back unencrypted");
-}
-ZTEST_EXPECT_FAIL(softsim_crypto, test_an_oversized_buffer_is_not_silently_left_in_the_clear);
 
 /*
  * Known defect. 3DES support was dropped by making both helpers return without
