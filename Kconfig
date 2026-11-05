@@ -153,16 +153,15 @@ endmenu
 # CONFIG_SOFTSIM — same reason the log-level symbols below live here.
 config SOFTSIM_STACK_SIZE
     int "SoftSIM work-queue thread stack size"
-    default 4096 if SOFTSIM_UICC_DISABLE_SMS
-    default 10000
+    default 4000 if SOFTSIM_UICC_DISABLE_SMS
+    default 6000
     help
         Stack size of the dedicated work-queue thread that runs all SoftSIM
         processing (ATR, APDU transactions, filesystem and crypto). The
-        default is deliberately generous; measure the high-water mark with
-        CONFIG_THREAD_ANALYZER before lowering it in a product build.
-
-        With CONFIG_SOFTSIM_UICC_DISABLE_SMS the RFM/OTA path does not exist;
-        cold LTE attaches peaked at 1,944 B, so the default is 4096.
+        default keeps about 4x headroom over the measured high-water mark,
+        about 2.5x with CONFIG_SOFTSIM_LIBS_DEBUG_LOGS and about 3x with
+        CONFIG_SOFTSIM_UICC_DISABLE_SMS; measure with CONFIG_THREAD_ANALYZER
+        before lowering it.
 
 config SOFTSIM_THREAD_PRIORITY
     int "SoftSIM work-queue thread priority"
