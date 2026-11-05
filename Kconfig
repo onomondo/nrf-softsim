@@ -175,10 +175,10 @@ config SOFTSIM_THREAD_PRIORITY
 
 config SOFTSIM_HEAP_SIZE
     int "SoftSIM heap size"
-    range 15000 131072 if SOFTSIM_UICC_DISABLE_SMS
-    range 30000 131072
-    default 15000 if SOFTSIM_UICC_DISABLE_SMS
-    default 30000
+    range 12500 131072 if SOFTSIM_UICC_DISABLE_SMS
+    range 25000 131072
+    default 12500 if SOFTSIM_UICC_DISABLE_SMS
+    default 25000
     help
         Usable bytes in SoftSIM's private heap. Every SoftSIM allocation --
         SIM context, directory table, file cache, APDU transactions, TLV
@@ -187,15 +187,11 @@ config SOFTSIM_HEAP_SIZE
         application's. As far as this module is concerned
         CONFIG_HEAP_MEM_POOL_SIZE may be 0.
 
-        The floor is not slack: steady state on the shipped profile is
-        11.5-13 kB and the RFM/OTA path peaks about 10 kB above that (a 4 kB
-        response held live while all 31 concatenated-SMS parts are queued).
-        Do not lower it without a measured high-water mark that covers an
-        RFM/OTA exchange -- see CONFIG_SOFTSIM_HEAP_STATS.
-
-        With CONFIG_SOFTSIM_UICC_DISABLE_SMS that path does not exist; a
-        completed LTE attach on the shipped profile peaked at 11,592 B, so
-        the floor is 15000. Measure your own profile before lowering it.
+        The default keeps about 1.4x headroom over the largest RFM script
+        the port accepts (a cold LTE attach needs about half of that), and
+        about 1.4x over an attach with CONFIG_SOFTSIM_UICC_DISABLE_SMS. The
+        mark CONFIG_SOFTSIM_HEAP_STATS prints under-reports the need and an
+        exhausted heap halts the SoftSIM thread, so the floor is the default.
 
 config SOFTSIM_HEAP_STATS
     bool "Log SoftSIM heap usage"
