@@ -8,6 +8,7 @@ config SOFTSIM
     depends on FLASH_PAGE_LAYOUT
     depends on MPU_ALLOW_FLASH_WRITE
     depends on BUILD_WITH_TFM
+    depends on NRF_MODEM_LIB
 
 if SOFTSIM
 
