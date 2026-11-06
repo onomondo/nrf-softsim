@@ -1,0 +1,42 @@
+[
+  {
+    "target_name": "nrf9160dk",
+    "board": "nrf9160dk/nrf9160/ns",
+    "elf": "zephyr.elf",
+    "ld": "linker.cmd",
+    "map_file": "zephyr.map",
+    "linker_vars": ""
+  },
+  {
+    "target_name": "nrf9161dk",
+    "board": "nrf9161dk/nrf9161/ns",
+    "elf": "zephyr.elf",
+    "ld": "linker.cmd",
+    "map_file": "zephyr.map",
+    "linker_vars": ""
+  },
+  {
+    "target_name": "nrf9151dk",
+    "board": "nrf9151dk/nrf9151/ns",
+    "elf": "zephyr.elf",
+    "ld": "linker.cmd",
+    "map_file": "zephyr.map",
+    "linker_vars": ""
+  },
+  {
+    "target_name": "thingy91",
+    "board": "thingy91/nrf9160/ns",
+    "elf": "zephyr.elf",
+    "ld": "linker.cmd",
+    "map_file": "zephyr.map",
+    "linker_vars": ""
+  },
+  {
+    "target_name": "thingy91x",
+    "board": "thingy91x/nrf9151/ns",
+    "elf": "zephyr.elf",
+    "ld": "linker.cmd",
+    "map_file": "zephyr.map",
+    "linker_vars": ""
+  }
+]

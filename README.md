@@ -1,5 +1,7 @@
 # Onomondo SoftSIM for Nordic nRF91 Series
 
+[![MemBrowse](https://membrowse.com/badge.svg)](https://membrowse.com/public/onomondo/nrf-softsim)
+
 The Onomondo SoftSIM is an [Open Source](https://github.com/onomondo/onomondo-uicc) C based UICC implementation, allowing new and innovative cellular device designs to see the light of day in the ever-growing landscape of IoT!
 
 To integrate this awesome new SoftSIM UICC form factor, we have partnered with Nordic Semiconductor to develop and distribute a new SoftSIM modem interface that supports APDU exchange between the modem and the application processor. For more details and an in-depth explanation, refer to Nordic Semiconductor's [documentation](https://docs.nordicsemi.com/bundle/ncs-latest/page/nrfxlib/nrf_modem/doc/softsim_interface.html).

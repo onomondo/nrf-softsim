@@ -1,0 +1,116 @@
+name: MemBrowse Memory Report
+
+on:
+  pull_request:
+  push:
+    branches:
+      - master
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.event_name == 'push' && github.sha || github.ref }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
+
+jobs:
+  load-targets:
+    runs-on: ubuntu-24.04
+    outputs:
+      matrix: ${{ steps.set-matrix.outputs.matrix }}
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+
+      - name: Load target matrix
+        id: set-matrix
+        run: echo "matrix=$(jq -c '.' .github/membrowse-targets.json)" >> $GITHUB_OUTPUT
+
+  # The firmware builds inside the nRF Connect SDK toolchain image, which has no
+  # Node runtime guarantees for the MemBrowse action. Build there, hand the ELF,
+  # linker script and linker map to the analyze job through an artifact.
+  build:
+    needs: load-targets
+    runs-on: ubuntu-24.04
+    timeout-minutes: 60
+    container: ghcr.io/nrfconnect/sdk-nrf-toolchain:v3.4.0@sha256:f1dca44678dae83e37404e33f369786f5b2ffe2ed497eec1815f66c3a868bace
+    defaults:
+      run:
+        # Bash shell is needed to set toolchain related environment variables in docker container
+        shell: bash
+    strategy:
+      fail-fast: false
+      matrix:
+        include: ${{ fromJson(needs.load-targets.outputs.matrix) }}
+
+    steps:
+      # west.yml sets self.path to modules/lib/onomondo-softsim, which
+      # `west init -l` does not honor, so init from the manifest URL and let
+      # the checkout replace the cloned tree with the ref under test.
+      - name: Initialize workspace
+        run: |
+          west init -m https://github.com/${GITHUB_REPOSITORY}
+
+      - name: Checkout
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          path: modules/lib/onomondo-softsim
+          submodules: true
+          ref: ${{ github.event.pull_request.head.sha || github.sha }}
+
+      - name: Fetch nRF and Zephyr workspaces and dependencies
+        run: |
+          west update -o=--depth=1 --narrow
+
+      - name: Build firmware
+        working-directory: modules/lib/onomondo-softsim/samples/softsim_external_profile
+        run: |
+          west build --sysbuild --pristine=always --board ${{ matrix.board }}
+
+      - name: Stage ELF, linker script and map file
+        run: |
+          mkdir out
+          zephyr=modules/lib/onomondo-softsim/samples/softsim_external_profile/build/softsim_external_profile/zephyr
+          cp "$zephyr/${{ matrix.elf }}" "$zephyr/${{ matrix.ld }}" "$zephyr/${{ matrix.map_file }}" out/
+
+      - name: Upload build output
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: membrowse-${{ matrix.target_name }}
+          path: out/
+          if-no-files-found: error
+
+  analyze:
+    needs: [load-targets, build]
+    runs-on: ubuntu-24.04
+    strategy:
+      fail-fast: false
+      matrix:
+        include: ${{ fromJson(needs.load-targets.outputs.matrix) }}
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          fetch-depth: 2
+          ref: ${{ github.event.pull_request.head.sha || github.sha }}
+
+      - name: Download build output
+        uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8.0.1
+        with:
+          name: membrowse-${{ matrix.target_name }}
+          path: out
+
+      - name: Run MemBrowse analysis
+        uses: membrowse/membrowse-action@v1
+        with:
+          target_name: ${{ matrix.target_name }}
+          elf: out/${{ matrix.elf }}
+          ld: out/${{ matrix.ld }}
+          map_file: out/${{ matrix.map_file }}
+          linker_vars: ${{ matrix.linker_vars }}
+          api_key: ${{ secrets.MEMBROWSE_API_KEY }}
+          api_url: ${{ vars.MEMBROWSE_API_URL }}
+          verbose: INFO
+          # Uncomment to allow CI to pass even when memory budgets are exceeded
+          # dont_fail_on_alerts: true
