@@ -124,7 +124,6 @@ config SOFTSIM_UICC_DISABLE_SMS
         Drops SMS-PP download and SMS-MO handling, and with it RFM/OTA remote
         file management (OTA arrives over SMS). CAT stays. An ENVELOPE
         (SMS-PP DOWNLOAD) is answered 6F00 and logged at error level.
-        CONFIG_SOFTSIM_HEAP_SIZE defaults to 15000 instead of 30000.
 
 config SOFTSIM_UICC_FS_CHG_MAX_FILES
     int "Files budgeted in the REFRESH changed-file list"
