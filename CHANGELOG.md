@@ -1,5 +1,12 @@
 # Changelog
 
+## [7.0.1](https://github.com/onomondo/nrf-softsim/compare/v7.0.0...v7.0.1) (2026-11-09)
+
+
+### Bug Fixes
+
+* make Kconfig SOFTSIM depend on NRF_MODEM_LIB ([#244](https://github.com/onomondo/nrf-softsim/issues/244)) ([41c0cf5](https://github.com/onomondo/nrf-softsim/commit/41c0cf5b8ef8e642fb3eca4f70647d40c7a2be65))
+
 ## [7.0.0](https://github.com/onomondo/nrf-softsim/compare/v6.1.1...v7.0.0) (2026-11-05)
 
 
