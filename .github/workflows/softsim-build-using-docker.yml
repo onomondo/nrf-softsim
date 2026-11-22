@@ -106,12 +106,35 @@ jobs:
           grep -qx 'CONFIG_THREAD_NAME=y' "$config"
           grep -qa 'softsim_wq' build-stats/softsim_external_profile/zephyr/zephyr.elf
 
+      # The stats build with SMS and OTA compiled out, for the rig's SMS-off tier.
+      # A build passes whether or not the option reached the submodule, so check
+      # the link map too (uicc_cat.c.obj stays, as the positive control).
+      - name: Build firmware (HIL stats, SMS and OTA compiled out)
+        if: contains(matrix.board, 'dk/')
+        working-directory: modules/lib/onomondo-softsim/samples/softsim_external_profile
+        run: |
+          west build --sysbuild --pristine=always --board ${{ matrix.board }} -d build-stats-smsoff \
+            -- -DEXTRA_CONF_FILE="overlay-heap-stats.conf;overlay-thread-analyzer.conf" \
+            -DCONFIG_SOFTSIM_UICC_DISABLE_SMS=y
+          config=build-stats-smsoff/softsim_external_profile/zephyr/.config
+          map=build-stats-smsoff/softsim_external_profile/zephyr/zephyr.map
+          grep -qx 'CONFIG_SOFTSIM_HEAP_STATS=y' "$config"
+          grep -qx 'CONFIG_THREAD_ANALYZER_AUTO=y' "$config"
+          grep -qx 'CONFIG_SOFTSIM_HEAP_SIZE=12500' "$config"
+          grep -qx 'CONFIG_SOFTSIM_STACK_SIZE=4000' "$config"
+          grep -q 'uicc_cat\.c\.obj' "$map"
+          if grep -qE 'uicc_(remote_cmd|sms_rx)\.c\.obj' "$map"; then exit 1; fi
+          # One artifact for the rig: merged.hex where it always was, plus the SMS-off image.
+          mkdir -p build-hil
+          cp build-stats/merged.hex build-hil/merged.hex
+          cp build-stats-smsoff/merged.hex build-hil/merged-smsoff.hex
+
       - name: Archive SoftSIM HIL stats build
         if: contains(matrix.board, 'dk/')
         uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
         with:
           name: ${{ steps.artifact_name.outputs.artifact_name }}_stats
-          path: modules/lib/onomondo-softsim/samples/softsim_external_profile/build-stats/merged.hex
+          path: modules/lib/onomondo-softsim/samples/softsim_external_profile/build-hil/
           overwrite: true
           if-no-files-found: error
 
@@ -124,20 +147,6 @@ jobs:
         run: |
           west build --sysbuild --pristine=always --board ${{ matrix.board }} \
             -- -DEXTRA_CONF_FILE=overlay-static.conf
-
-      # A build passes whether or not the option reached the submodule, so
-      # check the link map (uicc_cat.c.obj stays, as the positive control).
-      - name: Build firmware (SMS and OTA compiled out)
-        if: matrix.board == 'nrf9151dk/nrf9151/ns'
-        working-directory: modules/lib/onomondo-softsim/samples/softsim_external_profile
-        run: |
-          west build --sysbuild --pristine=always --board ${{ matrix.board }} \
-            -- -DCONFIG_SOFTSIM_UICC_DISABLE_SMS=y
-          map=build/softsim_external_profile/zephyr/zephyr.map
-          grep -qx 'CONFIG_SOFTSIM_HEAP_SIZE=12500' build/softsim_external_profile/zephyr/.config
-          grep -qx 'CONFIG_SOFTSIM_STACK_SIZE=4000' build/softsim_external_profile/zephyr/.config
-          grep -q 'uicc_cat\.c\.obj' "$map"
-          if grep -qE 'uicc_(remote_cmd|sms_rx)\.c\.obj' "$map"; then exit 1; fi
 
       # The sysbuild hook runs for every sysbuild build in the workspace; hello_world
       # proves it works without the (deprecated, default-off) Partition Manager.
