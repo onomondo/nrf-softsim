@@ -59,6 +59,8 @@ jobs:
       - name: Fetch nRF and Zephyr workspaces and dependencies
         run: |
           west config manifest.project-filter -- "$(grep -v '^#' modules/lib/onomondo-softsim/.github/west-project-filter)"
+          # For every west build in this job.
+          west config build.cmake-args -- -DCONFIG_COMPILER_WARNINGS_AS_ERRORS=y
           west update -o=--depth=1 --narrow
 
       - name: Build firmware of SoftSIM sample
@@ -170,6 +172,8 @@ jobs:
       - name: Fetch nRF and Zephyr workspaces and dependencies
         run: |
           west config manifest.project-filter -- "$(grep -v '^#' modules/lib/onomondo-softsim/.github/west-project-filter)"
+          # For every west build in this job.
+          west config build.cmake-args -- -DCONFIG_COMPILER_WARNINGS_AS_ERRORS=y
           west update -o=--depth=1 --narrow
 
       # Compile-check the static-profile mode too. The static vs external delta is
