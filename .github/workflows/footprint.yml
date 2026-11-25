@@ -2,6 +2,7 @@ name: Firmware Footprint
 
 # Flash/RAM delta of a PR (its test merge commit vs that commit's first parent) for the app and TF-M
 # images of the sample on nrf9151dk; see .github/scripts/footprint.py for the method.
+# Default configuration only: code behind a default-off Kconfig option reports no change.
 on:
   pull_request:
     paths:
@@ -15,12 +16,10 @@ on:
       - 'west.yml'
       - 'zephyr/module.yml'
       - 'lib/onomondo-uicc'
-      # Not in the sample image. Order matters: the last matching pattern wins, so this workflow re-includes itself.
-      - '!tests/**'
-      - '!docs/**'
-      - '!.github/**'
       - '.github/workflows/footprint.yml'
       - '.github/scripts/footprint.py'
+      # Not in the sample image. Last, as the last matching pattern wins.
+      - '!tests/**'
 
 permissions:
   contents: read
