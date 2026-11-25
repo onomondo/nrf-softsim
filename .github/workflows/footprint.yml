@@ -68,6 +68,7 @@ jobs:
 
       - name: Fetch nRF and Zephyr workspaces and dependencies
         run: |
+          west config manifest.project-filter -- "$(grep -v '^#' modules/lib/onomondo-softsim/.github/west-project-filter)"
           west update -o=--depth=1 --narrow
 
       - name: Build firmware (nrf9151dk)

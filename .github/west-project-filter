@@ -1,0 +1,3 @@
+# The SDK projects CI fetches: what the firmware builds and unit tests use (images verified
+# byte-identical to a full workspace). Add a project an SDK bump newly needs.
+-.*,+sdk-nrf,+zephyr,+nrfxlib,+hal_nordic,+cmsis_6,+trusted-firmware-m,+mbedtls,+oberon-psa-crypto,+tf-psa-crypto,+bsim,+mcuboot,+zcbor

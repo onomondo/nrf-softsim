@@ -44,6 +44,7 @@ jobs:
 
       - name: Fetch nRF and Zephyr workspaces and dependencies
         run: |
+          west config manifest.project-filter -- "$(grep -v '^#' modules/lib/onomondo-softsim/.github/west-project-filter)"
           west update -o=--depth=1 --narrow
 
       # native_sim is a host binary, so the sanitizers actually apply here. The
