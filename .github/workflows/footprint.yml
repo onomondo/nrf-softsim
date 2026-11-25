@@ -1,20 +1,8 @@
 name: Firmware Footprint
 
-# Report the flash/RAM footprint delta of a pull request against its base
-# branch as a sticky PR comment and in the job summary (summary only on fork
-# PRs: their token is read-only). Builds the softsim_external_profile sample
-# ELF for both the base and the PR head, and computes the flash/RAM headline
-# plus the section- and symbol-level attribution detail, all from the ELF
-# program headers, section headers and symbol tables via readelf. Scoped to
-# one board (nrf9151dk) -- the primary target -- to bound the cost of
-# building twice per PR.
-#
-# Measures the default (external-profile) build only. Code gated off by
-# default Kconfig (e.g. SOFTSIM_STATIC_PROFILE_ENABLE) contributes nothing to
-# this image, so a PR touching only such code reports a zero delta; if that
-# becomes a recurring blind spot, mirror this build with
-# -DEXTRA_CONF_FILE=overlay-static.conf on both refs when the PR touches
-# static-profile code.
+# Flash/RAM delta of a PR (its test merge commit vs that commit's first parent) for the app and TF-M
+# images of the sample on nrf9151dk; see .github/scripts/footprint.py for the method.
+# Default configuration only: code behind a default-off Kconfig option reports no change.
 on:
   pull_request:
     paths:
@@ -26,8 +14,12 @@ on:
       - '**/Kconfig*'
       - '**/CMakeLists.txt'
       - 'west.yml'
+      - 'zephyr/module.yml'
       - 'lib/onomondo-uicc'
       - '.github/workflows/footprint.yml'
+      - '.github/scripts/footprint.py'
+      # Not in the sample image. Last, as the last matching pattern wins.
+      - '!tests/**'
 
 permissions:
   contents: read
@@ -37,15 +29,14 @@ concurrency:
   cancel-in-progress: true
 
 jobs:
-  build-elf:
-    name: build ELF (${{ matrix.ref }})
+  build:
+    name: build (${{ matrix.ref }})
     runs-on: ubuntu-26.04
     timeout-minutes: 60
     container: ghcr.io/nrfconnect/sdk-nrf-toolchain:v3.4.2@sha256:54d1b800cc92602b5206b21a447696982177ac89cdef8c8ca8ef5cab419e0046
     defaults:
       run:
-        # Bash shell is needed to set toolchain related environment variables in docker container
-        # It is a workaround for GitHub Actions limitation https://github.com/actions/runner/issues/1964
+        # Bash sets the toolchain environment in the container (actions/runner#1964).
         shell: bash
 
     strategy:
@@ -54,20 +45,26 @@ jobs:
         ref: [base, pr]
 
     steps:
-      # Same init-then-checkout dance as the build workflow: west.yml sets
-      # self.path to modules/lib/onomondo-softsim, which `west init -l` does
-      # not honor, so init from the manifest URL and let the checkout replace
-      # the cloned tree with the ref under test.
+      # west.yml's self.path is not honored by `west init -l`, so init from the URL and check out over it.
       - name: Initialize workspace
         run: |
-          west init -m https://github.com/${GITHUB_REPOSITORY}
+          west init -m "https://github.com/${GITHUB_REPOSITORY}"
+          git config --global --add safe.directory '*'  # the workspace is bind-mounted from the host
 
-      - name: Checkout ${{ matrix.ref }}
+      - name: Checkout
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
         with:
           path: modules/lib/onomondo-softsim
           submodules: true
-          ref: ${{ matrix.ref == 'base' && github.event.pull_request.base.sha || github.event.pull_request.head.sha }}
+          fetch-depth: 2
+
+      # Base and PR are the two sides of the test merge, so commits merged since the PR branched cancel out.
+      - name: Select the base (the merge commit's first parent)
+        if: matrix.ref == 'base'
+        working-directory: modules/lib/onomondo-softsim
+        run: |
+          git checkout -q HEAD^1
+          git submodule update --init
 
       - name: Fetch nRF and Zephyr workspaces and dependencies
         run: |
@@ -77,156 +74,55 @@ jobs:
         working-directory: modules/lib/onomondo-softsim/samples/softsim_external_profile
         run: |
           west build --sysbuild --pristine=always --board nrf9151dk/nrf9151/ns
+          out=$GITHUB_WORKSPACE/out
+          mkdir -p "$out"
+          cp build/softsim_external_profile/zephyr/zephyr.map "$out/app.map"
+          cp build/softsim_external_profile/tfm/bin/tfm_s.map "$out/tfm.map"
+          git rev-parse HEAD > "$out/sha"
 
-      - name: Stage ELF
-        run: |
-          build=modules/lib/onomondo-softsim/samples/softsim_external_profile/build
-          cp "$build"/softsim_external_profile/zephyr/zephyr.elf ${{ matrix.ref }}.elf
-          # Drop DWARF so the section diff only shows loadable sections
-          # instead of a wall of .debug_* rows; .symtab stays for the
-          # symbol-level diff. Also shrinks the artifact ~10x. The cross
-          # strip lives next to the compiler the build used.
-          cc=$(sed -n 's/^CMAKE_C_COMPILER:[^=]*=//p' "$build"/softsim_external_profile/CMakeCache.txt)
-          "${cc%gcc}strip" --strip-debug ${{ matrix.ref }}.elf
-
-      - name: Upload ELF
+      - name: Upload linker maps
         uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         with:
-          name: elf-${{ matrix.ref }}
-          path: ${{ matrix.ref }}.elf
+          name: footprint-${{ matrix.ref }}
+          path: out/
           if-no-files-found: error
 
-  footprint:
+  report:
     name: footprint delta
-    needs: build-elf
+    needs: build
     runs-on: ubuntu-26.04
     timeout-minutes: 10
     permissions:
       contents: read
       pull-requests: write
     steps:
-      - name: Download base ELF
+      - name: Checkout the report script
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+        with:
+          sparse-checkout: .github/scripts
+          sparse-checkout-cone-mode: false
+
+      - name: Download linker maps
         uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
         with:
-          name: elf-base
+          pattern: footprint-*
 
-      - name: Download PR ELF
-        uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
-        with:
-          name: elf-pr
-
-      # Flash/RAM from the ELF program headers: every LOAD segment's file
-      # size is flash-resident image content (including the load copy of
-      # initialized data); a segment's memory size counts toward RAM when
-      # its VMA is in SRAM (0x20000000+ on the nRF9151, the only board this
-      # workflow builds). Bloaty's FILE/VM section totals can't give this
-      # split -- VM SIZE mixes XIP code into "memory", and Berkeley `size`
-      # misbuckets Zephyr's rodata as data. GNU readelf is target-agnostic,
-      # so the stock one handles the Arm ELF.
-      - name: Compute flash/RAM headline
-        id: mem
-        run: |
-          mem() {
-            local flash=0 ram=0 vaddr filesz memsz
-            while read -r _ _ vaddr _ filesz memsz _; do
-              flash=$((flash + filesz))
-              if ((vaddr >= 0x20000000)); then ram=$((ram + memsz)); fi
-            done < <(readelf -lW "$1" | grep -E '^ +LOAD')
-            echo "$flash $ram"
-          }
-          read -r bflash bram < <(mem base.elf)
-          read -r pflash pram < <(mem pr.elf)
-          # errexit can't propagate out of the process substitutions above, so
-          # a missing/corrupt ELF would otherwise render as a silent 0.0 KiB.
-          ((bflash > 0 && pflash > 0))
-          row() {
-            awk -v l="$1" -v b="$2" -v p="$3" 'BEGIN {
-              printf "| %s | %.1f KiB | %.1f KiB | **%+d B** |\n", l, b / 1024, p / 1024, p - b
-            }'
-          }
-          {
-            echo 'table<<TABLE_EOF'
-            echo '| Memory | base | PR | Δ |'
-            echo '|---|---:|---:|---:|'
-            row Flash "$bflash" "$pflash"
-            row RAM "$bram" "$pram"
-            echo 'TABLE_EOF'
-          } >> "$GITHUB_OUTPUT"
-
-      # Bloaty would be the usual tool here, but its packaged GitHub action is
-      # abandoned, it is not in the Ubuntu archive, and `bloaty -d symbols`
-      # chokes on Zephyr images anyway ("Can't translate VM pointer to file",
-      # caused by the zero-FileSiz LOAD segments) -- so both attribution
-      # tables come from readelf, which the headline already depends on.
-      - name: Diff sections
-        id: sections
-        run: |
-          secs() {
-            # gawk, not awk: the runner's default mawk has no strtonum for the
-            # hex sizes readelf -S always prints.
-            readelf -SW "$1" \
-              | gawk '/^ *\[ *[0-9]+\]/ { sub(/^[^]]*\] */, ""); sz = strtonum("0x" $5); if ($2 != "NULL" && sz > 0) print $1, sz }' \
-              | sort -k1,1
-          }
-          join -a1 -a2 -e 0 -o 0,1.2,2.2 <(secs pr.elf) <(secs base.elf) \
-            | awk '{ d = $2 - $3; if (d != 0) printf "%+8d B  %-20s (%d -> %d)\n", d, $1, $3, $2 }' > secdiff.txt
-          [ -s secdiff.txt ] || echo '(no section size changes)' > secdiff.txt
-          {
-            echo 'diff<<SECS_EOF'
-            cat secdiff.txt
-            echo 'SECS_EOF'
-          } >> "$GITHUB_OUTPUT"
-
-      - name: Diff symbols
-        id: symbols
-        run: |
-          syms() {
-            # --sym-base=10: readelf prints sizes >99999 in hex by default,
-            # which the $3 + 0 filter below would silently drop.
-            readelf -sW --sym-base=10 "$1" \
-              | awk '$4 ~ /^(FUNC|OBJECT)$/ && $3 + 0 > 0 { sz[$8] += $3 } END { for (s in sz) print s, sz[s] }' \
-              | sort -k1,1
-          }
-          join -a1 -a2 -e 0 -o 0,1.2,2.2 <(syms pr.elf) <(syms base.elf) \
-            | awk '{ d = $2 - $3; if (d != 0) printf "%d\t%+8d B  %s\n", (d < 0 ? -d : d), d, $1 }' \
-            | sort -rn -k1,1 | head -10 | cut -f2- > symdiff.txt
-          [ -s symdiff.txt ] || echo '(no symbol size changes)' > symdiff.txt
-          {
-            echo 'diff<<SYMS_EOF'
-            cat symdiff.txt
-            echo 'SYMS_EOF'
-          } >> "$GITHUB_OUTPUT"
-
-      - name: Write job summary
+      - name: Write report
         env:
           SAME_REPO: ${{ github.event.pull_request.head.repo.full_name == github.repository }}
-          REPORT: |
-            ### Firmware footprint delta — `nrf9151dk/nrf9151/ns`
-
-            softsim_external_profile app image, from the ELF program headers (flash = load image incl. initialized data, RAM = static SRAM use incl. `.bss`/`noinit`):
-
-            ${{ steps.mem.outputs.table }}
-
-            <details>
-            <summary>Section size changes (from the section headers)</summary>
-
-            ```
-            ${{ steps.sections.outputs.diff }}
-            ```
-            </details>
-
-            <details>
-            <summary>Top symbol changes (10 largest, from the symbol tables)</summary>
-
-            ```
-            ${{ steps.symbols.outputs.diff }}
-            ```
-            </details>
-
-            <sub>Soft report — informational only. Base `${{ github.event.pull_request.base.sha }}` vs PR head.</sub>
+          HEAD_SHA: ${{ github.event.pull_request.head.sha }}
         run: |
-          printf '%s\n' "$REPORT" | tee report.md >> "$GITHUB_STEP_SUMMARY"
-          [ "$SAME_REPO" = true ] || echo "::notice title=Footprint report::Fork PR: GitHub gives fork PRs a read-only token, so the report is in this run's job summary instead of a PR comment."
+          # shellcheck disable=SC2016  # backticks are Markdown
+          {
+            echo '### Firmware footprint delta — `nrf9151dk/nrf9151/ns`'
+            echo
+            echo 'softsim_external_profile. Region use is what the linker reports (`ld --print-memory-usage`), less the free gap before the TF-M veneers; the breakdowns come from the linker map and add up to it.'
+            echo
+            python3 .github/scripts/footprint.py footprint-base footprint-pr
+            echo "<sub>Soft report — informational only. Base \`$(cut -c1-7 footprint-base/sha)\` vs \`$(cut -c1-7 footprint-pr/sha)\`, the test merge of PR head \`${HEAD_SHA::7}\` into it.</sub>"
+          } > report.md
+          cat report.md >> "$GITHUB_STEP_SUMMARY"
+          [ "$SAME_REPO" = true ] || echo "::notice title=Footprint report::Fork PR: its token is read-only, so the report is in this run's job summary instead of a PR comment."
 
       - name: Post footprint comment
         if: github.event.pull_request.head.repo.full_name == github.repository
