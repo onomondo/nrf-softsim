@@ -231,7 +231,7 @@ source "${ZEPHYR_BASE}/subsys/logging/Kconfig.template.log_config"
 # Log / UART buffer defaults for SoftSIM-enabled builds. Either debug flag
 # bumps them; otherwise the production-friendly sizing applies. These are
 # `default` directives so any explicit value in a prj.conf or overlay wins.
-if SOFTSIM
+if SOFTSIM && LOG
 
 config LOG_DEFAULT_LEVEL
     default 1
@@ -250,7 +250,7 @@ config UART_0_NRF_TX_BUFFER_SIZE
 config LOG_PROCESS_TRIGGER_THRESHOLD
     default 5
 
-endif # SOFTSIM
+endif # SOFTSIM && LOG
 
 # Can't force immediate mode from here (Kconfig ignores select/default on choice
 # symbols like LOG_MODE_IMMEDIATE); the user sets CONFIG_LOG_MODE_IMMEDIATE=y and
