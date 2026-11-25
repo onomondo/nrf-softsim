@@ -55,9 +55,11 @@ jobs:
           refs=$(sed -n 's|^ *container: ghcr.io/nrfconnect/sdk-nrf-toolchain:\([^@]*\)@.*|\1|p' .github/workflows/*.yml | sort -u)
           [ "$refs" = "$ncs" ] || { echo "toolchain image ($refs) != west.yml sdk-nrf ($ncs)"; exit 1; }
 
-      # Update dependencies and submodules using west
+      # Only what these builds link (images verified byte-identical); the footprint list plus MCUboot and
+      # zcbor (the Thingy boards' serial recovery). A module an SDK bump newly needs fails the build loudly.
       - name: Fetch nRF and Zephyr workspaces and dependencies
         run: |
+          west config manifest.project-filter -- '-.*,+sdk-nrf,+zephyr,+nrfxlib,+hal_nordic,+cmsis_6,+trusted-firmware-m,+mbedtls,+oberon-psa-crypto,+tf-psa-crypto,+bsim,+mcuboot,+zcbor'
           west update -o=--depth=1 --narrow
 
       - name: Build firmware of SoftSIM sample
@@ -138,11 +140,43 @@ jobs:
           overwrite: true
           if-no-files-found: error
 
+  # The single-board builds, in parallel with the board jobs instead of after nrf9151dk's: two groups
+  # of about equal length keep the slowest job near a board job's length.
+  variants:
+    runs-on: ubuntu-26.04
+    timeout-minutes: 60
+    container: ghcr.io/nrfconnect/sdk-nrf-toolchain:v3.4.2@sha256:54d1b800cc92602b5206b21a447696982177ac89cdef8c8ca8ef5cab419e0046
+    defaults:
+      run:
+        # Bash sets the toolchain environment in the container (actions/runner#1964).
+        shell: bash
+
+    strategy:
+      fail-fast: false
+      matrix:
+        board: [nrf9151dk/nrf9151/ns]
+        group: [layouts, integration]
+
+    steps:
+      - name: Initialize workspace
+        run: |
+          west init -m "https://github.com/${GITHUB_REPOSITORY}"
+
+      - name: Checkout
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          path: modules/lib/onomondo-softsim
+          submodules: true
+
+      - name: Fetch nRF and Zephyr workspaces and dependencies
+        run: |
+          west config manifest.project-filter -- '-.*,+sdk-nrf,+zephyr,+nrfxlib,+hal_nordic,+cmsis_6,+trusted-firmware-m,+mbedtls,+oberon-psa-crypto,+tf-psa-crypto,+bsim,+mcuboot,+zcbor'
+          west update -o=--depth=1 --narrow
+
       # Compile-check the static-profile mode too. The static vs external delta is
-      # board-independent, so one board is enough. Runs after the archive so its
-      # pristine rebuild doesn't clobber the archived (external) merged.hex.
+      # board-independent, so one board is enough.
       - name: Build firmware (static profile mode, compile check)
-        if: matrix.board == 'nrf9151dk/nrf9151/ns'
+        if: matrix.group == 'layouts'
         working-directory: modules/lib/onomondo-softsim/samples/softsim_external_profile
         run: |
           west build --sysbuild --pristine=always --board ${{ matrix.board }} \
@@ -151,7 +185,7 @@ jobs:
       # The sysbuild hook runs for every sysbuild build in the workspace; hello_world
       # proves it works without the (deprecated, default-off) Partition Manager.
       - name: Build an unrelated sample without Partition Manager
-        if: matrix.board == 'nrf9151dk/nrf9151/ns'
+        if: matrix.group == 'integration'
         run: |
           west build --sysbuild --pristine=always --board ${{ matrix.board }} \
             -d build-hello zephyr/samples/hello_world
@@ -159,7 +193,7 @@ jobs:
       # Proves nrf_softsim_init() links. The grep keeps CONFIG_SOFTSIM_AUTO_INIT out
       # of overlay-softsim.conf, where it would override an application's opt-out.
       - name: Build firmware (manual init mode)
-        if: matrix.board == 'nrf9151dk/nrf9151/ns'
+        if: matrix.group == 'layouts'
         working-directory: modules/lib/onomondo-softsim/samples/softsim_external_profile
         run: |
           west build --sysbuild --pristine=always --board ${{ matrix.board }} \
@@ -171,7 +205,7 @@ jobs:
       # Canary for the deprecated Partition Manager flow, which stays supported
       # during the devicetree transition window. One board is enough.
       - name: Build firmware (Partition Manager mode, canary)
-        if: matrix.board == 'nrf9151dk/nrf9151/ns'
+        if: matrix.group == 'layouts'
         working-directory: modules/lib/onomondo-softsim/samples/softsim_external_profile
         run: |
           west build --sysbuild --pristine=always --board ${{ matrix.board }} \
@@ -187,7 +221,7 @@ jobs:
       # geometry was verified by inspection only; this is also the only build
       # that exercises the boot_partition build assert.
       - name: Build firmware (MCUboot DFU layout)
-        if: matrix.board == 'nrf9151dk/nrf9151/ns'
+        if: matrix.group == 'layouts'
         working-directory: modules/lib/onomondo-softsim/samples/softsim_external_profile
         run: |
           west build --sysbuild --pristine=always --board ${{ matrix.board }} \
@@ -206,7 +240,7 @@ jobs:
       # partition layout and the two cannot stack, so ours has to replace the
       # application's overlay list rather than append to it.
       - name: Build a foreign application with SoftSIM
-        if: matrix.board == 'nrf9151dk/nrf9151/ns'
+        if: matrix.group == 'integration'
         env:
           SOFTSIM: modules/lib/onomondo-softsim
         run: |
@@ -219,7 +253,7 @@ jobs:
       # Same, bundling the template: an integrator has to be able to produce a
       # flashable artifact for their own application, not just for our sample.
       - name: Build a foreign application with SoftSIM (bundled template)
-        if: matrix.board == 'nrf9151dk/nrf9151/ns'
+        if: matrix.group == 'integration'
         env:
           SOFTSIM: modules/lib/onomondo-softsim
         run: |
