@@ -94,6 +94,8 @@ int port_check_provisioned(void);
 #define A001_PROV_PATH  "/3f00/a001"
 #define A004_PROV_ID    0x0043
 #define A004_PROV_PATH  "/3f00/a004"
+#define SMSP_PROV_ID    0x0044
+#define SMSP_PROV_PATH  "/3f00/7ff0/6f42"
 
 static const uint8_t plain_content[] = {0x98, 0x00, 0x10, 0x32, 0x54, 0x76, 0x98, 0x10, 0x32, 0x14};
 static const uint8_t commit_content[] = {1, 2, 3, 4, 5, 6, 7, 8};
@@ -188,6 +190,7 @@ static void seed_nvs(void)
 	len = put_record(blob, len, ICCID_PROV_ID, ICCID_PROV_PATH);
 	len = put_record(blob, len, A001_PROV_ID, A001_PROV_PATH);
 	len = put_record(blob, len, A004_PROV_ID, A004_PROV_PATH);
+	len = put_record(blob, len, SMSP_PROV_ID, SMSP_PROV_PATH);
 	len = put_record(blob, len, REFUSE_ID, REFUSE_PATH);
 	len = put_record(blob, len, REFUSE_CLOSE_ID, REFUSE_CLOSE_PATH);
 
@@ -222,6 +225,12 @@ static void seed_nvs(void)
 		     "seeding %s failed", REFUSE_PATH);
 	zassume_true(nvs_write(&seed, REFUSE_CLOSE_ID, commit_content, sizeof(commit_content)) > 0,
 		     "seeding %s failed", REFUSE_CLOSE_PATH);
+
+	uint8_t smsp[SMSP_RECORD_SIZE * 2];
+
+	memset(smsp, 0x55, sizeof(smsp));
+	zassume_true(nvs_write(&seed, SMSP_PROV_ID, smsp, sizeof(smsp)) > 0, "seeding %s failed",
+		     SMSP_PROV_PATH);
 
 	/* The IMSI record starts out holding the placeholder ss_fs.c compares
 	 * against, so port_check_provisioned() reports "not provisioned". */
@@ -645,6 +654,42 @@ ZTEST(softsim_fs, test_provisioning_writes_the_expected_binary_efs)
 	zassert_equal(buf[6 + KEY_BIN_LEN], KID_TAG, "A004 does not carry the KID slot tag");
 	zassert_equal(buf[6 + 2 * KEY_BIN_LEN], 0xff, "A004 padding does not start at 38");
 	zassert_equal(buf[A004_BIN_LEN - 1], 0xff, "A004 is not padded to its full length");
+}
+
+/* SMSP, then SMSC at offset 37, overlay record 1; record 2 and the length stay. */
+ZTEST(softsim_fs, test_provisioning_overlays_smsp_and_smsc_on_record_1)
+{
+	struct ss_profile profile;
+	uint8_t buf[SMSP_RECORD_SIZE * 2];
+	uint8_t want[SMSP_RECORD_SIZE * 2];
+
+	memset(&profile, '0', sizeof(profile));
+	memset(profile.SMSP, '1', sizeof(profile.SMSP));
+	memset(profile.SMSC, '2', sizeof(profile.SMSC));
+	memset(want, 0x11, SMSP_RECORD_SIZE);
+	memset(&want[37], 0x22, SMSC_LEN / 2);
+	memset(&want[SMSP_RECORD_SIZE], 0x55, SMSP_RECORD_SIZE);
+
+	zassert_ok(port_provision(&profile), "provisioning failed");
+	zassert_equal(read_flash_record(SMSP_PROV_ID, buf, sizeof(buf)), sizeof(buf),
+		      "EF.SMSP changed length");
+	zassert_mem_equal(buf, want, sizeof(buf), "EF.SMSP");
+}
+
+/* No template on flash: nothing reads as provisioned and provisioning fails. */
+ZTEST(softsim_fs, test_blank_nvs_cannot_be_provisioned)
+{
+	struct ss_profile profile = {0};
+
+	zassert_ok(ss_deinit_fs(), "ss_deinit_fs() failed");
+	zassert_ok(nvs_clear(&seed), "could not blank the NVS");
+
+	zassert_not_equal(ss_init_fs(), 0, "ss_init_fs() accepted blank flash");
+	zassert_equal(port_check_provisioned(), 0, "blank flash reads as provisioned");
+	zassert_equal(port_provision(&profile), -1, "provisioning blank flash did not fail");
+
+	seed_nvs();
+	zassert_ok(ss_init_fs(), "the filesystem did not come back up after the re-seed");
 }
 
 /* --- seek bounds ----------------------------------------------------------- */
