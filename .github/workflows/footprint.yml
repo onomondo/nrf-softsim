@@ -117,7 +117,7 @@ jobs:
           {
             echo '### Firmware footprint delta — `nrf9151dk/nrf9151/ns`'
             echo
-            echo 'softsim_external_profile. Region use is what the linker reports (`ld --print-memory-usage`); the breakdowns come from the linker map and add up to it.'
+            echo 'softsim_external_profile. Region use is what the linker reports (`ld --print-memory-usage`), less the free gap before the TF-M veneers; the breakdowns come from the linker map and add up to it.'
             echo
             python3 .github/scripts/footprint.py footprint-base footprint-pr
             echo "<sub>Soft report — informational only. Base \`$(cut -c1-7 footprint-base/sha)\` vs \`$(cut -c1-7 footprint-pr/sha)\`, the test merge of PR head \`${HEAD_SHA::7}\` into it.</sub>"

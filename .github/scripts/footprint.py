@@ -2,7 +2,8 @@
 # SPDX-License-Identifier: GPL-3.0-only
 """Firmware footprint delta report (Markdown) from the GNU ld maps <base>/<image>.map and <pr>/<image>.map.
 
-Region use matches `ld --print-memory-usage`; attribution comes from the map's input sections and adds up to it.
+Region use is `ld --print-memory-usage` less the free gap before TF-M's veneers; attribution comes from the map's
+input sections and adds up to it.
 """
 
 import re
@@ -15,6 +16,7 @@ TOP = 12
 WARN_PCT = 90.0
 PADDING = "(padding and gaps)"
 LITERALS = "(string literals, merged)"
+VENEERS = ".gnu.sgstubs"
 
 ADDR = re.compile(r"^\s+0x([0-9a-f]+)\s+0x([0-9a-f]+)(?:\s+load address 0x([0-9a-f]+))?(?:\s+(\S.*?))?\s*$")
 SYM = re.compile(r"^\s+0x[0-9a-f]+\s+([A-Za-z_$][\w.$]*)$")
@@ -106,6 +108,7 @@ class Image:
     def __init__(self, path):
         self.regions, outputs, inputs = parse_map(path)
         self.used, self.comp, self.items = defaultdict(int), defaultdict(int), defaultdict(int)
+        free = defaultdict(int)
 
         # As ld counts it: the highest address an output section reaches in the region (by VMA, and by
         # LMA for load copies such as .data), minus the region origin.
@@ -118,6 +121,10 @@ class Image:
                 r = next((r for r, (o, n) in self.regions.items() if o <= addr < o + n), None)
                 if r in REGIONS:
                     place[name].add(r)
+                    if name == VENEERS:
+                        # TF-M aligns its veneers to the end of a 32 KiB block and its code grows into the
+                        # gap before them: free flash, though ld counts it as used.
+                        free[r] = addr - self.regions[r][0] - self.used[r]
                     self.used[r] = max(self.used[r], addr + size - self.regions[r][0])
 
         merged = set()
@@ -140,9 +147,11 @@ class Image:
                 self.items[(r, label)] += size
 
         for r in REGIONS:
+            self.used[r] -= free[r]
             gap = self.used[r] - sum(v for (rr, _), v in self.items.items() if rr == r)
-            if gap < 0 or not self.used[r]:
-                sys.exit(f"{path}: {r}: input sections do not add up to the {self.used[r]} B used")
+            # Self-check: the inputs must account for the region, bar alignment between output sections.
+            if not self.used[r] or not 0 <= gap <= self.used[r] // 100:
+                sys.exit(f"{path}: {r}: input sections leave {gap} B of the {self.used[r]} B used unaccounted for")
             self.comp[(r, PADDING)] += gap
             self.items[(r, PADDING)] += gap
 
