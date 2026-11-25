@@ -66,8 +66,11 @@ jobs:
           git checkout -q HEAD^1
           git submodule update --init
 
+      # Only what the sample links (image verified byte-identical): ~1.5 of 2.9 GB, a third of the fetch
+      # time. A module an SDK bump newly needs fails the build loudly; add it here.
       - name: Fetch nRF and Zephyr workspaces and dependencies
         run: |
+          west config manifest.project-filter -- '-.*,+sdk-nrf,+zephyr,+nrfxlib,+hal_nordic,+cmsis_6,+trusted-firmware-m,+mbedtls,+oberon-psa-crypto,+tf-psa-crypto,+bsim'
           west update -o=--depth=1 --narrow
 
       - name: Build firmware (nrf9151dk)
