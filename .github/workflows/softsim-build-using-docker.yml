@@ -55,11 +55,10 @@ jobs:
           refs=$(sed -n 's|^ *container: ghcr.io/nrfconnect/sdk-nrf-toolchain:\([^@]*\)@.*|\1|p' .github/workflows/*.yml | sort -u)
           [ "$refs" = "$ncs" ] || { echo "toolchain image ($refs) != west.yml sdk-nrf ($ncs)"; exit 1; }
 
-      # Only what these builds link (images verified byte-identical); the footprint list plus MCUboot and
-      # zcbor (the Thingy boards' serial recovery). A module an SDK bump newly needs fails the build loudly.
+      # Update dependencies and submodules using west
       - name: Fetch nRF and Zephyr workspaces and dependencies
         run: |
-          west config manifest.project-filter -- '-.*,+sdk-nrf,+zephyr,+nrfxlib,+hal_nordic,+cmsis_6,+trusted-firmware-m,+mbedtls,+oberon-psa-crypto,+tf-psa-crypto,+bsim,+mcuboot,+zcbor'
+          west config manifest.project-filter -- "$(grep -v '^#' modules/lib/onomondo-softsim/.github/west-project-filter)"
           west update -o=--depth=1 --narrow
 
       - name: Build firmware of SoftSIM sample
@@ -170,7 +169,7 @@ jobs:
 
       - name: Fetch nRF and Zephyr workspaces and dependencies
         run: |
-          west config manifest.project-filter -- '-.*,+sdk-nrf,+zephyr,+nrfxlib,+hal_nordic,+cmsis_6,+trusted-firmware-m,+mbedtls,+oberon-psa-crypto,+tf-psa-crypto,+bsim,+mcuboot,+zcbor'
+          west config manifest.project-filter -- "$(grep -v '^#' modules/lib/onomondo-softsim/.github/west-project-filter)"
           west update -o=--depth=1 --narrow
 
       # Compile-check the static-profile mode too. The static vs external delta is

@@ -42,10 +42,9 @@ jobs:
           path: modules/lib/onomondo-softsim
           submodules: true
 
-      # Only the SDK projects the suites build against.
       - name: Fetch nRF and Zephyr workspaces and dependencies
         run: |
-          west config manifest.project-filter -- '-.*,+sdk-nrf,+zephyr,+nrfxlib,+hal_nordic,+cmsis_6,+trusted-firmware-m,+mbedtls,+oberon-psa-crypto,+tf-psa-crypto,+bsim'
+          west config manifest.project-filter -- "$(grep -v '^#' modules/lib/onomondo-softsim/.github/west-project-filter)"
           west update -o=--depth=1 --narrow
 
       # native_sim is a host binary, so the sanitizers actually apply here. The
