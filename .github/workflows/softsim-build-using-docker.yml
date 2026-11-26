@@ -123,7 +123,7 @@ jobs:
           map=build-stats-smsoff/softsim_external_profile/zephyr/zephyr.map
           grep -qx 'CONFIG_SOFTSIM_HEAP_STATS=y' "$config"
           grep -qx 'CONFIG_THREAD_ANALYZER_AUTO=y' "$config"
-          grep -qx 'CONFIG_SOFTSIM_HEAP_SIZE=12500' "$config"
+          grep -qx 'CONFIG_SOFTSIM_HEAP_SIZE=9000' "$config"
           grep -qx 'CONFIG_SOFTSIM_STACK_SIZE=4000' "$config"
           grep -q 'uicc_cat\.c\.obj' "$map"
           if grep -qE 'uicc_(remote_cmd|sms_rx)\.c\.obj' "$map"; then exit 1; fi
