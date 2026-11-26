@@ -1,5 +1,20 @@
 # Changelog
 
+## [7.0.1](https://github.com/onomondo/nrf-softsim/compare/v7.0.0...v7.0.1) (2026-11-26)
+
+
+### Bug Fixes
+
+* include NVS from zephyr/kvss ([#255](https://github.com/onomondo/nrf-softsim/issues/255)) ([ef65656](https://github.com/onomondo/nrf-softsim/commit/ef65656e91fba0c041b84b04d811bb3e7b096e41))
+* keep the log defaults out of builds with logging off ([#264](https://github.com/onomondo/nrf-softsim/issues/264)) ([8fa971e](https://github.com/onomondo/nrf-softsim/commit/8fa971ec18d42e25468baaad349c015a9fae1be3))
+* make Kconfig SOFTSIM depend on NRF_MODEM_LIB ([#244](https://github.com/onomondo/nrf-softsim/issues/244)) ([41c0cf5](https://github.com/onomondo/nrf-softsim/commit/41c0cf5b8ef8e642fb3eca4f70647d40c7a2be65))
+
+
+### Performance Improvements
+
+* **deps:** update dependency lib/onomondo-uicc to v2.5.1 ([#261](https://github.com/onomondo/nrf-softsim/issues/261)) ([fd11d8d](https://github.com/onomondo/nrf-softsim/commit/fd11d8d96b0dfda72ad1d347f05c566b61be3c89))
+* **heap:** lower heap defaults to account for performance updates in onomondo-uicc v2.5.1 ([#258](https://github.com/onomondo/nrf-softsim/issues/258)) ([055ad17](https://github.com/onomondo/nrf-softsim/commit/055ad1732216ce55f99e83ea430e823f3f00b04d))
+
 ## [7.0.0](https://github.com/onomondo/nrf-softsim/compare/v6.1.1...v7.0.0) (2026-11-05)
 
 
