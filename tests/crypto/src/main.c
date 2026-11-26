@@ -179,6 +179,29 @@ ZTEST(softsim_crypto, test_ota_checksum_matches_the_known_vector)
 			  "the OTA checksum does not match the reference CMAC");
 }
 
+/* Two 16-byte steps and a tail; golden from Python cryptography's CMAC. */
+ZTEST(softsim_crypto, test_ota_checksum_covers_a_multi_block_data2)
+{
+	static const uint8_t golden[8] = {0x29, 0xbc, 0xbd, 0xe2, 0x57, 0x56, 0x5a, 0x04};
+	uint8_t cc[8] = {0};
+	uint8_t data1[sizeof(cmac_data1)];
+	uint8_t data2[40];
+
+	import_all_keys();
+	memcpy(data1, cmac_data1, sizeof(data1));
+	for (size_t i = 0; i < sizeof(data2); i++) {
+		data2[i] = (uint8_t)(0xb0 + i);
+	}
+
+	zassert_ok(ss_utils_ota_calc_cc(cc, sizeof(cc), (uint8_t *)kid_ref, sizeof(kid_ref),
+					AES_CMAC, data1, sizeof(data1), data2, sizeof(data2)),
+		   "CMAC calculation failed");
+
+	zassert_mem_equal(
+		cc, golden, sizeof(cc),
+		"the OTA checksum over a 40-byte data2 does not match the reference CMAC");
+}
+
 /*
  * The checksum is only defined for CMAC here, because this port implements AES-CMAC only.
  * Any other algorithm has to be refused rather than quietly producing something
