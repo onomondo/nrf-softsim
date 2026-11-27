@@ -1,0 +1,18 @@
+/*
+ * nvs_storage 32 kB -> 48 kB (0xc000) on the Thingy:91 layout.
+ * Here nvs_storage sits between the application region and tfm_storage:
+ * 0x20000..0x60000 app_partition | 0x60000..0x68000 nvs | 0x68000 tfm_storage.
+ * Storage keeps its end (0x68000), starts at 0x5c000, and the space is taken
+ * from app_partition (the application link bound), now 0x3c000 (240 kB).
+ * slot0_ns_partition is unchanged: it already spans nvs_storage for the SPU.
+ *
+ * NOTE: the NVS start address changes, so a provisioned profile is lost.
+ */
+
+&app_partition {
+	reg = <0x00014000 0x3c000>;   /* ends at 0x5c000 (abs) */
+};
+
+&nvs_storage {
+	reg = <0x0005c000 0xc000>;
+};

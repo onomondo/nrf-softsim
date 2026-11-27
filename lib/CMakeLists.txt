@@ -64,6 +64,7 @@ _softsim_set_uicc_bool(CONFIG_USE_UTILS CONFIG_SOFTSIM_UICC_USE_UTILS OFF "Build
 _softsim_set_uicc_bool(CONFIG_NO_DEFAULT_IMPL CONFIG_SOFTSIM_UICC_NO_DEFAULT_IMPL ON "Build onomondo-uicc with no default impl")
 _softsim_set_uicc_bool(CONFIG_COMPACT_STORAGE CONFIG_SOFTSIM_UICC_COMPACT_STORAGE ON "Build with compact storage implementation")
 _softsim_set_uicc_bool(CONFIG_BUILD_LIB_ONLY CONFIG_SOFTSIM_UICC_BUILD_LIB_ONLY ON "Only build libraries in onomondo-uicc")
+_softsim_set_uicc_bool(CONFIG_ALT_FILE_SEPARATOR CONFIG_SOFTSIM_UICC_ALT_FILE_SEPARATOR OFF "Use _ as file separator instead of /")
 _softsim_set_uicc_bool(CONFIG_DISABLE_SMS CONFIG_SOFTSIM_UICC_DISABLE_SMS OFF "Compile out SMS (and OTA/RFM) in onomondo-uicc")
 
 # Detect uninitialized git submodule early and emit an actionable error.
@@ -128,8 +129,19 @@ if(CONFIG_SOFTSIM_FS_NVS)
     ss_fs.c
     ss_cache.c
   )
+elseif(CONFIG_SOFTSIM_FS_LFS)
+  zephyr_library_sources(ss_fs_littlefs.c)
+  target_link_libraries(${ZEPHYR_CURRENT_LIBRARY} PRIVATE LITTLEFS)
+  if(CONFIG_SOFTSIM_UICC_ALT_FILE_SEPARATOR)
+    # onomondo-uicc's own add_compile_definitions(CONFIG_ALT_FILE_SEPARATOR) is
+    # directory-scoped to its add_subdirectory() and doesn't reach this parent
+    # library, but ss_fs_littlefs.c needs the same macro to match the paths
+    # storage_compact.c builds (see storage.h's PATH_SEPARATOR).
+    target_compile_definitions(${ZEPHYR_CURRENT_LIBRARY} PRIVATE CONFIG_ALT_FILE_SEPARATOR)
+  endif()
 else()
-  message(FATAL_ERROR "SoftSIM: no filesystem backend selected (CONFIG_SOFTSIM_FS_NVS).")
+  message(FATAL_ERROR
+    "SoftSIM: no filesystem backend selected (CONFIG_SOFTSIM_FS_NVS or CONFIG_SOFTSIM_FS_LFS).")
 endif()
 
 target_compile_definitions(${ZEPHYR_CURRENT_LIBRARY} PRIVATE CONFIG_CUSTOM_HEAP)

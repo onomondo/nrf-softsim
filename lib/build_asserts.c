@@ -9,7 +9,14 @@
 
 #include <onomondo/utils/ss_profile.h>
 
+/* The LFS backend needs the larger nvs_storage from the dts/softsim/storage-48k*.overlay files,
+ * which the module's sysbuild hook applies when building with -DCONFIG_SOFTSIM_FS_LFS=y.
+ */
+#if defined(CONFIG_SOFTSIM_FS_LFS)
+#define EXPECTED_PARTITION_SIZE 0xc000
+#else
 #define EXPECTED_PARTITION_SIZE 0x8000
+#endif
 
 /* nrf_softsim_provision() validates the parsed profile by indexing the KI/OPc pair in
  * A001 and the KIC/KID pair in A004. Pin those layouts so a submodule bump that moves
@@ -42,10 +49,19 @@ BUILD_ASSERT(DT_NODE_EXISTS(DT_NODELABEL(nvs_storage)),
 	     "No nvs_storage partition in the devicetree. "
 	     "Include a SoftSIM partition layout from your board overlay.");
 #if DT_NODE_EXISTS(DT_NODELABEL(nvs_storage))
+#if defined(CONFIG_SOFTSIM_FS_LFS)
+/* The 48 kB overlay is applied by the sysbuild hook, which only sees
+ * CONFIG_SOFTSIM_FS_LFS when it is passed on the command line. */
+BUILD_ASSERT(DT_REG_SIZE(DT_NODELABEL(nvs_storage)) == EXPECTED_PARTITION_SIZE,
+	     "SoftSIM: LittleFS needs a 48 kB nvs_storage partition. Enable it with "
+	     "-DCONFIG_SOFTSIM_FS_LFS=y on the west build command line (not in prj.conf "
+	     "or an overlay .conf), so sysbuild applies dts/softsim/storage-48k*.overlay.");
+#else
 BUILD_ASSERT(DT_REG_SIZE(DT_NODELABEL(nvs_storage)) == EXPECTED_PARTITION_SIZE,
 	     "SoftSIM: "
 	     "nvs_storage partition size is not valid. "
 	     "Please reconfigure the project.");
+#endif
 #endif
 #if defined(CONFIG_BOOTLOADER_MCUBOOT)
 /* Catches enabling MCUboot on the DKs without switching the application to
