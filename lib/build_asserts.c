@@ -24,9 +24,9 @@ BUILD_ASSERT(CONFIG_SOFTSIM_THREAD_PRIORITY <= K_LOWEST_APPLICATION_THREAD_PRIO,
 /* In NCS, when NVS backend for Settings is chosen, `nvs_partition` partition is not included by
  * the Partition Manager.
  * `nvs_storage` partition is required by SoftSIM. FCB backend for Settings should be used instead
- * of NVS backend.
+ * of NVS backend. Devicetree partitioning has no such restriction.
  */
-#if CONFIG_SETTINGS_NVS
+#if CONFIG_SETTINGS_NVS && CONFIG_PARTITION_MANAGER_ENABLED
 BUILD_ASSERT(0, "SoftSIM: Please disable CONFIG_SETTINGS_NVS. Choose CONFIG_SETTINGS_FCB instead.");
 #elif CONFIG_PARTITION_MANAGER_ENABLED
 BUILD_ASSERT(CONFIG_PM_PARTITION_SIZE_NVS_STORAGE == EXPECTED_PARTITION_SIZE,
@@ -56,16 +56,25 @@ BUILD_ASSERT(DT_NODE_EXISTS(DT_NODELABEL(boot_partition)),
 	     "MCUboot is enabled but the devicetree has no boot_partition. "
 	     "Build with -DEXTRA_DTC_OVERLAY_FILE=mcuboot-partitions.overlay.");
 #endif
-/* In the SoftSIM layouts the storage_partition label sits on the nvs_storage
- * node (TF-M derives its non-secure SPU flash region from that label), so a
- * settings backend defaulting to storage_partition would write into the
- * SoftSIM filesystem. */
-#if (defined(CONFIG_SETTINGS_FCB) || defined(CONFIG_SETTINGS_ZMS)) &&                              \
-	DT_NODE_EXISTS(DT_NODELABEL(storage_partition)) &&                                         \
-	DT_NODE_EXISTS(DT_NODELABEL(nvs_storage))
-BUILD_ASSERT(!DT_SAME_NODE(DT_NODELABEL(storage_partition), DT_NODELABEL(nvs_storage)),
+/* The settings backends use the zephyr,settings-partition chosen node, or
+ * storage_partition without one. In the SoftSIM layouts the storage_partition
+ * label sits on the nvs_storage node (TF-M derives its non-secure SPU flash
+ * region from that label) or a custom layout may instead make storage_partition
+ * a container holding nvs_storage. Either way, a settings backend on that node
+ * would write into the SoftSIM filesystem. */
+#if defined(CONFIG_SETTINGS_NVS) || defined(CONFIG_SETTINGS_FCB) || defined(CONFIG_SETTINGS_ZMS)
+#if DT_HAS_CHOSEN(zephyr_settings_partition)
+#define SOFTSIM_SETTINGS_PARTITION DT_CHOSEN(zephyr_settings_partition)
+#elif DT_NODE_EXISTS(DT_NODELABEL(storage_partition))
+#define SOFTSIM_SETTINGS_PARTITION DT_NODELABEL(storage_partition)
+#endif
+#if defined(SOFTSIM_SETTINGS_PARTITION) && DT_NODE_EXISTS(DT_NODELABEL(nvs_storage))
+BUILD_ASSERT(!DT_SAME_NODE(SOFTSIM_SETTINGS_PARTITION, DT_NODELABEL(nvs_storage)) &&
+		     !DT_SAME_NODE(SOFTSIM_SETTINGS_PARTITION,
+				   DT_PARENT(DT_NODELABEL(nvs_storage))),
 	     "SoftSIM: "
-	     "The settings storage_partition is the SoftSIM nvs_storage partition. "
-	     "Define a dedicated settings partition in your board overlay.");
+	     "The settings partition is, or contains, the SoftSIM nvs_storage partition. "
+	     "Define a dedicated settings partition and select it with zephyr,settings-partition.");
+#endif
 #endif
 #endif
